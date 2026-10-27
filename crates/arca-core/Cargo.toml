@@ -1,0 +1,22 @@
+[package]
+name = "arca-core"
+version = "0.1.0"
+description = "Headless engine behind Arca: vault I/O, post-its, wiki-links and Tantivy search"
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+
+[dependencies]
+# Full-text search engine; we only use its in-RAM index.
+tantivy = "0.27"
+# Wiki-link / tag / post-it marker parsing.
+regex = "1"
+# Every public result type is serialised straight to the frontend as JSON.
+serde = { version = "1", features = ["derive"] }
+# Recursive vault scans that skip hidden folders.
+walkdir = "2"
+thiserror = "2"
+
+[dev-dependencies]
+# Throwaway vault directories for the tests.
+tempfile = "3"

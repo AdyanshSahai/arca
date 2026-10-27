@@ -1,0 +1,19 @@
+# Rust build output (shared by the whole cargo workspace)
+/target/
+
+# Frontend dependencies and build output
+/node_modules/
+/dist/
+
+# Tauri-generated schema files (regenerated on every build)
+/src-tauri/gen/schemas/
+
+# Editor / OS clutter
+.DS_Store
+*.swp
+.vscode/*
+!.vscode/extensions.json
+.idea/
+
+# Local test vaults
+/scratch-vault/

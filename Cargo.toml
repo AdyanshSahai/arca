@@ -1,0 +1,21 @@
+# Cargo workspace for Arca.
+#
+#   crates/arca-core  – pure-Rust engine: vault file I/O, post-it parsing,
+#                       wiki-link graph and the Tantivy search index. It has
+#                       no GUI dependencies, so it can be unit-tested headless.
+#   src-tauri         – the thin Tauri v2 desktop shell that exposes the core
+#                       to the React frontend as IPC commands.
+[workspace]
+members = ["crates/arca-core", "src-tauri"]
+resolver = "2"
+
+[workspace.package]
+edition = "2021"
+license = "MIT"
+authors = ["Adyansh Sahai"]
+
+[profile.release]
+# Smaller, faster release binaries; the app is distributed as a single exe.
+lto = true
+codegen-units = 1
+strip = true
