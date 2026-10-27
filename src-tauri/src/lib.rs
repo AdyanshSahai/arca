@@ -53,6 +53,7 @@ pub fn run() {
             commands::new_postit,
             commands::follow_link,
             commands::open_in_default_app,
+            commands::export_notes,
             commands::list_templates,
             commands::create_from_template,
             commands::get_pins,

@@ -250,6 +250,31 @@ pub async fn open_in_default_app(app: AppHandle, state: State<'_, AppState>, pat
 }
 
 // ----------------------------------------------------------------------
+// Export
+// ----------------------------------------------------------------------
+
+/// Compiles `scope` ("" = vault, a folder, or a note) into one HTML or
+/// Markdown file at `dest`, an absolute path the user picked in a save
+/// dialog (so it may be outside the vault). Optionally opens the result.
+/// Returns how many notes were exported.
+#[tauri::command]
+pub async fn export_notes(
+    app: AppHandle,
+    state: State<'_, AppState>,
+    scope: String,
+    format: arca_core::export::ExportFormat,
+    dest: String,
+    open: bool,
+) -> CmdResult<usize> {
+    let exported = state.with_ws(|ws| Ok(arca_core::export::export(ws.vault(), &scope, format)?))?;
+    std::fs::write(&dest, exported.content)?;
+    if open {
+        app.opener().open_path(&dest, None::<&str>)?;
+    }
+    Ok(exported.notes)
+}
+
+// ----------------------------------------------------------------------
 // Templates (stored inside the vault in .arca/templates/)
 // ----------------------------------------------------------------------
 

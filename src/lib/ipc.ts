@@ -56,6 +56,11 @@ export const ipc = {
   followLink: (target: string, from: string) => invoke<LinkTarget>("follow_link", { target, from }),
   openInDefaultApp: (path: string) => invoke<void>("open_in_default_app", { path }),
 
+  // --- export ---
+  /** Returns how many notes were written to `dest`. */
+  exportNotes: (scope: string, format: "html" | "markdown", dest: string, open: boolean) =>
+    invoke<number>("export_notes", { scope, format, dest, open }),
+
   // --- templates ---
   listTemplates: () => invoke<TemplateInfo[]>("list_templates"),
   createFromTemplate: (path: string, content: string) => invoke<string>("create_from_template", { path, content }),

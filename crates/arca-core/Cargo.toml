@@ -16,6 +16,10 @@ serde = { version = "1", features = ["derive"] }
 # Recursive vault scans that skip hidden folders.
 walkdir = "2"
 thiserror = "2"
+# Markdown → HTML for the export pipeline (tables, tasks, footnotes…).
+pulldown-cmark = { version = "0.13", default-features = false, features = ["html"] }
+# Embedding local images into exported HTML as data: URIs.
+base64 = "0.22"
 
 [dev-dependencies]
 # Throwaway vault directories for the tests.

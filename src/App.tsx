@@ -11,6 +11,7 @@
 import { ActionRail } from "./components/ActionRail";
 import { CommandPalette } from "./components/CommandPalette";
 import { TemplatePicker } from "./components/TemplatePicker";
+import { ExportDialog } from "./components/ExportDialog";
 import { Dialogs } from "./components/Dialogs";
 import { Drawer } from "./components/Drawer";
 import { PinBar } from "./components/PinBar";
@@ -59,6 +60,7 @@ export function App() {
       )}
       <CommandPalette />
       <TemplatePicker />
+      <ExportDialog />
       <Dialogs />
       <Toasts />
     </div>

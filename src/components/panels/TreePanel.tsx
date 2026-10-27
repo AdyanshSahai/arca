@@ -204,6 +204,9 @@ export function TreePanel() {
         onSelect: () => void v.addPin(node.path, node.isDir ? "folder" : node.isNote ? "note" : "file"),
       });
       items.push({ label: "Rename…", onSelect: () => v.promptRename(node.path) });
+      if (node.isDir || node.isNote) {
+        items.push({ label: node.isDir ? "Export chapter…" : "Export note…", onSelect: () => useUi.getState().openExport(node.path) });
+      }
       items.push(null);
       items.push({ label: "Move to trash", danger: true, onSelect: () => v.confirmTrash(node.path) });
     }

@@ -37,10 +37,10 @@ const panel = (id: PanelId, label: string): Command => ({
 });
 
 /**
- * Builds the command list. A function (not a constant) so features added
- * later (templates, export) can register commands without import cycles.
+ * Builds the command list. A function rather than a constant so each call
+ * reads the stores' current state.
  */
-export function allCommands(extra: Command[] = []): Command[] {
+export function allCommands(): Command[] {
   const layout = useLayout.getState();
   const ui = useUi.getState();
   const vault = useVault.getState();
@@ -100,6 +100,6 @@ export function allCommands(extra: Command[] = []): Command[] {
       },
     },
     { id: "vault.refresh", label: "Re-scan vault", group: "Vault", run: () => void vault.refresh() },
-    ...extra,
+    { id: "export", label: "Export notes…", group: "Vault", run: () => ui.openExport() },
   ];
 }

@@ -17,7 +17,6 @@ import { stem } from "../lib/paths";
 import type { FileHit, TextHit } from "../lib/types";
 import { useLayout } from "../store/layout";
 import { useUi } from "../store/ui";
-import { extraCommands } from "./paletteExtras";
 import { Highlighted, indicesToRanges } from "./ui/Highlighted";
 
 /** One row in the palette, whatever its source. */
@@ -76,7 +75,7 @@ function Palette({ initial }: { initial: string }) {
 
   const commands = useMemo<Item[]>(() => {
     if (tagMode) return [];
-    const scored = allCommands(extraCommands())
+    const scored = allCommands()
       .map((c) => ({ c, m: fuzzyMatch(text, c.label) }))
       .filter((x): x is { c: Command; m: NonNullable<typeof x.m> } => x.m !== null);
     // Best matches first (when there's a query); otherwise keep list order.

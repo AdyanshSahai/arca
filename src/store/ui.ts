@@ -54,6 +54,11 @@ interface UiState {
    * (">" = actions only).
    */
   palette: string | null;
+  /**
+   * Export dialog: null when closed, else the scope to preselect
+   * ("" = vault, a folder, or a note path; undefined = decide from focus).
+   */
+  exportDialog: { scope?: string } | null;
   /** Template picker: null when closed, else the folder to create the note in. */
   templatePicker: { dir: string } | null;
   /** Text files whose "convert to Markdown?" notice was dismissed this session. */
@@ -72,6 +77,8 @@ interface UiState {
   dismissTextNotice: (path: string) => void;
   openPalette: (initial?: string) => void;
   openTemplatePicker: (dir: string) => void;
+  openExport: (scope?: string) => void;
+  closeExport: () => void;
   closeTemplatePicker: () => void;
   closePalette: () => void;
 }
@@ -88,6 +95,7 @@ export const useUi = create<UiState>((set, get) => ({
   dismissedTextNotices: new Set(),
   palette: null,
   templatePicker: null,
+  exportDialog: null,
 
   togglePanel: (panel) => set({ panel: get().panel === panel ? null : panel }),
   showPanel: (panel) => set({ panel }),
@@ -109,6 +117,8 @@ export const useUi = create<UiState>((set, get) => ({
   // A new Set each time so zustand subscribers see the change.
   openPalette: (initial = "") => set({ palette: initial }),
   openTemplatePicker: (dir) => set({ templatePicker: { dir } }),
+  openExport: (scope) => set({ exportDialog: { scope } }),
+  closeExport: () => set({ exportDialog: null }),
   closeTemplatePicker: () => set({ templatePicker: null }),
   closePalette: () => set({ palette: null }),
   dismissTextNotice: (path) => set({ dismissedTextNotices: new Set(get().dismissedTextNotices).add(path) }),
