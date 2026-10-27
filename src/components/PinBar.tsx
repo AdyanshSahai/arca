@@ -5,7 +5,7 @@
 // The "+" button pins the note in the focused pane. Folders are pinned from
 // the tree's context menu.
 
-import { FileText, Folder, Paperclip, Pin as PinIcon, Plus } from "lucide-react";
+import { FileText, Folder, Paperclip, Plus } from "lucide-react";
 import type { Pin } from "../lib/types";
 import { useFocusedPane } from "../store/layout";
 import { useVault } from "../store/vault";
@@ -19,12 +19,13 @@ export function PinBar() {
   const canPin = !!pane?.path && !pins.some((p) => p.path === pane.path);
 
   return (
-    <div className="flex h-[26px] shrink-0 items-center gap-px border-b border-line bg-void px-2">
-      <PinIcon size={11} className="mr-2 shrink-0 text-line-strong" />
+    <div className="flex h-8 shrink-0 items-center gap-1 border-b border-line bg-void px-2">
       {pins.length === 0 && (
-        <span className=" text-[11px] text-muted/50">no pins. Pin notes with +, folders from the tree</span>
+        <span className="px-1.5 text-[12px] text-muted/45">
+          Pinned shortcuts appear here. Pin a note with +, or a folder from the chapter tree.
+        </span>
       )}
-      <div className="flex min-w-0 items-center gap-px overflow-x-auto [scrollbar-width:none]">
+      <div className="flex min-w-0 items-center gap-1 overflow-x-auto [scrollbar-width:none]">
         {pins.map((pin, i) => (
           <PinButton
             key={pin.id}
@@ -39,9 +40,9 @@ export function PinBar() {
         disabled={!canPin}
         onClick={() => pane?.path && void addPin(pane.path, "note")}
         title={canPin ? "Pin the current note" : "Open an unpinned note to pin it"}
-        className="ml-1 flex h-5 w-5 shrink-0 items-center justify-center text-muted hover:bg-hover hover:text-accent disabled:opacity-30 disabled:hover:bg-transparent"
+        className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md text-muted transition-colors hover:bg-hover hover:text-accent disabled:opacity-25 disabled:hover:bg-transparent"
       >
-        <Plus size={12} />
+        <Plus size={14} />
       </button>
     </div>
   );
@@ -58,10 +59,10 @@ function PinButton({ pin, index, onOpen, onRemove }: { pin: Pin; index: number; 
       }}
       // Alt+N hint only for the first nine.
       title={`${pin.path}${index < 9 ? `  (Alt+${index + 1})` : ""}\nRight-click to unpin`}
-      className="flex h-5 shrink-0 items-center gap-1.5 px-2 text-[11px] text-fg/80 hover:bg-hover hover:text-accent"
+      className="flex h-6 shrink-0 items-center gap-1.5 rounded-md px-2 text-[12px] text-fg/80 transition-colors hover:bg-btn hover:text-fg"
     >
-      <Icon size={11} className={pin.kind === "folder" ? "text-muted" : "text-muted/80"} />
-      <span className="max-w-36 truncate">{pin.label}</span>
+      <Icon size={13} className={pin.kind === "folder" ? "text-accent/80" : "text-muted"} />
+      <span className="max-w-40 truncate">{pin.label}</span>
     </button>
   );
 }
