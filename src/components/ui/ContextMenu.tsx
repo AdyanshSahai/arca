@@ -36,11 +36,11 @@ export function ContextMenu({ menu, onClose }: { menu: MenuSpec; onClose: () => 
     <div
       ref={ref}
       style={{ left: x, top: y }}
-      className="fixed z-50 min-w-44 border border-line-strong bg-btn py-1 text-[12px] shadow-[4px_4px_0_0_rgb(0_0_0/0.5)]"
+      className="fixed z-50 min-w-48 rounded-lg border border-line-strong bg-btn p-1 text-[13px] shadow-[0_12px_32px_rgb(0_0_0/0.55)]"
     >
       {menu.items.map((item, i) =>
         item === null ? (
-          <div key={i} className="my-1 h-px bg-line" />
+          <div key={i} className="mx-1 my-1 h-px bg-line" />
         ) : (
           <button
             key={i}
@@ -48,7 +48,7 @@ export function ContextMenu({ menu, onClose }: { menu: MenuSpec; onClose: () => 
               onClose();
               item.onSelect();
             }}
-            className={`block w-full px-3 py-[3px] text-left hover:bg-accent hover:text-void ${
+            className={`block w-full rounded-[5px] px-2.5 py-[5px] text-left transition-colors hover:bg-accent-soft hover:text-accent ${
               item.danger ? "text-[#ff9ab8]" : "text-fg"
             }`}
           >

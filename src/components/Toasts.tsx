@@ -11,7 +11,7 @@ export function Toasts() {
         <button
           key={t.id}
           onClick={() => dismiss(t.id)}
-          className={`pointer-events-auto max-w-[420px] border bg-btn px-3 py-1.5 text-left text-[12px] shadow-[3px_3px_0_0_rgb(0_0_0/0.5)] ${
+          className={`pointer-events-auto max-w-[420px] rounded-md border bg-btn px-3.5 py-2 text-left text-[12px] shadow-[0_8px_24px_rgb(0_0_0/0.45)] ${
             t.tone === "error" ? "border-[#7a2650] text-[#ffb3cf]" : "border-line-strong text-fg"
           }`}
         >

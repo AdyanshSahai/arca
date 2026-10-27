@@ -2,29 +2,44 @@
 // works. Arca only reads and writes .md files inside it, and keeps its own
 // data in a hidden `.arca/` subfolder.
 
+import { FolderOpen } from "lucide-react";
 import { pickVault } from "./ActionRail";
+import { ArcaMark } from "./ui/ArcaMark";
 
-export function Welcome({ lastError }: { lastError?: string | null }) {
+/** The three ideas worth knowing before opening a vault. */
+const POINTS: [string, string][] = [
+  ["Plain files", "Every note is a .md file on disk. No database, no lock-in."],
+  ["Chapters", "Folders become a collapsible chapter tree."],
+  ["Linked", "[[WikiLinks]], backlinks, a graph and instant search."],
+];
+
+export function Welcome() {
   return (
-    <div className="flex h-full items-center justify-center bg-void">
-      <div className="w-[440px] max-w-[90vw]">
-        <pre className="mb-6 text-[11px] leading-tight text-accent select-none" aria-hidden>
-          {/* Big pixel "ARCA" drawn with block characters. */}
-          {`█▀█ █▀█ █▀▀ █▀█
-█▀█ █▀▄ █   █▀█
-▀ ▀ ▀ ▀ ▀▀▀ ▀ ▀`}
-        </pre>
-        <p className="mb-1 text-[12px] text-fg/80">A vault is just a folder of markdown files.</p>
-        <p className="mb-6 text-[12px] text-muted/70">
-          Folders become chapters. Nothing is moved, converted or uploaded.
-        </p>
+    <div className="flex h-full items-center justify-center bg-void p-8">
+      <div className="w-[420px] max-w-full">
+        <ArcaMark size={44} />
+        <h1 className="mt-5 text-[28px] font-bold tracking-tight text-fg">Arca</h1>
+        <p className="mt-1 text-[14px] text-muted">Open a folder of markdown notes to get started.</p>
+
+        <ul className="mt-7 space-y-3">
+          {POINTS.map(([title, text]) => (
+            <li key={title} className="flex gap-3 text-[13px]">
+              {/* Small square bullet in the accent colour: a nod to the pixel logo. */}
+              <span className="mt-[7px] h-1.5 w-1.5 shrink-0 bg-accent" />
+              <span>
+                <span className="font-medium text-fg">{title}.</span> <span className="text-fg/60">{text}</span>
+              </span>
+            </li>
+          ))}
+        </ul>
+
         <button
           onClick={() => void pickVault()}
-          className="border border-accent px-4 py-2 text-[12px] text-accent hover:bg-accent hover:text-void"
+          className="mt-8 flex items-center gap-2 rounded-md bg-accent px-4 py-2 text-[13px] font-semibold text-void transition-colors hover:bg-[#ffd6ff]"
         >
+          <FolderOpen size={15} />
           Open vault folder…
         </button>
-        {lastError && <p className="mt-4 text-[11px] text-[#ff9ab8]">{lastError}</p>}
       </div>
     </div>
   );

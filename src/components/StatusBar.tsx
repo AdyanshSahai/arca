@@ -1,6 +1,5 @@
-// One-line status bar for the focused pane: path, save state, mode,
-// cursor position and word count. Dense and monospace, like a terminal
-// multiplexer's status line.
+// One-line status bar for the focused pane: mode, path, save state,
+// cursor position and word count.
 
 import { useStatus } from "../editor/registry";
 import { useBuffers } from "../store/buffers";
@@ -14,10 +13,12 @@ export function StatusBar() {
   const dirty = !!buffer && buffer.content !== buffer.saved;
 
   return (
-    <footer className="flex h-[22px] shrink-0 items-center gap-4 border-t border-line bg-alt px-3 text-[11px] text-muted">
+    <footer className="flex h-6 shrink-0 items-center gap-4 border-t border-line bg-alt px-3 text-[11px] text-muted/80 tabular-nums">
       {pane?.path ? (
         <>
-          <span className={pane.mode === "live" ? "text-accent" : "text-fg/70"}>{pane.mode.toUpperCase()}</span>
+          <span className={`font-medium ${pane.mode === "live" ? "text-accent" : "text-fg/70"}`}>
+            {pane.mode === "live" ? "Live preview" : "Raw markdown"}
+          </span>
           <span className="truncate text-fg/60">{pane.path}</span>
           <span className={dirty ? "text-accent" : "text-muted/60"}>{dirty ? "saving…" : "saved"}</span>
           <div className="flex-1" />
