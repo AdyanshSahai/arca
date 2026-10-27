@@ -15,6 +15,11 @@ export const editorTheme = EditorView.theme(
       backgroundColor: "var(--bg-normal)",
       fontSize: "15px",
     },
+    // Must live here, not in styles.css: CodeMirror's base theme gives
+    // .cm-scroller a monospace font with a more specific selector.
+    ".cm-scroller": {
+      fontFamily: "var(--font-ui)",
+    },
     ".cm-content": {
       caretColor: "var(--accent-magenta)",
       lineHeight: "1.75",

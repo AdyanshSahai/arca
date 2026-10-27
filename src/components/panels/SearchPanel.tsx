@@ -132,7 +132,7 @@ export function SearchPanel() {
 
   return (
     <div className="flex h-full flex-col">
-      <div className="flex h-11 shrink-0 items-center border-b border-line px-3">
+      <div className="flex h-12 shrink-0 items-center border-b border-line px-4">
         <Segmented
           value={mode}
           options={MODES.map((m) => ({ id: m.id, label: m.label }))}
@@ -143,7 +143,7 @@ export function SearchPanel() {
         />
       </div>
 
-      <div className="shrink-0 border-b border-line p-3">
+      <div className="shrink-0 border-b border-line px-4 py-3">
         <div className="relative">
           <SearchIcon size={14} className="pointer-events-none absolute top-1/2 left-2.5 -translate-y-1/2 text-muted/60" />
           <input
@@ -171,7 +171,7 @@ export function SearchPanel() {
         )}
       </div>
 
-      <div className="min-h-0 flex-1 overflow-y-auto p-1.5">
+      <div className="min-h-0 flex-1 overflow-y-auto p-2">
         {error && <p className="px-4 py-3 text-[12px] text-[#ff9ab8]">{error}</p>}
 
         {showTagCloud && (

@@ -1,6 +1,7 @@
 // Root component: arranges the window chrome around the work area.
 //
-//   ┌ TitleBar (tabs, window buttons) ────────────────────────────┐
+//   ┌ TitleBar (brand, tabs, window buttons) ─────────────────────┐
+//   ├ Toolbar (vault switcher, search bar) ───────────────────────┤
 //   ├ PinBar (pinned shortcuts) ──────────────────────────────────┤
 //   │ Rail │ Drawer (¼ / ½ / full) │ WorkArea (split panes)       │
 //   ├ StatusBar ──────────────────────────────────────────────────┤
@@ -13,6 +14,7 @@ import { Drawer } from "./components/Drawer";
 import { PinBar } from "./components/PinBar";
 import { StatusBar } from "./components/StatusBar";
 import { TitleBar } from "./components/TitleBar";
+import { Toolbar } from "./components/Toolbar";
 import { Toasts } from "./components/Toasts";
 import { Welcome } from "./components/Welcome";
 import { WorkArea } from "./components/layout/WorkArea";
@@ -39,6 +41,7 @@ export function App() {
         <div className="flex-1" />
       ) : info ? (
         <>
+          <Toolbar />
           <PinBar />
           <div className="flex min-h-0 flex-1">
             <ActionRail />

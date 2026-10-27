@@ -53,7 +53,7 @@ export function PostitPanel() {
 
   return (
     <div className="flex h-full flex-col">
-      <div className="flex h-11 shrink-0 items-center gap-2 border-b border-line px-3 text-[12px]">
+      <div className="flex h-12 shrink-0 items-center gap-2 border-b border-line px-4 text-[12px]">
         <Segmented
           value={onlyCurrent ? "note" : "all"}
           options={[
@@ -72,7 +72,7 @@ export function PostitPanel() {
         </button>
       </div>
 
-      <div className="min-h-0 flex-1 overflow-y-auto p-3">
+      <div className="min-h-0 flex-1 overflow-y-auto p-4">
         {shown.length === 0 && (
           <p className="text-[12px] leading-relaxed text-muted/50">
             No post-its {onlyCurrent ? "in this note" : "yet"}. Put the cursor in a note and press Ctrl+Alt+P.

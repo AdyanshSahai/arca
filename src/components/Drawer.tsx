@@ -81,8 +81,8 @@ export function Drawer() {
 
   return (
     <aside ref={root} style={style} className="relative flex min-w-0 shrink-0 flex-col border-r border-line bg-alt">
-      <header className="flex h-10 shrink-0 items-center gap-1 border-b border-line pr-2 pl-4">
-        <span className="flex-1 text-[13px] font-semibold text-fg">{TITLES[panel]}</span>
+      <header className="flex h-12 shrink-0 items-center gap-1.5 border-b border-line pr-3 pl-5">
+        <span className="flex-1 text-[14px] font-semibold text-fg">{TITLES[panel]}</span>
         {/* Snap-size switch, drawn as one segmented control. */}
         <div className="mr-1 flex items-center rounded-md border border-line p-[2px]">
           <SizeButton label="¼" title="Quarter width" active={size === "quarter"} onClick={() => setDrawerSize("quarter")} />

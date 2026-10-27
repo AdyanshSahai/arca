@@ -7,7 +7,7 @@ interface Props extends ButtonHTMLAttributes<HTMLButtonElement> {
   children: ReactNode;
   /** Highlights the button (e.g. the open drawer panel). */
   active?: boolean;
-  /** 24px instead of 32px, for pane headers. */
+  /** 28px instead of 32px, for pane headers. */
   small?: boolean;
 }
 
@@ -17,7 +17,7 @@ export function IconButton({ children, active, small, className = "", ...rest }:
       type="button"
       {...rest}
       className={`flex shrink-0 items-center justify-center rounded-md transition-colors ${
-        small ? "h-6 w-6" : "h-8 w-8"
+        small ? "h-7 w-7" : "h-8 w-8"
       } ${active ? "bg-accent-soft text-accent" : "text-muted hover:bg-hover hover:text-fg"} ${className}`}
     >
       {children}

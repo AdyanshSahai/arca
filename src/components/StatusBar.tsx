@@ -13,7 +13,7 @@ export function StatusBar() {
   const dirty = !!buffer && buffer.content !== buffer.saved;
 
   return (
-    <footer className="flex h-6 shrink-0 items-center gap-4 border-t border-line bg-alt px-3 text-[11px] text-muted/80 tabular-nums">
+    <footer className="flex h-7 shrink-0 items-center gap-5 border-t border-line bg-alt px-4 text-[12px] text-muted/80 tabular-nums">
       {pane?.path ? (
         <>
           <span className={`font-medium ${pane.mode === "live" ? "text-accent" : "text-fg/70"}`}>

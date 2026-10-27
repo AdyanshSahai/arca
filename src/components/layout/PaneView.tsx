@@ -34,9 +34,9 @@ export function PaneView({ paneId, focused }: { paneId: string; focused: boolean
     >
       {/* Focused pane: a thin accent line along the top edge. */}
       <div className={`absolute inset-x-0 top-0 h-[2px] ${focused ? "bg-accent/70" : "bg-transparent"}`} />
-      <div className="flex h-9 shrink-0 items-center gap-1 border-b border-line px-3">
+      <div className="flex h-11 shrink-0 items-center gap-1.5 border-b border-line px-4">
         {/* Breadcrumb: folders muted, note name bright. */}
-        <div className="flex min-w-0 flex-1 items-center gap-1 truncate text-[12px]">
+        <div className="flex min-w-0 flex-1 items-center gap-1.5 truncate text-[13px]">
           {segments.length === 0 && <span className="text-muted/50">No note</span>}
           {segments.map((seg, i) => (
             <span key={i} className="flex min-w-0 items-center gap-1">
@@ -79,7 +79,7 @@ export function PaneView({ paneId, focused }: { paneId: string; focused: boolean
             <Rows2 size={14} />
           </IconButton>
           <IconButton small title="Close pane  (Ctrl+Shift+X)" onClick={() => closePane(paneId)}>
-            <X size={14} />
+            <X size={15} />
           </IconButton>
         </div>
       </div>

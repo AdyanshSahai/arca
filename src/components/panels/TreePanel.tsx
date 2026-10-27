@@ -108,7 +108,7 @@ export function TreePanel() {
 
   return (
     <div className="flex h-full flex-col">
-      <div className="flex h-10 shrink-0 items-center gap-0.5 border-b border-line px-2">
+      <div className="flex h-12 shrink-0 items-center gap-1 border-b border-line px-3">
         <IconButton title="New note" onClick={() => useVault.getState().promptNewNote("")}>
           <FilePlus size={14} />
         </IconButton>
@@ -121,7 +121,7 @@ export function TreePanel() {
         </IconButton>
       </div>
       <div
-        className={`min-h-0 flex-1 overflow-y-auto px-1.5 py-1.5 ${dropTarget === "" ? "bg-accent-soft" : ""}`}
+        className={`min-h-0 flex-1 overflow-y-auto px-2 py-2 ${dropTarget === "" ? "bg-accent-soft" : ""}`}
         onContextMenu={(e) => openMenu(e, null)}
         // Dropping on empty space below the rows = move to the vault root.
         onDragOver={(e) => {
@@ -223,8 +223,8 @@ function Row(props: RowProps) {
         onAuxClick={(e) => e.button === 1 && onClick(e)}
         onContextMenu={(e) => onMenu(e, node)}
         // Indent 12px per level; the base 8px aligns with the panel header.
-        style={{ paddingLeft: 6 + depth * 14 }}
-        className={`relative flex h-[27px] cursor-default items-center gap-1.5 rounded-md pr-2 text-[13px] transition-colors ${
+        style={{ paddingLeft: 8 + depth * 16 }}
+        className={`relative flex h-[30px] cursor-default items-center gap-2 rounded-md pr-2 text-[13.5px] transition-colors ${
           isActive ? "bg-accent-soft text-accent" : "text-fg/85 hover:bg-hover"
         } ${dropTarget === node.path ? "outline outline-1 -outline-offset-1 outline-accent" : ""}`}
       >
@@ -248,14 +248,14 @@ function Row(props: RowProps) {
         {/* Folder / note / other-file icon. */}
         {node.isDir ? (
           isOpen ? (
-            <FolderOpen size={14} className="shrink-0 text-accent/75" />
+            <FolderOpen size={15} className="shrink-0 text-accent/75" />
           ) : (
-            <Folder size={14} className="shrink-0 text-accent/75" />
+            <Folder size={15} className="shrink-0 text-accent/75" />
           )
         ) : node.isNote ? (
-          <FileText size={14} className={`shrink-0 ${isActive ? "text-accent" : "text-muted/70"}`} />
+          <FileText size={15} className={`shrink-0 ${isActive ? "text-accent" : "text-muted/70"}`} />
         ) : (
-          <Paperclip size={14} className="shrink-0 text-muted/45" />
+          <Paperclip size={15} className="shrink-0 text-muted/45" />
         )}
         <span
           className={`truncate ${node.isDir ? "font-medium text-fg/90" : node.isNote ? "" : "text-fg/45"}`}

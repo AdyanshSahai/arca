@@ -60,7 +60,7 @@ export function BacklinksPanel() {
   }
 
   return (
-    <div className="h-full overflow-y-auto px-1.5 pb-4">
+    <div className="h-full overflow-y-auto px-2.5 pb-4">
       <Section title={`Backlinks · ${backlinks.length}`}>
         {backlinks.length === 0 && <Empty>Nothing links to {stem(path)} yet.</Empty>}
         {backlinks.map((b, i) => (
