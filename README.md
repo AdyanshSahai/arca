@@ -11,7 +11,13 @@ and no lock-in, so you can open the same folder in any other editor, or
 ## Features
 
 - **Chapters:** nested folders on disk become a collapsible chapter tree.
-  Drag entries to move them; right-click to create, rename, pin or trash.
+  It handles deep nesting (10+ levels, with indent guides and child
+  counts) and can be driven entirely from the keyboard.
+  - Clicking a folder's name opens its own overview note
+    (`hardware/hardware.md`, `hardware/index.md` or `hardware.md` beside
+    it); the arrow expands it.
+  - Drag entries to move them; right-click to create, rename, pin,
+    export or trash.
 - **Post-it notes:** small annotations embedded in a note, collapsible in
   the editor and collected in their own sidebar panel, where you can edit
   them in place:
@@ -36,6 +42,25 @@ and no lock-in, so you can open the same folder in any other editor, or
   or stacked panes, each with its own note.
 - **Editor:** CodeMirror 6, switching between live preview (markdown
   rendered except on the line you're editing) and raw markdown.
+- **Rich markdown** in live preview:
+  - `> [!NOTE]` / `[!WARNING]` / … callouts
+  - KaTeX math (`$inline$`, `$$display$$`)
+  - code boxes with a language picker and a copy button
+  - rendered tables (Tab / Shift+Tab move between cells and re-align
+    columns)
+  - inline images
+- **Attachments:** paste images or drop files onto a note. They're stored
+  in a hidden `.assets/` folder next to it.
+- **Command palette** (`Ctrl+P`): jump to notes, run any action (`>`),
+  or find notes by tag (`#`).
+- **Templates:** bug report, study log, meeting notes, daily note and
+  chapter overview, with `{{title}}`/`{{date}}`/`{{time}}` placeholders.
+  Kept editable in `<vault>/.arca/templates/`.
+- **Export:** a note, a chapter or the whole vault, as one printable HTML
+  page (with contents; use Print → Save as PDF for a PDF) or as merged
+  Markdown.
+- **Plain-text files** open in the editor, with an offer to convert them
+  to Markdown.
 - **Pinned shortcut bar** for frequent notes, folders and files.
 - **Sidebar drawer** that snaps to ¼, ½ or the full window.
 - **TwilightPixel** dark purple theme.
@@ -44,7 +69,8 @@ and no lock-in, so you can open the same folder in any other editor, or
 
 | Keys | Action |
 | --- | --- |
-| `Ctrl+P` | Quick open |
+| `Ctrl+P` | Command palette (notes; `>` actions; `#` tags) |
+| `Ctrl+Shift+P` | Command palette, actions only |
 | `Ctrl+Shift+F` | Full-text search |
 | `Ctrl+N` | New note |
 | `Ctrl+T` / `Ctrl+W` | New tab / close tab |
@@ -57,6 +83,8 @@ and no lock-in, so you can open the same folder in any other editor, or
 | `Ctrl+Alt+P` | Insert a post-it |
 | `Ctrl+B` | Toggle the sidebar drawer |
 | `Alt+1…9` | Open pinned shortcut N |
+| `Tab` / `Shift+Tab` | Next / previous table cell |
+| `↑ ↓ ← →`, `Enter`, `Space` | Navigate the chapter tree (when focused) |
 | `Ctrl+click` | Follow a link / search a tag (raw mode) |
 
 ## Building
@@ -93,6 +121,8 @@ src/                React + TypeScript frontend
 | Notes | your vault folder, as plain `.md` files |
 | Pins | `<vault>/.arca/vault.json` (they travel with the vault) |
 | Deleted notes | `<vault>/.trash/` (restore by moving them back) |
+| Attachments | `.assets/` next to the note that uses them |
+| Templates | `<vault>/.arca/templates/` |
 | Window layout | the OS config folder (`~/.config/dev.adyansh.arca/` on Linux) |
 
 ## Running two versions side by side
