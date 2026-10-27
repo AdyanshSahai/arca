@@ -250,6 +250,72 @@ pub async fn open_in_default_app(app: AppHandle, state: State<'_, AppState>, pat
 }
 
 // ----------------------------------------------------------------------
+// Templates (stored inside the vault in .arca/templates/)
+// ----------------------------------------------------------------------
+
+/// Starter templates written the first time templates are used. Embedded at
+/// compile time from src-tauri/templates/.
+const STARTER_TEMPLATES: &[(&str, &str)] = &[
+    ("Bug Report.md", include_str!("../templates/Bug Report.md")),
+    ("Study Log.md", include_str!("../templates/Study Log.md")),
+    ("Meeting Notes.md", include_str!("../templates/Meeting Notes.md")),
+    ("Daily Note.md", include_str!("../templates/Daily Note.md")),
+    ("Chapter Overview.md", include_str!("../templates/Chapter Overview.md")),
+];
+
+/// Vault-relative folder holding templates. Hidden (".arca"), so templates
+/// never appear in the tree, search or graph.
+const TEMPLATE_DIR: &str = ".arca/templates";
+
+#[derive(Serialize)]
+pub struct TemplateInfo {
+    /// Display name (file stem), e.g. "Study Log".
+    pub name: String,
+    /// Vault-relative path, editable like any note.
+    pub path: String,
+}
+
+/// Lists the vault's templates. If the template folder doesn't exist yet,
+/// it is created with the starter set first. A folder the user emptied on
+/// purpose is left empty.
+#[tauri::command]
+pub async fn list_templates(state: State<'_, AppState>) -> CmdResult<Vec<TemplateInfo>> {
+    state.with_ws_mut(|ws| {
+        let dir = ws.vault().resolve(TEMPLATE_DIR)?;
+        if !dir.exists() {
+            for (name, body) in STARTER_TEMPLATES {
+                ws.write_note(&format!("{TEMPLATE_DIR}/{name}"), body)?;
+            }
+        }
+        let mut out: Vec<TemplateInfo> = std::fs::read_dir(&dir)?
+            .filter_map(|e| e.ok())
+            .map(|e| e.path())
+            .filter(|p| arca_core::vault::is_note_path(p))
+            .filter_map(|p| {
+                let name = p.file_stem()?.to_string_lossy().into_owned();
+                let file = p.file_name()?.to_string_lossy().into_owned();
+                Some(TemplateInfo { name, path: format!("{TEMPLATE_DIR}/{file}") })
+            })
+            .collect();
+        out.sort_by_key(|t| t.name.to_lowercase());
+        Ok(out)
+    })
+}
+
+/// Creates a note at `path` with the given (already filled-in) template
+/// text. Variables like {{date}} are filled on the frontend, where the
+/// user's local time zone is known. Fails rather than overwriting.
+#[tauri::command]
+pub async fn create_from_template(state: State<'_, AppState>, path: String, content: String) -> CmdResult<String> {
+    state.with_ws_mut(|ws| {
+        let created = ws.create_note(&path)?;
+        state.mark_written(&created);
+        ws.write_note(&created, &content)?;
+        Ok(created)
+    })
+}
+
+// ----------------------------------------------------------------------
 // Pins (stored inside the vault)
 // ----------------------------------------------------------------------
 

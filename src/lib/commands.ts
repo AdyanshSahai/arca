@@ -46,6 +46,12 @@ export function allCommands(extra: Command[] = []): Command[] {
   const vault = useVault.getState();
   return [
     { id: "note.new", label: "New note", group: "Note", shortcut: "Ctrl+N", run: () => vault.promptNewNote(dirName(focusedPane()?.path ?? "")) },
+    {
+      id: "note.template",
+      label: "New note from template…",
+      group: "Note",
+      run: () => ui.openTemplatePicker(dirName(focusedPane()?.path ?? "")),
+    },
     { id: "folder.new", label: "New chapter folder", group: "Note", run: () => vault.promptNewFolder(dirName(focusedPane()?.path ?? "")) },
     { id: "note.rename", label: "Rename current note", group: "Note", run: withNote((p) => vault.promptRename(p)) },
     { id: "note.trash", label: "Move current note to trash", group: "Note", run: withNote((p) => vault.confirmTrash(p)) },

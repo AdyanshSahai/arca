@@ -99,6 +99,13 @@ export type LinkTarget =
   | { kind: "url"; url: string }
   | { kind: "file"; path: string };
 
+export interface TemplateInfo {
+  /** Display name, e.g. "Study Log". */
+  name: string;
+  /** Vault-relative path inside .arca/templates/. */
+  path: string;
+}
+
 export type PinKind = "note" | "folder" | "file";
 
 export interface Pin {

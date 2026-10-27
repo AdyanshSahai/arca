@@ -16,6 +16,7 @@ import type {
   Pin,
   PostItEntry,
   TagCount,
+  TemplateInfo,
   TextHit,
   TreeNode,
   VaultInfo,
@@ -54,6 +55,10 @@ export const ipc = {
   newPostit: (color?: string, text?: string) => invoke<string>("new_postit", { color, text }),
   followLink: (target: string, from: string) => invoke<LinkTarget>("follow_link", { target, from }),
   openInDefaultApp: (path: string) => invoke<void>("open_in_default_app", { path }),
+
+  // --- templates ---
+  listTemplates: () => invoke<TemplateInfo[]>("list_templates"),
+  createFromTemplate: (path: string, content: string) => invoke<string>("create_from_template", { path, content }),
 
   // --- pins ---
   getPins: () => invoke<Pin[]>("get_pins"),

@@ -191,6 +191,7 @@ export function TreePanel() {
     const dir = node ? (node.isDir ? node.path : dirName(node.path)) : "";
     const items: MenuSpec["items"] = [
       { label: "New note", onSelect: () => v.promptNewNote(dir) },
+      { label: "New note from template…", onSelect: () => useUi.getState().openTemplatePicker(dir) },
       { label: "New chapter folder", onSelect: () => v.promptNewFolder(dir) },
     ];
     if (node && node.path) {

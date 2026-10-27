@@ -10,6 +10,7 @@
 
 import { ActionRail } from "./components/ActionRail";
 import { CommandPalette } from "./components/CommandPalette";
+import { TemplatePicker } from "./components/TemplatePicker";
 import { Dialogs } from "./components/Dialogs";
 import { Drawer } from "./components/Drawer";
 import { PinBar } from "./components/PinBar";
@@ -57,6 +58,7 @@ export function App() {
         </div>
       )}
       <CommandPalette />
+      <TemplatePicker />
       <Dialogs />
       <Toasts />
     </div>

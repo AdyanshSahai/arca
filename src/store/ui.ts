@@ -54,6 +54,8 @@ interface UiState {
    * (">" = actions only).
    */
   palette: string | null;
+  /** Template picker: null when closed, else the folder to create the note in. */
+  templatePicker: { dir: string } | null;
   /** Text files whose "convert to Markdown?" notice was dismissed this session. */
   dismissedTextNotices: Set<string>;
 
@@ -69,6 +71,8 @@ interface UiState {
   requestSearch: (mode: SearchMode, query?: string) => void;
   dismissTextNotice: (path: string) => void;
   openPalette: (initial?: string) => void;
+  openTemplatePicker: (dir: string) => void;
+  closeTemplatePicker: () => void;
   closePalette: () => void;
 }
 
@@ -83,6 +87,7 @@ export const useUi = create<UiState>((set, get) => ({
   searchRequest: null,
   dismissedTextNotices: new Set(),
   palette: null,
+  templatePicker: null,
 
   togglePanel: (panel) => set({ panel: get().panel === panel ? null : panel }),
   showPanel: (panel) => set({ panel }),
@@ -103,6 +108,8 @@ export const useUi = create<UiState>((set, get) => ({
     set({ panel: "search", searchRequest: { mode, query, nonce: Date.now() } }),
   // A new Set each time so zustand subscribers see the change.
   openPalette: (initial = "") => set({ palette: initial }),
+  openTemplatePicker: (dir) => set({ templatePicker: { dir } }),
+  closeTemplatePicker: () => set({ templatePicker: null }),
   closePalette: () => set({ palette: null }),
   dismissTextNotice: (path) => set({ dismissedTextNotices: new Set(get().dismissedTextNotices).add(path) }),
 }));
