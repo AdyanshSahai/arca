@@ -12,6 +12,9 @@ import { stem } from "../lib/paths";
 import { paneIds, type Tab, useLayout } from "../store/layout";
 import { ArcaMark } from "./ui/ArcaMark";
 
+/** True in the sandbox build, so its window is never mistaken for the real one. */
+const IS_SANDBOX = import.meta.env.VITE_ARCA_CHANNEL === "sandbox";
+
 export function TitleBar() {
   const tabs = useLayout((s) => s.tabs);
   const activeTab = useLayout((s) => s.activeTab);
@@ -26,6 +29,14 @@ export function TitleBar() {
         <span data-tauri-drag-region className="text-[14px] font-semibold tracking-tight text-fg">
           Arca
         </span>
+        {IS_SANDBOX && (
+          <span
+            title="Sandbox build: separate settings, port 1421. Safe to run next to normal Arca."
+            className="rounded-md border border-[#f0cf8a]/50 bg-[#f0cf8a]/10 px-1.5 py-[1px] text-[10.5px] font-semibold tracking-wider text-[#f0cf8a]"
+          >
+            DEV
+          </span>
+        )}
       </div>
 
       <div className="flex min-w-0 items-center gap-1 overflow-x-auto [scrollbar-width:none]">

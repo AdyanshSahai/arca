@@ -94,3 +94,20 @@ src/                React + TypeScript frontend
 | Pins | `<vault>/.arca/vault.json` (they travel with the vault) |
 | Deleted notes | `<vault>/.trash/` (restore by moving them back) |
 | Window layout | the OS config folder (`~/.config/dev.adyansh.arca/` on Linux) |
+
+## Running two versions side by side
+
+`npm run sandbox` starts an isolated development build next to a normal
+one. It runs on port 1421 instead of 1420, uses its own settings
+(identifier `dev.adyansh.arca.sandbox`), and shows a **DEV** badge in the
+title bar. Combined with a git worktree, you can keep using one version
+while another is being worked on:
+
+```bash
+git worktree add ../arca-dev dev   # second checkout on the dev branch
+cd ../arca-dev && npm install
+npm run sandbox                    # runs alongside `npm run tauri dev` in ../arca
+```
+
+Both windows can open the same vault: each one notices the other's saves
+through the file watcher.

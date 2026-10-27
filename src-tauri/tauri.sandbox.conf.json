@@ -1,0 +1,23 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "Arca Sandbox",
+  "identifier": "dev.adyansh.arca.sandbox",
+  "build": {
+    "devUrl": "http://localhost:1421",
+    "beforeDevCommand": "npm run dev:sandbox"
+  },
+  "app": {
+    "windows": [
+      {
+        "label": "main",
+        "title": "Arca Sandbox",
+        "width": 1400,
+        "height": 900,
+        "minWidth": 720,
+        "minHeight": 460,
+        "decorations": false,
+        "backgroundColor": "#0a060d"
+      }
+    ]
+  }
+}

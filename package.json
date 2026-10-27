@@ -5,9 +5,11 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
+    "dev:sandbox": "VITE_ARCA_CHANNEL=sandbox vite --port 1421",
     "build": "tsc --noEmit && vite build",
     "typecheck": "tsc --noEmit",
-    "tauri": "tauri"
+    "tauri": "tauri",
+    "sandbox": "tauri dev --config src-tauri/tauri.sandbox.conf.json"
   },
   "dependencies": {
     "@codemirror/autocomplete": "^6.20.4",
