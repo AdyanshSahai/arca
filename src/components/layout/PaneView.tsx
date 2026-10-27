@@ -4,6 +4,7 @@
 
 import { ChevronRight, Columns2, FilePlus, Rows2, Search, X } from "lucide-react";
 import { Editor } from "../../editor/Editor";
+import { openFolder } from "../../lib/actions";
 import { useBuffers } from "../../store/buffers";
 import { type EditorMode, useLayout } from "../../store/layout";
 import { useUi } from "../../store/ui";
@@ -21,7 +22,14 @@ export function PaneView({ paneId, focused }: { paneId: string; focused: boolean
   });
   if (!pane) return null;
 
-  const segments = pane.path ? pane.path.replace(/\.(md|markdown)$/i, "").split("/") : [];
+  // Breadcrumb segments, without the file extension. A folder note
+  // (hardware/hardware.md, memory/index.md) is the folder's own page, so its
+  // redundant last segment is dropped: "hardware › hardware" → "hardware".
+  const segments = pane.path ? pane.path.replace(/\.(md|markdown|txt)$/i, "").split("/") : [];
+  const last = segments[segments.length - 1];
+  if (segments.length > 1 && (last === segments[segments.length - 2] || last.toLowerCase() === "index")) {
+    segments.pop();
+  }
 
   return (
     <div
@@ -38,18 +46,28 @@ export function PaneView({ paneId, focused }: { paneId: string; focused: boolean
         {/* Breadcrumb: folders muted, note name bright. */}
         <div className="flex min-w-0 flex-1 items-center gap-1.5 truncate text-[13px]">
           {segments.length === 0 && <span className="text-muted/50">No note</span>}
-          {segments.map((seg, i) => (
-            <span key={i} className="flex min-w-0 items-center gap-1">
-              {i > 0 && <ChevronRight size={12} className="shrink-0 text-line-strong" />}
-              <span
-                className={`truncate ${
-                  i === segments.length - 1 ? `font-medium ${focused ? "text-fg" : "text-fg/70"}` : "text-muted/70"
-                }`}
-              >
-                {seg}
+          {segments.map((seg, i) => {
+            const isLast = i === segments.length - 1;
+            // Path of the folder this crumb stands for ("software/kernels").
+            const dir = segments.slice(0, i + 1).join("/");
+            return (
+              <span key={i} className="flex min-w-0 items-center gap-1">
+                {i > 0 && <ChevronRight size={12} className="shrink-0 text-line-strong" />}
+                {isLast ? (
+                  <span className={`truncate font-medium ${focused ? "text-fg" : "text-fg/70"}`}>{seg}</span>
+                ) : (
+                  // Parent folders are links to that chapter's own page.
+                  <button
+                    onClick={() => openFolder(dir)}
+                    title={`Open the ${seg} chapter`}
+                    className="truncate rounded px-1 -mx-1 text-muted/75 transition-colors hover:bg-hover hover:text-accent"
+                  >
+                    {seg}
+                  </button>
+                )}
               </span>
-            </span>
-          ))}
+            );
+          })}
           {/* Unsaved indicator; autosave clears it within a second. */}
           <span
             className={`ml-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-accent transition-opacity ${dirty ? "opacity-100" : "opacity-0"}`}

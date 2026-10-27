@@ -7,6 +7,8 @@ import { focusedPane, useLayout } from "../store/layout";
 import { useUi } from "../store/ui";
 import { useVault } from "../store/vault";
 import { errorMessage, ipc } from "./ipc";
+import { defaultFolderNote } from "./paths";
+import type { TreeNode } from "./types";
 
 /**
  * Follows a [[link]] clicked in note `from`. Notes open in the focused pane.
@@ -33,6 +35,30 @@ export async function followLink(target: string, from: string): Promise<void> {
     }
   } catch (err) {
     useUi.getState().toast(errorMessage(err), "error");
+  }
+}
+
+/** Finds the tree node for a folder path ("" = vault root), if it exists. */
+function findFolder(node: TreeNode | null, dir: string): TreeNode | null {
+  if (!node) return null;
+  if (node.path === dir) return node;
+  for (const child of node.children) {
+    if (child.isDir && (dir === child.path || dir.startsWith(child.path + "/"))) return findFolder(child, dir);
+  }
+  return null;
+}
+
+/**
+ * Opens a folder's own page (the dual-purpose folder note) in the focused
+ * pane, creating it lazily if it doesn't exist yet. If the chapter tree is
+ * showing, it also reveals the folder there.
+ */
+export function openFolder(dir: string): void {
+  const node = findFolder(useVault.getState().tree, dir);
+  const note = node?.notePath ?? defaultFolderNote(dir);
+  useLayout.getState().openNote(note, { create: !node?.notePath });
+  if (useUi.getState().panel === "tree") {
+    window.dispatchEvent(new CustomEvent("arca:reveal-folder", { detail: dir }));
   }
 }
 
