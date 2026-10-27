@@ -63,11 +63,18 @@ export function GraphPanel() {
   }, [revision]);
 
   // Track the container size; the canvas needs explicit pixel dimensions.
+  // The canvas sits in an absolutely positioned layer (see JSX), so its own
+  // size can never push the container larger: without that, the canvas's
+  // inline baseline gap grew the box, which resized the canvas, and so on,
+  // and the graph never stopped twitching. Sizes are floored to whole
+  // pixels so sub-pixel layout noise can't trigger re-renders either.
   useEffect(() => {
     const el = box.current;
     if (!el) return;
     const ro = new ResizeObserver(([entry]) => {
-      setSize({ w: entry.contentRect.width, h: entry.contentRect.height });
+      const w = Math.floor(entry.contentRect.width);
+      const h = Math.floor(entry.contentRect.height);
+      setSize((prev) => (prev.w === w && prev.h === h ? prev : { w, h }));
     });
     ro.observe(el);
     return () => ro.disconnect();
@@ -87,14 +94,19 @@ export function GraphPanel() {
     return map;
   }, [graph]);
 
+  // In global mode the focused note only changes colours, not the data, so
+  // it must not be a dependency there. Otherwise every note switch would
+  // rebuild the data and restart the physics simulation.
+  const localRoot = local ? active : null;
+
   // The data actually drawn, after the local/ghost filters. Fresh objects
   // each time: the force engine mutates them (x, y, vx…).
   const data = useMemo(() => {
     let keep: Set<string> | null = null;
-    if (local && active) {
+    if (localRoot) {
       // Breadth-first walk `depth` hops out from the focused note.
-      keep = new Set([active]);
-      let frontier = [active];
+      keep = new Set([localRoot]);
+      let frontier = [localRoot];
       for (let d = 0; d < depth; d++) {
         const next: string[] = [];
         for (const id of frontier) {
@@ -113,12 +125,13 @@ export function GraphPanel() {
     const ids = new Set(nodes.map((n) => n.id));
     const links = graph.edges.filter((e) => ids.has(e.source) && ids.has(e.target)).map((e) => ({ ...e }));
     return { nodes, links };
-  }, [graph, local, depth, active, showGhosts, neighbours]);
+  }, [graph, depth, localRoot, showGhosts, neighbours]);
 
-  // Re-centre once the simulation settles after a data change.
+  // After new data arrives, fit the view once the simulation has come to
+  // rest (see `onEngineStop`), not on a guessed timer.
+  const fitPending = useRef(true);
   useEffect(() => {
-    const t = window.setTimeout(() => fg.current?.zoomToFit(400, 40), 600);
-    return () => window.clearTimeout(t);
+    fitPending.current = true;
   }, [data]);
 
   const hoverSet = hover ? neighbours.get(hover) : undefined;
@@ -187,40 +200,56 @@ export function GraphPanel() {
           {data.nodes.length} · {data.links.length}
         </span>
       </div>
-      <div ref={box} className="min-h-0 flex-1" onMouseLeave={() => setHover(null)}>
-        <ForceGraph2D<GraphNode, { source: string; target: string }>
-          ref={fg}
-          width={size.w}
-          height={size.h}
-          graphData={data}
-          backgroundColor={colors.bg}
-          nodeId="id"
-          nodeLabel={(n) => n.id}
-          nodeCanvasObject={paintNode}
-          // Hit area for hover/click matches the drawn dot (plus a little slack).
-          nodePointerAreaPaint={(node, color, ctx) => {
-            ctx.fillStyle = color;
-            ctx.beginPath();
-            ctx.arc(node.x!, node.y!, 4 + Math.sqrt(node.degree) * 1.4, 0, 2 * Math.PI);
-            ctx.fill();
-          }}
-          linkColor={(l) => {
-            const s = endId(l.source);
-            const t = endId(l.target);
-            const lit = hover !== null && (s === hover || t === hover);
-            return lit ? colors.accent : colors.line;
-          }}
-          linkWidth={(l) => (hover !== null && (endId(l.source) === hover || endId(l.target) === hover) ? 1.5 : 0.6)}
-          linkDirectionalArrowLength={2.5}
-          linkDirectionalArrowRelPos={1}
-          onNodeHover={(n) => setHover(n ? (n.id as string) : null)}
-          onNodeClick={(n, ev) => {
-            if (n.ghost) void followLink(n.label, active ?? "");
-            else useLayout.getState().openNote(n.id as string, { newTab: ev.ctrlKey || ev.metaKey });
-          }}
-          cooldownTicks={120}
-          d3VelocityDecay={0.3}
-        />
+      {/* `relative` box measured by the ResizeObserver; the canvas lives in an
+          absolute layer inside it so it can't affect the box's size. */}
+      <div ref={box} className="relative min-h-0 flex-1 overflow-hidden" onMouseLeave={() => setHover(null)}>
+        <div className="absolute inset-0">
+          <ForceGraph2D<GraphNode, { source: string; target: string }>
+            ref={fg}
+            width={size.w}
+            height={size.h}
+            graphData={data}
+            backgroundColor={colors.bg}
+            nodeId="id"
+            nodeLabel={(n) => n.id}
+            nodeCanvasObject={paintNode}
+            // Hit area for hover/click matches the drawn dot (plus a little slack).
+            nodePointerAreaPaint={(node, color, ctx) => {
+              ctx.fillStyle = color;
+              ctx.beginPath();
+              ctx.arc(node.x!, node.y!, 4 + Math.sqrt(node.degree) * 1.4, 0, 2 * Math.PI);
+              ctx.fill();
+            }}
+            linkColor={(l) => {
+              const s = endId(l.source);
+              const t = endId(l.target);
+              const lit = hover !== null && (s === hover || t === hover);
+              return lit ? colors.accent : colors.line;
+            }}
+            linkWidth={(l) => (hover !== null && (endId(l.source) === hover || endId(l.target) === hover) ? 1.5 : 0.6)}
+            linkDirectionalArrowLength={2.5}
+            linkDirectionalArrowRelPos={1}
+            onNodeHover={(n) => setHover(n ? (n.id as string) : null)}
+            onNodeClick={(n, ev) => {
+              if (n.ghost) void followLink(n.label, active ?? "");
+              else useLayout.getState().openNote(n.id as string, { newTab: ev.ctrlKey || ev.metaKey });
+            }}
+            // Physics: d3's default friction (0.4) plus faster cooling, so the
+            // layout settles in about a second and then stays perfectly still.
+            d3VelocityDecay={0.4}
+            d3AlphaDecay={0.05}
+            cooldownTime={2500}
+            // Pre-run part of the simulation before the first paint, so the
+            // graph appears nearly settled instead of exploding outwards.
+            warmupTicks={40}
+            onEngineStop={() => {
+              if (fitPending.current) {
+                fitPending.current = false;
+                fg.current?.zoomToFit(300, 48);
+              }
+            }}
+          />
+        </div>
       </div>
     </div>
   );
