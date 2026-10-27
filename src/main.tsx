@@ -3,6 +3,7 @@
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import { App } from "./App";
+import "katex/dist/katex.min.css"; // fonts + layout for rendered math
 import "./styles.css";
 
 // Native-feeling app: suppress the webview's default right-click menu

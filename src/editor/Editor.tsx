@@ -27,6 +27,8 @@ import { useUi } from "../store/ui";
 import { useVault } from "../store/vault";
 import { livePreview } from "./livePreview";
 import { postits } from "./postits";
+import { richBlocks, richLive } from "./richBlocks";
+import { tableKeymap } from "./tables";
 import { editorRegistry, useStatus } from "./registry";
 import { editorTheme, highlightStyle } from "./theme";
 import { linkContext, livePreviewOn, refreshLinks, wikiCompletion, wikiLinks } from "./wikilinks";
@@ -37,7 +39,7 @@ const External = Annotation.define<boolean>();
 /** Extensions that differ between live preview and raw markdown. */
 function modeExtensions(mode: EditorMode) {
   return mode === "live"
-    ? [livePreview, livePreviewOn.of(true), EditorView.editorAttributes.of({ class: "arca-live" })]
+    ? [livePreview, richLive, livePreviewOn.of(true), EditorView.editorAttributes.of({ class: "arca-live" })]
     : [highlightActiveLine(), EditorView.editorAttributes.of({ class: "arca-raw" })];
 }
 
@@ -115,10 +117,14 @@ export function Editor({ pane, path, focused }: Props) {
           ...historyKeymap,
           ...foldKeymap,
           ...defaultKeymap,
+          // Tab moves between table cells; elsewhere it indents.
+          ...tableKeymap,
           indentWithTab,
         ]),
         postits,
         wikiLinks,
+        // Tables and display math (does nothing outside live preview).
+        richBlocks,
         ctxComp.of(linkContext.of(linkCtx)),
         modeComp.of(modeExtensions(pane.mode)),
         // Push edits into the shared buffer and report cursor info.

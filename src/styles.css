@@ -344,3 +344,106 @@ mark {
   font-style: normal !important;
   margin-left: 1em;
 }
+
+/* ---- Rich blocks (editor/richBlocks.ts) -------------------------------- */
+
+/* Callouts: > [!NOTE] … boxes. `--cc` is the callout colour. */
+.cm-callout { --cc: var(--postit-blue); }
+.cm-callout-blue { --cc: var(--postit-blue); }
+.cm-callout-green { --cc: var(--postit-green); }
+.cm-callout-amber { --cc: var(--postit-amber); }
+.cm-callout-red { --cc: #ff8fab; }
+.cm-callout-purple { --cc: var(--postit-purple); }
+.cm-callout-muted { --cc: var(--fg-inactive); }
+.arca-live .cm-callout {
+  border-left: 3px solid var(--cc) !important;
+  background: color-mix(in srgb, var(--cc) 9%, transparent);
+  color: var(--fg-normal);
+  padding-left: 14px !important;
+}
+.arca-live .cm-callout-first {
+  font-weight: 600;
+  padding-top: 4px !important;
+  border-top-right-radius: 6px;
+}
+.arca-live .cm-callout-last {
+  padding-bottom: 4px !important;
+  border-bottom-right-radius: 6px;
+}
+.cm-callout-label {
+  color: var(--cc);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  margin-right: 8px;
+}
+
+/* Math. */
+.cm-math-inline { cursor: pointer; padding: 0 1px; }
+.cm-math-display {
+  cursor: pointer;
+  padding: 10px 0;
+  text-align: center;
+  overflow-x: auto;
+}
+.cm-math-inline:hover,
+.cm-math-display:hover { background: var(--accent-soft); border-radius: 4px; }
+
+/* Code boxes: header bar on the opening fence line, rounded block. */
+.arca-live .cm-code-open {
+  border-top-left-radius: 6px;
+  border-top-right-radius: 6px;
+  border-bottom: 1px solid var(--line);
+}
+.arca-live .cm-code-close {
+  border-bottom-left-radius: 6px;
+  border-bottom-right-radius: 6px;
+}
+.cm-code-header {
+  display: inline-flex;
+  width: 100%;
+  align-items: center;
+  justify-content: space-between;
+  font-family: var(--font-ui);
+  font-size: 12px;
+}
+.cm-code-lang {
+  background: transparent;
+  color: var(--fg-inactive);
+  border: none;
+  font: inherit;
+  cursor: pointer;
+  padding: 2px 0;
+}
+.cm-code-lang:focus { outline: none; color: var(--fg-normal); }
+.cm-code-lang option { background: var(--bg-button); color: var(--fg-normal); }
+.cm-code-copy {
+  color: var(--fg-inactive);
+  padding: 1px 8px;
+  border-radius: 4px;
+  cursor: pointer;
+}
+.cm-code-copy:hover { background: var(--hover); color: var(--accent-magenta); }
+
+/* Rendered tables. */
+.cm-table-wrap { overflow-x: auto; padding: 6px 0; }
+.cm-table {
+  border-collapse: collapse;
+  font-size: 0.95em;
+  min-width: 50%;
+}
+.cm-table th,
+.cm-table td {
+  border: 1px solid var(--line-strong);
+  padding: 5px 12px;
+  cursor: text;
+}
+.cm-table th {
+  background: var(--bg-button);
+  font-weight: 600;
+  text-align: left;
+}
+.cm-table tr:nth-child(even) td { background: color-mix(in srgb, var(--bg-alternate) 60%, transparent); }
+.cm-table td:hover,
+.cm-table th:hover { outline: 1px solid var(--accent-magenta); outline-offset: -1px; }
