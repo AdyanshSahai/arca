@@ -13,6 +13,7 @@
 import { ChevronRight, FilePlus, FileText, Folder, FolderMinus, FolderOpen, FolderPlus, Paperclip } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import { errorMessage, ipc } from "../../lib/ipc";
+import { scrollWithin } from "../../lib/scroll";
 import { baseName, defaultFolderNote, dirName, isWithin, joinPath } from "../../lib/paths";
 import type { TreeNode } from "../../lib/types";
 import { useFocusedPane, useLayout } from "../../store/layout";
@@ -52,10 +53,13 @@ export function TreePanel() {
     const onReveal = (e: Event) => {
       const folder = (e as CustomEvent<string>).detail;
       expand([...ancestors(folder), folder]);
-      // Wait a frame for the rows to render, then scroll to it.
-      requestAnimationFrame(() =>
-        document.querySelector(`[data-tree-path="${CSS.escape(folder)}"]`)?.scrollIntoView({ block: "center" }),
-      );
+      // Wait a frame for the rows to render, then centre it in the tree's
+      // own scroll area (never scrolling the window; see lib/scroll.ts).
+      requestAnimationFrame(() => {
+        const row = document.querySelector<HTMLElement>(`[data-tree-path="${CSS.escape(folder)}"]`);
+        const scroller = row?.closest<HTMLElement>("[data-tree-scroll]");
+        if (row && scroller) scrollWithin(scroller, row, "center");
+      });
     };
     window.addEventListener("arca:reveal-folder", onReveal);
     return () => window.removeEventListener("arca:reveal-folder", onReveal);
@@ -121,6 +125,7 @@ export function TreePanel() {
         </IconButton>
       </div>
       <div
+        data-tree-scroll
         className={`min-h-0 flex-1 overflow-y-auto px-2 py-2 ${dropTarget === "" ? "bg-accent-soft" : ""}`}
         onContextMenu={(e) => openMenu(e, null)}
         // Dropping on empty space below the rows = move to the vault root.

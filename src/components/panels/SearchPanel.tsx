@@ -16,6 +16,7 @@ import { useFocusedPane, useLayout } from "../../store/layout";
 import { type SearchMode, useUi } from "../../store/ui";
 import { useVault } from "../../store/vault";
 import { Search as SearchIcon } from "lucide-react";
+import { scrollWithin } from "../../lib/scroll";
 import { Highlighted, indicesToRanges } from "../ui/Highlighted";
 import { Segmented } from "../ui/Segmented";
 
@@ -44,6 +45,14 @@ export function SearchPanel() {
   const [selected, setSelected] = useState(0);
   const [error, setError] = useState<string | null>(null);
   const input = useRef<HTMLInputElement>(null);
+  /** The scrollable results list. */
+  const list = useRef<HTMLDivElement>(null);
+  /**
+   * True when the selection last moved by keyboard. Only then do we scroll:
+   * scrolling on mouse hover would move a new row under the pointer and
+   * start an endless hover → scroll → hover loop.
+   */
+  const keyboardMove = useRef(false);
 
   const scopeDir = pane?.path ? dirName(pane.path) : "";
 
@@ -113,9 +122,11 @@ export function SearchPanel() {
   const onKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === "ArrowDown") {
       e.preventDefault();
+      keyboardMove.current = true;
       setSelected((s) => Math.min(s + 1, rows.length - 1));
     } else if (e.key === "ArrowUp") {
       e.preventDefault();
+      keyboardMove.current = true;
       setSelected((s) => Math.max(s - 1, 0));
     } else if (e.key === "Enter" && rows[selected]) {
       e.preventDefault();
@@ -123,9 +134,13 @@ export function SearchPanel() {
     }
   };
 
-  // Keep the selected row visible while arrowing through results.
+  // Keep the selected row visible while arrowing through results (keyboard
+  // only; see `keyboardMove`). Scrolls just the list, never the window.
   useEffect(() => {
-    document.querySelector(`[data-search-row="${selected}"]`)?.scrollIntoView({ block: "nearest" });
+    if (!keyboardMove.current || !list.current) return;
+    keyboardMove.current = false;
+    const row = list.current.querySelector<HTMLElement>(`[data-search-row="${selected}"]`);
+    if (row) scrollWithin(list.current, row);
   }, [selected]);
 
   const showTagCloud = mode === "topic" && !query.trim();
@@ -171,7 +186,7 @@ export function SearchPanel() {
         )}
       </div>
 
-      <div className="min-h-0 flex-1 overflow-y-auto p-2">
+      <div ref={list} className="min-h-0 flex-1 overflow-y-auto p-2">
         {error && <p className="px-4 py-3 text-[12px] text-[#ff9ab8]">{error}</p>}
 
         {showTagCloud && (
@@ -197,7 +212,9 @@ export function SearchPanel() {
           <button
             key={row.path}
             data-search-row={i}
-            onMouseEnter={() => setSelected(i)}
+            // onMouseMove, not onMouseEnter: rows sliding under a still
+            // pointer (results updating) must not steal the selection.
+            onMouseMove={() => selected !== i && setSelected(i)}
             onClick={(e) => openRow(row, e.ctrlKey || e.metaKey)}
             className={`block w-full rounded-md px-3 py-2 text-left transition-colors ${
               i === selected ? "bg-hover shadow-[inset_2px_0_0_var(--accent-magenta)]" : ""
