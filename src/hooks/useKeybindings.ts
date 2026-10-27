@@ -12,7 +12,8 @@
 //   Ctrl+Shift+X                close focused pane
 //   Ctrl+Alt+Arrow              focus the pane in that direction
 //   Ctrl+E                      live preview ↔ raw markdown
-//   Ctrl+P / Ctrl+O             quick open (file search)
+//   Ctrl+P / Ctrl+O             command palette (notes + actions)
+//   Ctrl+Shift+P                command palette, actions only
 //   Ctrl+Shift+F                full-text search
 //   Ctrl+N                      new note (in the focused note's folder)
 //   Ctrl+Alt+P                  insert post-it at the cursor
@@ -138,10 +139,14 @@ export function useKeybindings() {
         return;
       }
 
-      // Search / navigation.
+      // Command palette / search.
       if (mod && !e.shiftKey && !e.altKey && (key === "p" || key === "o")) {
         take();
-        return ui.requestSearch("files", "");
+        return ui.openPalette("");
+      }
+      if (mod && e.shiftKey && !e.altKey && key === "p") {
+        take();
+        return ui.openPalette(">");
       }
       if (mod && e.shiftKey && key === "f") {
         take();

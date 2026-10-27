@@ -1,6 +1,6 @@
 // Second chrome row, modelled on Brave's address-bar row: a vault switcher
 // on the left and a wide "Search or jump to a note…" bar in the middle that
-// opens the search drawer (the same as Ctrl+P).
+// opens the command palette (the same as Ctrl+P).
 
 import { ChevronDown, FolderClosed, Search } from "lucide-react";
 import { useUi } from "../store/ui";
@@ -9,7 +9,7 @@ import { pickVault } from "./ActionRail";
 
 export function Toolbar() {
   const vault = useVault((s) => s.info);
-  const requestSearch = useUi((s) => s.requestSearch);
+  const openPalette = useUi((s) => s.openPalette);
 
   return (
     <div className="flex h-12 shrink-0 items-center gap-3 border-b border-line bg-alt px-4">
@@ -26,11 +26,11 @@ export function Toolbar() {
 
       {/* The "address bar": a large pill that opens quick search. */}
       <button
-        onClick={() => requestSearch("files", "")}
+        onClick={() => openPalette("")}
         className="group mx-auto flex h-9 w-full max-w-[680px] items-center gap-3 rounded-full border border-line-strong bg-void px-4 text-left text-[13px] text-muted/60 transition-colors hover:border-accent/50 hover:text-muted"
       >
         <Search size={16} className="shrink-0" />
-        <span className="flex-1 truncate">Search or jump to a note…</span>
+        <span className="flex-1 truncate">Search, jump to a note, or run an action…</span>
         <span className="flex shrink-0 gap-1 opacity-70 group-hover:opacity-100">
           <kbd>Ctrl</kbd>
           <kbd>P</kbd>

@@ -6,9 +6,10 @@
 //   │ Rail │ Drawer (¼ / ½ / full) │ WorkArea (split panes)       │
 //   ├ StatusBar ──────────────────────────────────────────────────┤
 //
-// Dialogs and toasts float above everything.
+// The command palette, dialogs and toasts float above everything.
 
 import { ActionRail } from "./components/ActionRail";
+import { CommandPalette } from "./components/CommandPalette";
 import { Dialogs } from "./components/Dialogs";
 import { Drawer } from "./components/Drawer";
 import { PinBar } from "./components/PinBar";
@@ -55,6 +56,7 @@ export function App() {
           <Welcome />
         </div>
       )}
+      <CommandPalette />
       <Dialogs />
       <Toasts />
     </div>

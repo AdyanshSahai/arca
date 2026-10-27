@@ -173,7 +173,7 @@ function ModeSwitch({ mode, onToggle }: { mode: EditorMode; onToggle: () => void
 /** Shown in panes with no note: quick actions plus the essential shortcuts. */
 function EmptyPane() {
   const shortcuts: [string[], string][] = [
-    [["Ctrl", "P"], "Quick open"],
+    [["Ctrl", "P"], "Command palette"],
     [["Ctrl", "Shift", "F"], "Search the vault"],
     [["Ctrl", "Shift", "("], "Split left / right"],
     [["Ctrl", "Shift", ")"], "Split top / bottom"],
@@ -188,7 +188,7 @@ function EmptyPane() {
         <p className="mt-4 text-[14px] font-medium text-fg/85">No note open</p>
         <p className="mt-1 text-[12px] text-muted/70">Pick one from the chapters, or start fresh.</p>
         <div className="mt-5 flex gap-2">
-          <EmptyAction icon={<Search size={13} />} label="Quick open" onClick={() => useUi.getState().requestSearch("files", "")} />
+          <EmptyAction icon={<Search size={13} />} label="Quick open" onClick={() => useUi.getState().openPalette("")} />
           <EmptyAction
             icon={<FilePlus size={13} />}
             label="New note"

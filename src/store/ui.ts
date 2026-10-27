@@ -49,6 +49,11 @@ interface UiState {
    * mode is asked for twice in a row.
    */
   searchRequest: { mode: SearchMode; query?: string; nonce: number } | null;
+  /**
+   * Command palette: null when closed, otherwise the text it opened with
+   * (">" = actions only).
+   */
+  palette: string | null;
   /** Text files whose "convert to Markdown?" notice was dismissed this session. */
   dismissedTextNotices: Set<string>;
 
@@ -63,6 +68,8 @@ interface UiState {
   dismissToast: (id: number) => void;
   requestSearch: (mode: SearchMode, query?: string) => void;
   dismissTextNotice: (path: string) => void;
+  openPalette: (initial?: string) => void;
+  closePalette: () => void;
 }
 
 /** Monotonic id source for toasts. */
@@ -75,6 +82,7 @@ export const useUi = create<UiState>((set, get) => ({
   toasts: [],
   searchRequest: null,
   dismissedTextNotices: new Set(),
+  palette: null,
 
   togglePanel: (panel) => set({ panel: get().panel === panel ? null : panel }),
   showPanel: (panel) => set({ panel }),
@@ -94,5 +102,7 @@ export const useUi = create<UiState>((set, get) => ({
   requestSearch: (mode, query) =>
     set({ panel: "search", searchRequest: { mode, query, nonce: Date.now() } }),
   // A new Set each time so zustand subscribers see the change.
+  openPalette: (initial = "") => set({ palette: initial }),
+  closePalette: () => set({ palette: null }),
   dismissTextNotice: (path) => set({ dismissedTextNotices: new Set(get().dismissedTextNotices).add(path) }),
 }));
