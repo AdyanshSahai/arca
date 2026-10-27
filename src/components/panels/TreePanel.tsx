@@ -7,7 +7,7 @@
 //   means the vault root) to move it.
 // - The note in the focused pane is highlighted and its folders expanded.
 
-import { ChevronRight, FilePlus, FolderMinus, FolderPlus } from "lucide-react";
+import { ChevronRight, FilePlus, FileText, Folder, FolderMinus, FolderOpen, FolderPlus, Paperclip } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import { errorMessage, ipc } from "../../lib/ipc";
 import { baseName, dirName, isWithin, joinPath } from "../../lib/paths";
@@ -105,7 +105,7 @@ export function TreePanel() {
 
   return (
     <div className="flex h-full flex-col">
-      <div className="flex h-8 shrink-0 items-center gap-1 border-b border-line px-2">
+      <div className="flex h-10 shrink-0 items-center gap-0.5 border-b border-line px-2">
         <IconButton title="New note" onClick={() => useVault.getState().promptNewNote("")}>
           <FilePlus size={14} />
         </IconButton>
@@ -118,7 +118,7 @@ export function TreePanel() {
         </IconButton>
       </div>
       <div
-        className={`min-h-0 flex-1 overflow-y-auto py-1 ${dropTarget === "" ? "bg-accent-soft" : ""}`}
+        className={`min-h-0 flex-1 overflow-y-auto px-1.5 py-1.5 ${dropTarget === "" ? "bg-accent-soft" : ""}`}
         onContextMenu={(e) => openMenu(e, null)}
         // Dropping on empty space below the rows = move to the vault root.
         onDragOver={(e) => {
@@ -135,7 +135,7 @@ export function TreePanel() {
         }}
       >
         {tree.children.length === 0 && (
-          <p className="px-4 py-3 text-[11px] text-muted/60">Empty vault. Right-click to create a note.</p>
+          <p className="px-3 py-3 text-[12px] text-muted/60">Empty vault. Right-click to create a note.</p>
         )}
         {tree.children.map((child) => (
           <Row
@@ -212,21 +212,31 @@ function Row(props: RowProps) {
         onAuxClick={(e) => e.button === 1 && onClick(e)}
         onContextMenu={(e) => onMenu(e, node)}
         // Indent 12px per level; the base 8px aligns with the panel header.
-        style={{ paddingLeft: 8 + depth * 12 }}
-        className={`relative flex h-[24px] cursor-default items-center gap-1 pr-2 text-[12px] ${
+        style={{ paddingLeft: 6 + depth * 14 }}
+        className={`relative flex h-[27px] cursor-default items-center gap-1.5 rounded-md pr-2 text-[13px] transition-colors ${
           isActive ? "bg-accent-soft text-accent" : "text-fg/85 hover:bg-hover"
         } ${dropTarget === node.path ? "outline outline-1 -outline-offset-1 outline-accent" : ""}`}
       >
-        {isActive && <div className="absolute inset-y-0 left-0 w-[2px] bg-accent" />}
         {node.isDir ? (
-          <ChevronRight size={12} className={`shrink-0 text-muted transition-transform ${isOpen ? "rotate-90" : ""}`} />
+          <ChevronRight size={13} className={`shrink-0 text-muted/70 transition-transform ${isOpen ? "rotate-90" : ""}`} />
         ) : (
-          <span className="w-3 shrink-0" />
+          <span className="w-[13px] shrink-0" />
         )}
-        <span className={`truncate ${node.isDir ? "text-muted" : node.isNote ? "" : "text-fg/45"}`}>
+        {/* Folder / note / other-file icon. */}
+        {node.isDir ? (
+          isOpen ? (
+            <FolderOpen size={14} className="shrink-0 text-accent/75" />
+          ) : (
+            <Folder size={14} className="shrink-0 text-accent/75" />
+          )
+        ) : node.isNote ? (
+          <FileText size={14} className={`shrink-0 ${isActive ? "text-accent" : "text-muted/70"}`} />
+        ) : (
+          <Paperclip size={14} className="shrink-0 text-muted/45" />
+        )}
+        <span className={`truncate ${node.isDir ? "font-medium text-fg/90" : node.isNote ? "" : "text-fg/45"}`}>
           {/* Notes drop the ".md"; other files keep their extension so the type is clear. */}
           {node.isNote ? node.name.replace(/\.(md|markdown)$/i, "") : node.name}
-          {node.isDir && "/"}
         </span>
       </div>
       {node.isDir &&

@@ -81,18 +81,25 @@ export function Drawer() {
 
   return (
     <aside ref={root} style={style} className="relative flex min-w-0 shrink-0 flex-col border-r border-line bg-alt">
-      <header className="flex h-[30px] shrink-0 items-center gap-1 border-b border-line pr-1 pl-3">
-        <span className="label flex-1">{TITLES[panel]}</span>
-        <SizeButton label="¼" title="Quarter width" active={size === "quarter"} onClick={() => setDrawerSize("quarter")} />
-        <SizeButton label="½" title="Half width" active={size === "half"} onClick={() => setDrawerSize("half")} />
-        <SizeButton
-          label={<Maximize2 size={11} />}
-          title="Full view"
-          active={full}
-          onClick={() => setDrawerSize("full")}
-        />
-        <button onClick={closeDrawer} title="Close drawer (Ctrl+B)" className="flex h-5 w-5 items-center justify-center text-muted hover:text-fg">
-          <X size={13} />
+      <header className="flex h-10 shrink-0 items-center gap-1 border-b border-line pr-2 pl-4">
+        <span className="flex-1 text-[13px] font-semibold text-fg">{TITLES[panel]}</span>
+        {/* Snap-size switch, drawn as one segmented control. */}
+        <div className="mr-1 flex items-center rounded-md border border-line p-[2px]">
+          <SizeButton label="¼" title="Quarter width" active={size === "quarter"} onClick={() => setDrawerSize("quarter")} />
+          <SizeButton label="½" title="Half width" active={size === "half"} onClick={() => setDrawerSize("half")} />
+          <SizeButton
+            label={<Maximize2 size={11} />}
+            title="Full view"
+            active={full}
+            onClick={() => setDrawerSize("full")}
+          />
+        </div>
+        <button
+          onClick={closeDrawer}
+          title="Close drawer  (Ctrl+B)"
+          className="flex h-6 w-6 items-center justify-center rounded-md text-muted transition-colors hover:bg-hover hover:text-fg"
+        >
+          <X size={14} />
         </button>
       </header>
       <div className="min-h-0 flex-1">
@@ -106,7 +113,7 @@ export function Drawer() {
       {!full && (
         <div
           onPointerDown={onPointerDown}
-          className="absolute inset-y-0 -right-[3px] z-20 w-[6px] cursor-col-resize hover:bg-accent/30"
+          className="absolute inset-y-0 -right-[3px] z-20 w-[6px] cursor-col-resize transition-colors hover:bg-accent/40"
         />
       )}
     </aside>
@@ -128,8 +135,8 @@ function SizeButton({
     <button
       onClick={onClick}
       title={title}
-      className={`flex h-5 w-6 items-center justify-center text-[11px] ${
-        active ? "bg-accent-soft text-accent" : "text-muted hover:bg-hover hover:text-fg"
+      className={`flex h-5 w-6 items-center justify-center rounded-[4px] text-[12px] transition-colors ${
+        active ? "bg-btn text-accent shadow-[inset_0_0_0_1px_var(--line-strong)]" : "text-muted hover:text-fg"
       }`}
     >
       {label}

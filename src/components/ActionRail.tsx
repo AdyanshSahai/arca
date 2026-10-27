@@ -27,19 +27,19 @@ export function ActionRail() {
   const togglePanel = useUi((s) => s.togglePanel);
 
   return (
-    <nav className="flex w-10 shrink-0 flex-col items-center gap-1 border-r border-line bg-alt py-2">
+    <nav className="flex w-12 shrink-0 flex-col items-center gap-1.5 border-r border-line bg-alt py-2.5">
       {ITEMS.map(({ id, title, Icon }) => (
         <div key={id} className="relative">
           {/* Accent tick on the left edge marks the open panel. */}
-          {panel === id && <div className="absolute top-1 -left-[6px] h-5 w-[2px] bg-accent" />}
+          {panel === id && <div className="absolute top-1.5 -left-2 h-5 w-[3px] rounded-r-full bg-accent" />}
           <IconButton title={title} active={panel === id} onClick={() => togglePanel(id)}>
-            <Icon size={16} strokeWidth={1.75} />
+            <Icon size={18} strokeWidth={1.6} />
           </IconButton>
         </div>
       ))}
       <div className="flex-1" />
       <IconButton title="Open another vault…" onClick={() => void pickVault()}>
-        <FolderOpen size={16} strokeWidth={1.75} />
+        <FolderOpen size={18} strokeWidth={1.6} />
       </IconButton>
     </nav>
   );
