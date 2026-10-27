@@ -1,0 +1,172 @@
+// Global keyboard shortcuts.
+//
+// Registered in the *capture* phase on window, so they win over CodeMirror's
+// own keymap (which would otherwise swallow e.g. Ctrl+Shift+( or Ctrl+E).
+// Anything not listed here falls through to the focused editor/input.
+//
+//   Ctrl+Tab / Ctrl+Shift+Tab   next / previous tab
+//   Ctrl+1…9                    jump to tab N
+//   Ctrl+T, Ctrl+W              new tab, close tab
+//   Ctrl+Shift+(                split focused pane left/right   (Konsole)
+//   Ctrl+Shift+)                split focused pane top/bottom   (Konsole)
+//   Ctrl+Shift+X                close focused pane
+//   Ctrl+Alt+Arrow              focus the pane in that direction
+//   Ctrl+E                      live preview ↔ raw markdown
+//   Ctrl+P / Ctrl+O             quick open (file search)
+//   Ctrl+Shift+F                full-text search
+//   Ctrl+N                      new note (in the focused note's folder)
+//   Ctrl+Alt+P                  insert post-it at the cursor
+//   Ctrl+B                      toggle the drawer
+//   Ctrl+S                      save now (autosave runs anyway)
+//   Alt+1…9                     open pinned shortcut N
+
+import { useEffect } from "react";
+import { insertPostitInFocused } from "../lib/actions";
+import { dirName } from "../lib/paths";
+import { useBuffers } from "../store/buffers";
+import { focusedPane, paneIds, useLayout } from "../store/layout";
+import { type PanelId, useUi } from "../store/ui";
+import { useVault } from "../store/vault";
+
+type Dir = "ArrowLeft" | "ArrowRight" | "ArrowUp" | "ArrowDown";
+
+/**
+ * Moves focus to the nearest visible pane in the given direction, using the
+ * panes' on-screen rectangles (works for any split arrangement).
+ */
+function focusNeighbour(dir: Dir) {
+  const layout = useLayout.getState();
+  const tab = layout.tabs.find((t) => t.id === layout.activeTab);
+  if (!tab) return;
+  const rectOf = (id: string) => document.querySelector(`[data-pane-id="${id}"]`)?.getBoundingClientRect();
+  const from = rectOf(tab.focusedPane);
+  if (!from) return;
+  const cx = from.left + from.width / 2;
+  const cy = from.top + from.height / 2;
+
+  let best: { id: string; dist: number } | null = null;
+  for (const id of paneIds(tab.root)) {
+    if (id === tab.focusedPane) continue;
+    const r = rectOf(id);
+    if (!r) continue;
+    // Must lie on the requested side of the current pane.
+    const ok =
+      (dir === "ArrowLeft" && r.right <= from.left + 1) ||
+      (dir === "ArrowRight" && r.left >= from.right - 1) ||
+      (dir === "ArrowUp" && r.bottom <= from.top + 1) ||
+      (dir === "ArrowDown" && r.top >= from.bottom - 1);
+    if (!ok) continue;
+    const dist = Math.hypot(r.left + r.width / 2 - cx, r.top + r.height / 2 - cy);
+    if (!best || dist < best.dist) best = { id, dist };
+  }
+  if (best) layout.focusPane(best.id);
+}
+
+/** The panel Ctrl+B reopens: whichever was open last. */
+let lastPanel: PanelId = "tree";
+
+export function useKeybindings() {
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      const mod = e.ctrlKey || e.metaKey;
+      const key = e.key.toLowerCase();
+      const layout = useLayout.getState();
+      const ui = useUi.getState();
+      const pane = focusedPane();
+      if (ui.panel) lastPanel = ui.panel;
+
+      /** Marks the event handled. */
+      const take = () => {
+        e.preventDefault();
+        e.stopPropagation();
+      };
+
+      // Tabs.
+      if (mod && e.key === "Tab") {
+        take();
+        return layout.cycleTab(e.shiftKey ? -1 : 1);
+      }
+      if (mod && !e.shiftKey && !e.altKey && /^[1-9]$/.test(e.key)) {
+        const tab = layout.tabs[Number(e.key) - 1];
+        if (tab) {
+          take();
+          layout.activateTab(tab.id);
+        }
+        return;
+      }
+      // Ctrl+Shift+9/0 produce "(" / ")" on US layouts; also accept the key codes
+      // so other layouts where those characters move still work.
+      if (mod && e.shiftKey && (e.key === "(" || e.code === "Digit9")) {
+        take();
+        return layout.split("row");
+      }
+      if (mod && e.shiftKey && (e.key === ")" || e.code === "Digit0")) {
+        take();
+        return layout.split("col");
+      }
+      if (mod && e.shiftKey && key === "x") {
+        take();
+        if (pane) layout.closePane(pane.id);
+        return;
+      }
+      if (mod && e.altKey && e.key.startsWith("Arrow")) {
+        take();
+        return focusNeighbour(e.key as Dir);
+      }
+      if (mod && !e.shiftKey && key === "t") {
+        take();
+        return layout.newTab();
+      }
+      if (mod && !e.shiftKey && key === "w") {
+        take();
+        return layout.closeTab(layout.activeTab);
+      }
+
+      // Editor.
+      if (mod && !e.altKey && key === "e") {
+        take();
+        if (pane) layout.toggleMode(pane.id);
+        return;
+      }
+      if (mod && e.altKey && key === "p") {
+        take();
+        return insertPostitInFocused();
+      }
+      if (mod && !e.shiftKey && key === "s") {
+        take();
+        void useBuffers.getState().flushAll();
+        return;
+      }
+
+      // Search / navigation.
+      if (mod && !e.shiftKey && !e.altKey && (key === "p" || key === "o")) {
+        take();
+        return ui.requestSearch("files", "");
+      }
+      if (mod && e.shiftKey && key === "f") {
+        take();
+        return ui.requestSearch("text");
+      }
+      if (mod && !e.shiftKey && key === "n") {
+        take();
+        if (useVault.getState().info) useVault.getState().promptNewNote(pane?.path ? dirName(pane.path) : "");
+        return;
+      }
+      if (mod && !e.shiftKey && key === "b") {
+        take();
+        return ui.panel ? ui.closeDrawer() : ui.showPanel(lastPanel);
+      }
+
+      // Pins.
+      if (e.altKey && !mod && /^[1-9]$/.test(e.key)) {
+        const pin = useVault.getState().pins[Number(e.key) - 1];
+        if (pin) {
+          take();
+          useVault.getState().activatePin(pin);
+        }
+      }
+    };
+    window.addEventListener("keydown", onKey, true); // `true` = capture phase
+    return () => window.removeEventListener("keydown", onKey, true);
+  }, []);
+}

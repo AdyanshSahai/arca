@@ -1,0 +1,26 @@
+// Square icon button used throughout the chrome. No rounded corners, no
+// shadows: just a hover tint and an optional "active" state.
+
+import type { ButtonHTMLAttributes, ReactNode } from "react";
+
+interface Props extends ButtonHTMLAttributes<HTMLButtonElement> {
+  children: ReactNode;
+  /** Highlights the button (e.g. the open drawer panel). */
+  active?: boolean;
+  /** 20px instead of 28px, for pane headers. */
+  small?: boolean;
+}
+
+export function IconButton({ children, active, small, className = "", ...rest }: Props) {
+  return (
+    <button
+      type="button"
+      {...rest}
+      className={`flex shrink-0 items-center justify-center transition-colors ${
+        small ? "h-5 w-5" : "h-7 w-7"
+      } ${active ? "bg-accent-soft text-accent" : "text-muted hover:bg-hover hover:text-fg"} ${className}`}
+    >
+      {children}
+    </button>
+  );
+}
