@@ -56,9 +56,17 @@ export function SearchPanel() {
     input.current?.select();
   }, [request]);
 
-  // Run the search (debounced) whenever its inputs or the vault change.
+  // The query text of the previous search run, to tell typing apart from
+  // clicks on the mode / scope switches.
+  const lastQuery = useRef(query);
+
+  // Run the search whenever its inputs or the vault change. Only typing is
+  // debounced. Mode and scope switches are deliberate clicks, so they
+  // search immediately instead of feeling sluggish.
   useEffect(() => {
     let cancelled = false;
+    const typed = query !== lastQuery.current;
+    lastQuery.current = query;
     const handle = window.setTimeout(async () => {
       try {
         const q = query.trim();
@@ -93,7 +101,7 @@ export function SearchPanel() {
         // e.g. an invalid /regex/; show it inline rather than as a toast.
         if (!cancelled) setError(errorMessage(err));
       }
-    }, DEBOUNCE_MS);
+    }, typed ? DEBOUNCE_MS : 0);
     return () => {
       cancelled = true;
       window.clearTimeout(handle);
