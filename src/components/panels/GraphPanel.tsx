@@ -6,6 +6,12 @@
 // - The focused note is magenta; hovering a node lights up its neighbours.
 // - "Local" limits the graph to N hops around the focused note.
 // - Bigger drawer sizes (½, full) make this genuinely usable.
+//
+// The graph never animates. The force layout is fully computed off-screen
+// before the first paint and then frozen. Nodes that were already laid out
+// keep their positions (pinned) when the graph refreshes, so only new
+// nodes find a spot. Node dragging is disabled because it would reheat the
+// simulation; panning and zooming still work.
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import ForceGraph2D, { type ForceGraphMethods, type LinkObject, type NodeObject } from "react-force-graph-2d";
@@ -50,12 +56,20 @@ export function GraphPanel() {
   const fg = useRef<ForceGraphMethods<GNode, GLink>>(undefined);
   const colors = useMemo(palette, []);
 
-  // Refetch the graph whenever the vault changes.
+  // Refetch the graph whenever the vault changes. Most saves don't change
+  // any links, so an identical graph is dropped here instead of triggering
+  // a re-layout.
+  const lastJson = useRef("");
   useEffect(() => {
     let cancelled = false;
     ipc
       .graph()
-      .then((g) => !cancelled && setGraph(g))
+      .then((g) => {
+        const json = JSON.stringify(g);
+        if (cancelled || json === lastJson.current) return;
+        lastJson.current = json;
+        setGraph(g);
+      })
       .catch((err) => useUi.getState().toast(errorMessage(err), "error"));
     return () => {
       cancelled = true;
@@ -99,8 +113,12 @@ export function GraphPanel() {
   // rebuild the data and restart the physics simulation.
   const localRoot = local ? active : null;
 
+  /** Last settled position of every node id, so refreshes don't re-shuffle. */
+  const positions = useRef(new Map<string, { x: number; y: number }>());
+
   // The data actually drawn, after the local/ghost filters. Fresh objects
-  // each time: the force engine mutates them (x, y, vx…).
+  // each time: the force engine mutates them (x, y, vx…). Known nodes are
+  // pinned (fx/fy) at their old spot; new ones are free to settle around them.
   const data = useMemo(() => {
     let keep: Set<string> | null = null;
     if (localRoot) {
@@ -121,7 +139,10 @@ export function GraphPanel() {
       }
     }
     const visible = (n: GraphNode) => (showGhosts || !n.ghost) && (!keep || keep.has(n.id));
-    const nodes = graph.nodes.filter(visible).map((n) => ({ ...n }));
+    const nodes: GNode[] = graph.nodes.filter(visible).map((n) => {
+      const p = positions.current.get(n.id);
+      return p ? { ...n, x: p.x, y: p.y, fx: p.x, fy: p.y } : { ...n };
+    });
     const ids = new Set(nodes.map((n) => n.id));
     const links = graph.edges.filter((e) => ids.has(e.source) && ids.has(e.target)).map((e) => ({ ...e }));
     return { nodes, links };
@@ -138,7 +159,8 @@ export function GraphPanel() {
 
   /** Custom node painter: dot sized by degree, label when zoomed or relevant. */
   const paintNode = (node: GNode, ctx: CanvasRenderingContext2D, scale: number) => {
-    const r = 2.5 + Math.sqrt(node.degree) * 1.4;
+    // Hovered dots grow ~40% so it's obvious which one the pointer is on.
+    const r = (2.5 + Math.sqrt(node.degree) * 1.4) * (node.id === hover ? 1.4 : 1);
     const isActive = node.id === active;
     const isHover = node.id === hover;
     const lit = isActive || isHover || hoverSet?.has(node.id);
@@ -234,18 +256,20 @@ export function GraphPanel() {
               if (n.ghost) void followLink(n.label, active ?? "");
               else useLayout.getState().openNote(n.id as string, { newTab: ev.ctrlKey || ev.metaKey });
             }}
-            // Physics: d3's default friction (0.4) plus faster cooling, so the
-            // layout settles in about a second and then stays perfectly still.
-            d3VelocityDecay={0.4}
-            d3AlphaDecay={0.05}
-            cooldownTime={2500}
-            // Pre-run part of the simulation before the first paint, so the
-            // graph appears nearly settled instead of exploding outwards.
-            warmupTicks={40}
+            // No animation at all: run the whole simulation off-screen before
+            // the first paint (warmup), then stop immediately (cooldown 0).
+            warmupTicks={300}
+            cooldownTicks={0}
+            // Dragging would reheat the physics and make everything move.
+            enableNodeDrag={false}
             onEngineStop={() => {
+              // Remember where everything landed, so the next refresh keeps it.
+              for (const n of data.nodes) {
+                if (n.x !== undefined && n.y !== undefined) positions.current.set(n.id as string, { x: n.x, y: n.y });
+              }
               if (fitPending.current) {
                 fitPending.current = false;
-                fg.current?.zoomToFit(300, 48);
+                fg.current?.zoomToFit(250, 48);
               }
             }}
           />
