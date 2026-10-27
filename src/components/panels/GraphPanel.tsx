@@ -13,6 +13,7 @@ import { followLink } from "../../lib/actions";
 import { errorMessage, ipc } from "../../lib/ipc";
 import type { Graph, GraphNode } from "../../lib/types";
 import { useFocusedPane, useLayout } from "../../store/layout";
+import { Segmented } from "../ui/Segmented";
 import { useUi } from "../../store/ui";
 import { useVault } from "../../store/vault";
 
@@ -156,22 +157,35 @@ export function GraphPanel() {
 
   return (
     <div className="flex h-full flex-col">
-      <div className="flex h-8 shrink-0 items-center gap-3 border-b border-line px-3 text-[11px]">
-        <Toggle on={!local} onClick={() => setLocal(false)} label="GLOBAL" />
-        <Toggle on={local} onClick={() => setLocal(true)} label="LOCAL" disabled={!active} />
+      <div className="flex h-11 shrink-0 items-center gap-2 border-b border-line px-3 text-[12px]">
+        <Segmented
+          value={local ? "local" : "global"}
+          options={[
+            { id: "global", label: "Global" },
+            { id: "local", label: "Local", disabled: !active, title: "Only notes near the focused one" },
+          ]}
+          onChange={(v) => setLocal(v === "local")}
+        />
         {local && (
-          <span className="flex items-center gap-1 text-muted">
-            depth
-            {[1, 2, 3].map((d) => (
-              <button key={d} onClick={() => setDepth(d)} className={d === depth ? "text-accent" : "hover:text-fg"}>
-                {d}
-              </button>
-            ))}
-          </span>
+          <Segmented
+            value={String(depth)}
+            options={[1, 2, 3].map((d) => ({ id: String(d), label: d, title: `${d} hop${d > 1 ? "s" : ""}` }))}
+            onChange={(v) => setDepth(Number(v))}
+          />
         )}
         <div className="flex-1" />
-        <Toggle on={showGhosts} onClick={() => setShowGhosts(!showGhosts)} label="GHOSTS" />
-        <span className="text-muted/50">{data.nodes.length}n · {data.links.length}e</span>
+        <label className="flex cursor-pointer items-center gap-1.5 text-muted hover:text-fg" title="Show links to notes that don't exist yet">
+          <input
+            type="checkbox"
+            checked={showGhosts}
+            onChange={() => setShowGhosts(!showGhosts)}
+            className="cm-task !m-0"
+          />
+          Ghosts
+        </label>
+        <span className="text-muted/50 tabular-nums" title="nodes · links">
+          {data.nodes.length} · {data.links.length}
+        </span>
       </div>
       <div ref={box} className="min-h-0 flex-1" onMouseLeave={() => setHover(null)}>
         <ForceGraph2D<GraphNode, { source: string; target: string }>
@@ -209,17 +223,5 @@ export function GraphPanel() {
         />
       </div>
     </div>
-  );
-}
-
-function Toggle({ on, onClick, label, disabled }: { on: boolean; onClick: () => void; label: string; disabled?: boolean }) {
-  return (
-    <button
-      onClick={onClick}
-      disabled={disabled}
-      className={`disabled:opacity-30 ${on ? "text-accent" : "text-muted hover:text-fg"}`}
-    >
-      {label}
-    </button>
   );
 }

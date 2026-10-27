@@ -56,24 +56,24 @@ export function BacklinksPanel() {
   }, [content]);
 
   if (!path) {
-    return <p className="p-4 text-[11px] text-muted/60">Open a note to see what links to it.</p>;
+    return <p className="p-4 text-[12px] text-muted/60">Open a note to see what links to it.</p>;
   }
 
   return (
-    <div className="h-full overflow-y-auto pb-4">
+    <div className="h-full overflow-y-auto px-1.5 pb-4">
       <Section title={`Backlinks · ${backlinks.length}`}>
-        {backlinks.length === 0 && <Empty>nothing links to {stem(path)} yet</Empty>}
+        {backlinks.length === 0 && <Empty>Nothing links to {stem(path)} yet.</Empty>}
         {backlinks.map((b, i) => (
           <button
             key={`${b.source}:${b.line}:${i}`}
             onClick={(e) => useLayout.getState().openNote(b.source, { line: b.line, newTab: e.ctrlKey || e.metaKey })}
-            className="block w-full px-3 py-1.5 text-left hover:bg-hover"
+            className="block w-full rounded-md px-2.5 py-2 text-left transition-colors hover:bg-hover"
           >
-            <div className="flex items-baseline gap-2 text-[12px]">
-              <span className="truncate text-fg">{b.title}</span>
-              <span className="shrink-0 text-[10px] text-muted/50">:{b.line}</span>
+            <div className="flex items-baseline gap-2 text-[13px]">
+              <span className="truncate font-medium text-fg">{b.title}</span>
+              <span className="shrink-0 text-[11px] text-muted/50 tabular-nums">line {b.line}</span>
             </div>
-            <div className="mt-0.5 line-clamp-2 text-[12px] leading-snug text-fg/55">
+            <div className="mt-1 line-clamp-2 text-[12px] leading-snug text-fg/55">
               <Highlighted text={b.context} ranges={linkRanges(b.context)} />
             </div>
           </button>
@@ -81,13 +81,13 @@ export function BacklinksPanel() {
       </Section>
 
       <Section title={`Outgoing · ${outgoing.length}`}>
-        {outgoing.length === 0 && <Empty>no [[links]] in this note</Empty>}
-        <div className="flex flex-wrap gap-1 px-3">
+        {outgoing.length === 0 && <Empty>No [[links]] in this note.</Empty>}
+        <div className="flex flex-wrap gap-1.5 px-2.5">
           {outgoing.map((t) => (
             <button
               key={t}
               onClick={() => void followLink(t, path)}
-              className="max-w-full truncate border border-line px-1.5 py-[1px] text-[11px] text-accent hover:border-accent"
+              className="max-w-full truncate rounded-md border border-line px-2 py-[3px] text-[12px] text-accent transition-colors hover:border-accent/60"
             >
               {t}
               {classifyLink(t) !== "note" && " ↗"}
@@ -97,13 +97,13 @@ export function BacklinksPanel() {
       </Section>
 
       <Section title={`Tags · ${tags.length}`}>
-        {tags.length === 0 && <Empty>no #tags in this note</Empty>}
-        <div className="flex flex-wrap gap-1 px-3">
+        {tags.length === 0 && <Empty>No #tags in this note.</Empty>}
+        <div className="flex flex-wrap gap-1.5 px-2.5">
           {tags.map((t) => (
             <button
               key={t}
               onClick={() => useUi.getState().requestSearch("topic", `#${t}`)}
-              className="bg-accent-soft px-1.5 py-[1px] text-[11px] text-muted hover:text-accent"
+              className="rounded-full bg-accent-soft px-2.5 py-[3px] text-[12px] text-muted transition-colors hover:text-accent"
             >
               #{t}
             </button>
@@ -116,13 +116,13 @@ export function BacklinksPanel() {
 
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
-    <section className="pt-3">
-      <h3 className="label mb-1.5 px-3">{title}</h3>
+    <section className="pt-4">
+      <h3 className="label mb-2 px-2.5">{title}</h3>
       {children}
     </section>
   );
 }
 
 function Empty({ children }: { children: React.ReactNode }) {
-  return <p className="px-3 text-[11px] text-muted/45">{children}</p>;
+  return <p className="px-2.5 text-[12px] text-muted/45">{children}</p>;
 }

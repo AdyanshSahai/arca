@@ -16,6 +16,7 @@ import { useBuffers } from "../../store/buffers";
 import { useFocusedPane, useLayout } from "../../store/layout";
 import { useUi } from "../../store/ui";
 import { useVault } from "../../store/vault";
+import { Segmented } from "../ui/Segmented";
 
 export function PostitPanel() {
   const revision = useVault((s) => s.revision);
@@ -52,30 +53,28 @@ export function PostitPanel() {
 
   return (
     <div className="flex h-full flex-col">
-      <div className="flex h-8 shrink-0 items-center gap-3 border-b border-line px-3 text-[11px]">
-        <button onClick={() => setOnlyCurrent(false)} className={!onlyCurrent ? "text-accent" : "text-muted hover:text-fg"}>
-          ALL · {all.length}
-        </button>
-        <button
-          onClick={() => setOnlyCurrent(true)}
-          disabled={!focusedPath}
-          className={`disabled:opacity-30 ${onlyCurrent ? "text-accent" : "text-muted hover:text-fg"}`}
-        >
-          THIS NOTE
-        </button>
+      <div className="flex h-11 shrink-0 items-center gap-2 border-b border-line px-3 text-[12px]">
+        <Segmented
+          value={onlyCurrent ? "note" : "all"}
+          options={[
+            { id: "all", label: `All · ${all.length}` },
+            { id: "note", label: "This note", disabled: !focusedPath },
+          ]}
+          onChange={(v) => setOnlyCurrent(v === "note")}
+        />
         <div className="flex-1" />
         <button
           onClick={insertPostitInFocused}
-          title="Insert a post-it at the cursor (Ctrl+Alt+P)"
-          className="flex items-center gap-1 text-muted hover:text-accent"
+          title="Insert a post-it at the cursor  (Ctrl+Alt+P)"
+          className="flex items-center gap-1 rounded-md px-2 py-1 text-muted transition-colors hover:bg-hover hover:text-accent"
         >
-          <Plus size={12} /> NEW
+          <Plus size={13} /> New
         </button>
       </div>
 
       <div className="min-h-0 flex-1 overflow-y-auto p-3">
         {shown.length === 0 && (
-          <p className=" text-[11px] leading-relaxed text-muted/50">
+          <p className="text-[12px] leading-relaxed text-muted/50">
             No post-its {onlyCurrent ? "in this note" : "yet"}. Put the cursor in a note and press Ctrl+Alt+P.
           </p>
         )}
@@ -125,7 +124,7 @@ function PostitCard({ entry }: { entry: PostItEntry }) {
     <div
       // `--pc` drives the frame colour, matching the in-editor post-it.
       style={{ ["--pc" as string]: `var(--postit-${color})` }}
-      className="border border-l-[3px] border-[color-mix(in_srgb,var(--pc)_30%,transparent)] border-l-[var(--pc)] bg-[color-mix(in_srgb,var(--pc)_6%,transparent)]"
+      className="overflow-hidden rounded-md border border-l-[3px] border-[color-mix(in_srgb,var(--pc)_28%,transparent)] border-l-[var(--pc)] bg-[color-mix(in_srgb,var(--pc)_7%,transparent)] transition-colors focus-within:border-[color-mix(in_srgb,var(--pc)_55%,transparent)]"
     >
       <textarea
         value={text}
@@ -140,20 +139,20 @@ function PostitCard({ entry }: { entry: PostItEntry }) {
         }}
         rows={Math.min(8, Math.max(2, text.split("\n").length))}
         spellCheck={false}
-        className="block w-full resize-none bg-transparent px-2.5 py-2 text-[13px] leading-snug text-fg outline-none"
+        className="block w-full resize-none bg-transparent px-3 py-2.5 text-[13px] leading-relaxed text-fg outline-none"
       />
-      <div className="flex items-center gap-1.5 px-2.5 pb-1.5">
+      <div className="flex items-center gap-1.5 px-3 pb-2">
         {POSTIT_COLORS.map((c) => (
           <button
             key={c}
             title={c}
             onClick={() => void save(text, c)}
             style={{ background: `var(--postit-${c})` }}
-            className={`h-2.5 w-2.5 ${c === color ? "outline outline-1 outline-offset-1 outline-fg" : "opacity-60 hover:opacity-100"}`}
+            className={`h-3 w-3 rounded-full transition-opacity ${c === color ? "outline outline-1 outline-offset-2 outline-fg/70" : "opacity-50 hover:opacity-100"}`}
           />
         ))}
         <div className="flex-1" />
-        <span className=" text-[10px] text-muted/50">:{entry.line}</span>
+        <span className="text-[11px] text-muted/50 tabular-nums">line {entry.line}</span>
         <button
           onClick={() => useLayout.getState().openNote(entry.path, { line: entry.line })}
           title="Show in note"

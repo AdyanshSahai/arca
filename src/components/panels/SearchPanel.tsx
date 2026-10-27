@@ -15,7 +15,9 @@ import type { FileHit, TagCount, TextHit } from "../../lib/types";
 import { useFocusedPane, useLayout } from "../../store/layout";
 import { type SearchMode, useUi } from "../../store/ui";
 import { useVault } from "../../store/vault";
+import { Search as SearchIcon } from "lucide-react";
 import { Highlighted, indicesToRanges } from "../ui/Highlighted";
+import { Segmented } from "../ui/Segmented";
 
 /** Delay between the last keystroke and the query (results feel instant). */
 const DEBOUNCE_MS = 60;
@@ -122,25 +124,21 @@ export function SearchPanel() {
 
   return (
     <div className="flex h-full flex-col">
-      {/* Mode switcher: a segmented control drawn as plain text tabs. */}
-      <div className="flex h-8 shrink-0 items-stretch border-b border-line px-2 text-[11px]">
-        {MODES.map((m) => (
-          <button
-            key={m.id}
-            onClick={() => {
-              setMode(m.id);
-              input.current?.focus();
-            }}
-            className={`relative px-2 uppercase tracking-wider ${mode === m.id ? "text-accent" : "text-muted hover:text-fg"}`}
-          >
-            {m.label}
-            {mode === m.id && <div className="absolute inset-x-2 bottom-0 h-px bg-accent" />}
-          </button>
-        ))}
+      <div className="flex h-11 shrink-0 items-center border-b border-line px-3">
+        <Segmented
+          value={mode}
+          options={MODES.map((m) => ({ id: m.id, label: m.label }))}
+          onChange={(m) => {
+            setMode(m);
+            input.current?.focus();
+          }}
+        />
       </div>
 
-      <div className="shrink-0 border-b border-line p-2">
-        <input
+      <div className="shrink-0 border-b border-line p-3">
+        <div className="relative">
+          <SearchIcon size={14} className="pointer-events-none absolute top-1/2 left-2.5 -translate-y-1/2 text-muted/60" />
+          <input
           ref={input}
           autoFocus
           value={query}
@@ -148,11 +146,12 @@ export function SearchPanel() {
           onKeyDown={onKeyDown}
           spellCheck={false}
           placeholder={MODES.find((m) => m.id === mode)!.hint}
-          className="h-7 w-full border border-line-strong bg-void px-2 text-[12px] text-fg placeholder:text-muted/40 focus:border-accent focus:outline-none"
-        />
+          className="h-9 w-full rounded-md border border-line-strong bg-void pr-3 pl-8 text-[13px] text-fg transition-colors placeholder:text-muted/40 focus:border-accent focus:outline-none"
+          />
+        </div>
         {mode === "text" && (
-          <div className="mt-2 flex items-center gap-3 text-[11px]">
-            <span className="text-muted/60">scope</span>
+          <div className="mt-2.5 flex items-center gap-3 text-[12px]">
+            <span className="text-muted/60">Search in</span>
             <ScopeOption checked={!folderOnly} onClick={() => setFolderOnly(false)} label="vault" />
             <ScopeOption
               checked={folderOnly}
@@ -164,26 +163,26 @@ export function SearchPanel() {
         )}
       </div>
 
-      <div className="min-h-0 flex-1 overflow-y-auto">
-        {error && <p className="px-3 py-2 text-[11px] text-[#ff9ab8]">{error}</p>}
+      <div className="min-h-0 flex-1 overflow-y-auto p-1.5">
+        {error && <p className="px-4 py-3 text-[12px] text-[#ff9ab8]">{error}</p>}
 
         {showTagCloud && (
-          <div className="flex flex-wrap gap-1 p-3">
-            {tags.length === 0 && <span className=" text-[11px] text-muted/50">no #tags in this vault yet</span>}
+          <div className="flex flex-wrap gap-1.5 p-3">
+            {tags.length === 0 && <span className="text-[12px] text-muted/50">No #tags in this vault yet.</span>}
             {tags.map((t) => (
               <button
                 key={t.tag}
                 onClick={() => setQuery(`#${t.tag}`)}
-                className="bg-accent-soft px-1.5 py-[1px] text-[11px] text-muted hover:text-accent"
+                className="rounded-full bg-accent-soft px-2.5 py-[3px] text-[12px] text-muted transition-colors hover:text-accent"
               >
-                #{t.tag} <span className="text-muted/50">{t.count}</span>
+                #{t.tag} <span className="ml-0.5 text-muted/50">{t.count}</span>
               </button>
             ))}
           </div>
         )}
 
         {!showTagCloud && rows.length === 0 && query.trim() && !error && (
-          <p className="px-3 py-2 text-[11px] text-muted/50">no matches</p>
+          <p className="px-4 py-3 text-[12px] text-muted/50">No matches.</p>
         )}
 
         {rows.map((row, i) => (
@@ -192,15 +191,15 @@ export function SearchPanel() {
             data-search-row={i}
             onMouseEnter={() => setSelected(i)}
             onClick={(e) => openRow(row, e.ctrlKey || e.metaKey)}
-            className={`block w-full border-l-2 px-3 py-1.5 text-left ${
-              i === selected ? "border-accent bg-hover" : "border-transparent"
+            className={`block w-full rounded-md px-3 py-2 text-left transition-colors ${
+              i === selected ? "bg-hover shadow-[inset_2px_0_0_var(--accent-magenta)]" : ""
             }`}
           >
-            <div className="truncate text-[12px] text-fg">{row.titleNode ?? row.title}</div>
+            <div className="truncate text-[13px] font-medium text-fg">{row.titleNode ?? row.title}</div>
             {row.detail && (
               <>
-                <div className="truncate text-[10px] text-muted/60">{row.path}</div>
-                <div className="mt-0.5 line-clamp-2 text-[12px] leading-snug text-fg/60">{row.detail}</div>
+                <div className="truncate text-[11px] text-muted/60">{row.path}</div>
+                <div className="mt-1 line-clamp-2 text-[12px] leading-snug text-fg/60">{row.detail}</div>
               </>
             )}
           </button>
@@ -227,8 +226,10 @@ function ScopeOption({
       onClick={onClick}
       className={`flex items-center gap-1 disabled:opacity-30 ${checked ? "text-accent" : "text-muted hover:text-fg"}`}
     >
-      {/* Square "radio" mark in keeping with the pixel theme. */}
-      <span className={`inline-block h-2 w-2 border ${checked ? "border-accent bg-accent" : "border-muted"}`} />
+      {/* Round radio mark. */}
+      <span
+        className={`inline-block h-2.5 w-2.5 rounded-full border ${checked ? "border-accent bg-accent shadow-[inset_0_0_0_2px_var(--bg-alternate)]" : "border-muted/60"}`}
+      />
       <span className="max-w-40 truncate">{label}</span>
     </button>
   );
