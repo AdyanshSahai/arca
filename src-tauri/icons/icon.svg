@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" width="1024" height="1024" shape-rendering="crispEdges">
+  <!-- Arca app icon: a pixel-art "A" (an arch) in the TwilightPixel palette. -->
+  <rect x="0" y="0" width="16" height="16" rx="3" fill="#0e0521"/>
+  <rect x="1" y="1" width="14" height="14" rx="2" fill="#180d2b"/>
+  <g fill="#ffbfff">
+    <rect x="6" y="3" width="4" height="1"/>
+    <rect x="5" y="4" width="2" height="1"/><rect x="9" y="4" width="2" height="1"/>
+    <rect x="4" y="5" width="2" height="7"/><rect x="10" y="5" width="2" height="7"/>
+    <rect x="6" y="8" width="4" height="1"/>
+  </g>
+  <!-- Lavender "keystone" pixel under the arch. -->
+  <rect x="7" y="5" width="2" height="1" fill="#bc8bca"/>
+</svg>
