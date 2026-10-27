@@ -59,20 +59,20 @@ function DialogBox({ dialog }: { dialog: Dialog }) {
         <div className="px-4 py-3">
           {dialog.kind === "prompt" ? (
             <>
-              {dialog.label && <div className="mb-1.5 truncate font-mono text-[11px] text-muted/70">{dialog.label}</div>}
+              {dialog.label && <div className="mb-1.5 truncate text-[11px] text-muted/70">{dialog.label}</div>}
               <input
                 ref={input}
                 value={value}
                 onChange={(e) => setValue(e.target.value)}
                 spellCheck={false}
-                className="h-8 w-full border border-line-strong bg-void px-2 font-mono text-[13px] text-fg focus:border-accent focus:outline-none"
+                className="h-8 w-full border border-line-strong bg-void px-2 text-[13px] text-fg focus:border-accent focus:outline-none"
               />
             </>
           ) : (
             <p className="text-[13px] leading-relaxed text-fg/85">{dialog.message}</p>
           )}
         </div>
-        <div className="flex justify-end gap-2 px-4 pb-3 font-mono text-[12px]">
+        <div className="flex justify-end gap-2 px-4 pb-3 text-[12px]">
           <button onClick={close} className="px-3 py-1 text-muted hover:bg-hover hover:text-fg">
             Cancel
           </button>

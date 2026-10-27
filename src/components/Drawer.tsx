@@ -128,7 +128,7 @@ function SizeButton({
     <button
       onClick={onClick}
       title={title}
-      className={`flex h-5 w-6 items-center justify-center font-mono text-[11px] ${
+      className={`flex h-5 w-6 items-center justify-center text-[11px] ${
         active ? "bg-accent-soft text-accent" : "text-muted hover:bg-hover hover:text-fg"
       }`}
     >

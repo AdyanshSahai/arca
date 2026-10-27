@@ -56,7 +56,7 @@ export function BacklinksPanel() {
   }, [content]);
 
   if (!path) {
-    return <p className="p-4 font-mono text-[11px] text-muted/60">Open a note to see what links to it.</p>;
+    return <p className="p-4 text-[11px] text-muted/60">Open a note to see what links to it.</p>;
   }
 
   return (
@@ -69,7 +69,7 @@ export function BacklinksPanel() {
             onClick={(e) => useLayout.getState().openNote(b.source, { line: b.line, newTab: e.ctrlKey || e.metaKey })}
             className="block w-full px-3 py-1.5 text-left hover:bg-hover"
           >
-            <div className="flex items-baseline gap-2 font-mono text-[12px]">
+            <div className="flex items-baseline gap-2 text-[12px]">
               <span className="truncate text-fg">{b.title}</span>
               <span className="shrink-0 text-[10px] text-muted/50">:{b.line}</span>
             </div>
@@ -87,7 +87,7 @@ export function BacklinksPanel() {
             <button
               key={t}
               onClick={() => void followLink(t, path)}
-              className="max-w-full truncate border border-line px-1.5 py-[1px] font-mono text-[11px] text-accent hover:border-accent"
+              className="max-w-full truncate border border-line px-1.5 py-[1px] text-[11px] text-accent hover:border-accent"
             >
               {t}
               {classifyLink(t) !== "note" && " ↗"}
@@ -103,7 +103,7 @@ export function BacklinksPanel() {
             <button
               key={t}
               onClick={() => useUi.getState().requestSearch("topic", `#${t}`)}
-              className="bg-accent-soft px-1.5 py-[1px] font-mono text-[11px] text-muted hover:text-accent"
+              className="bg-accent-soft px-1.5 py-[1px] text-[11px] text-muted hover:text-accent"
             >
               #{t}
             </button>
@@ -124,5 +124,5 @@ function Section({ title, children }: { title: string; children: React.ReactNode
 }
 
 function Empty({ children }: { children: React.ReactNode }) {
-  return <p className="px-3 font-mono text-[11px] text-muted/45">{children}</p>;
+  return <p className="px-3 text-[11px] text-muted/45">{children}</p>;
 }

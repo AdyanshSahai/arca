@@ -7,7 +7,7 @@ import { pickVault } from "./ActionRail";
 export function Welcome({ lastError }: { lastError?: string | null }) {
   return (
     <div className="flex h-full items-center justify-center bg-void">
-      <div className="w-[440px] max-w-[90vw] font-mono">
+      <div className="w-[440px] max-w-[90vw]">
         <pre className="mb-6 text-[11px] leading-tight text-accent select-none" aria-hidden>
           {/* Big pixel "ARCA" drawn with block characters. */}
           {`█▀█ █▀█ █▀▀ █▀█

@@ -14,7 +14,7 @@ export function StatusBar() {
   const dirty = !!buffer && buffer.content !== buffer.saved;
 
   return (
-    <footer className="flex h-[22px] shrink-0 items-center gap-4 border-t border-line bg-alt px-3 font-mono text-[11px] text-muted">
+    <footer className="flex h-[22px] shrink-0 items-center gap-4 border-t border-line bg-alt px-3 text-[11px] text-muted">
       {pane?.path ? (
         <>
           <span className={pane.mode === "live" ? "text-accent" : "text-fg/70"}>{pane.mode.toUpperCase()}</span>

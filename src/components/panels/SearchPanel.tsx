@@ -123,7 +123,7 @@ export function SearchPanel() {
   return (
     <div className="flex h-full flex-col">
       {/* Mode switcher: a segmented control drawn as plain text tabs. */}
-      <div className="flex h-8 shrink-0 items-stretch border-b border-line px-2 font-mono text-[11px]">
+      <div className="flex h-8 shrink-0 items-stretch border-b border-line px-2 text-[11px]">
         {MODES.map((m) => (
           <button
             key={m.id}
@@ -148,10 +148,10 @@ export function SearchPanel() {
           onKeyDown={onKeyDown}
           spellCheck={false}
           placeholder={MODES.find((m) => m.id === mode)!.hint}
-          className="h-7 w-full border border-line-strong bg-void px-2 font-mono text-[12px] text-fg placeholder:text-muted/40 focus:border-accent focus:outline-none"
+          className="h-7 w-full border border-line-strong bg-void px-2 text-[12px] text-fg placeholder:text-muted/40 focus:border-accent focus:outline-none"
         />
         {mode === "text" && (
-          <div className="mt-2 flex items-center gap-3 font-mono text-[11px]">
+          <div className="mt-2 flex items-center gap-3 text-[11px]">
             <span className="text-muted/60">scope</span>
             <ScopeOption checked={!folderOnly} onClick={() => setFolderOnly(false)} label="vault" />
             <ScopeOption
@@ -165,16 +165,16 @@ export function SearchPanel() {
       </div>
 
       <div className="min-h-0 flex-1 overflow-y-auto">
-        {error && <p className="px-3 py-2 font-mono text-[11px] text-[#ff9ab8]">{error}</p>}
+        {error && <p className="px-3 py-2 text-[11px] text-[#ff9ab8]">{error}</p>}
 
         {showTagCloud && (
           <div className="flex flex-wrap gap-1 p-3">
-            {tags.length === 0 && <span className="font-mono text-[11px] text-muted/50">no #tags in this vault yet</span>}
+            {tags.length === 0 && <span className=" text-[11px] text-muted/50">no #tags in this vault yet</span>}
             {tags.map((t) => (
               <button
                 key={t.tag}
                 onClick={() => setQuery(`#${t.tag}`)}
-                className="bg-accent-soft px-1.5 py-[1px] font-mono text-[11px] text-muted hover:text-accent"
+                className="bg-accent-soft px-1.5 py-[1px] text-[11px] text-muted hover:text-accent"
               >
                 #{t.tag} <span className="text-muted/50">{t.count}</span>
               </button>
@@ -183,7 +183,7 @@ export function SearchPanel() {
         )}
 
         {!showTagCloud && rows.length === 0 && query.trim() && !error && (
-          <p className="px-3 py-2 font-mono text-[11px] text-muted/50">no matches</p>
+          <p className="px-3 py-2 text-[11px] text-muted/50">no matches</p>
         )}
 
         {rows.map((row, i) => (
@@ -196,10 +196,10 @@ export function SearchPanel() {
               i === selected ? "border-accent bg-hover" : "border-transparent"
             }`}
           >
-            <div className="truncate font-mono text-[12px] text-fg">{row.titleNode ?? row.title}</div>
+            <div className="truncate text-[12px] text-fg">{row.titleNode ?? row.title}</div>
             {row.detail && (
               <>
-                <div className="truncate font-mono text-[10px] text-muted/60">{row.path}</div>
+                <div className="truncate text-[10px] text-muted/60">{row.path}</div>
                 <div className="mt-0.5 line-clamp-2 text-[12px] leading-snug text-fg/60">{row.detail}</div>
               </>
             )}

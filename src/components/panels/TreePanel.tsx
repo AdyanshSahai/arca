@@ -135,7 +135,7 @@ export function TreePanel() {
         }}
       >
         {tree.children.length === 0 && (
-          <p className="px-4 py-3 font-mono text-[11px] text-muted/60">Empty vault. Right-click to create a note.</p>
+          <p className="px-4 py-3 text-[11px] text-muted/60">Empty vault. Right-click to create a note.</p>
         )}
         {tree.children.map((child) => (
           <Row
@@ -213,7 +213,7 @@ function Row(props: RowProps) {
         onContextMenu={(e) => onMenu(e, node)}
         // Indent 12px per level; the base 8px aligns with the panel header.
         style={{ paddingLeft: 8 + depth * 12 }}
-        className={`relative flex h-[24px] cursor-default items-center gap-1 pr-2 font-mono text-[12px] ${
+        className={`relative flex h-[24px] cursor-default items-center gap-1 pr-2 text-[12px] ${
           isActive ? "bg-accent-soft text-accent" : "text-fg/85 hover:bg-hover"
         } ${dropTarget === node.path ? "outline outline-1 -outline-offset-1 outline-accent" : ""}`}
       >

@@ -13,11 +13,11 @@ export const editorTheme = EditorView.theme(
     "&": {
       color: "var(--fg-normal)",
       backgroundColor: "var(--bg-normal)",
-      fontSize: "14px",
+      fontSize: "15px",
     },
     ".cm-content": {
       caretColor: "var(--accent-magenta)",
-      lineHeight: "1.7",
+      lineHeight: "1.75",
     },
     // Block cursor-ish: a 2px neon caret reads well on the dark background.
     ".cm-cursor, .cm-dropCursor": {
@@ -54,7 +54,7 @@ export const editorTheme = EditorView.theme(
       borderTop: "1px solid var(--line-strong)",
     },
     ".cm-panel input, .cm-panel button": {
-      fontFamily: "var(--font-mono)",
+      fontFamily: "var(--font-ui)",
       fontSize: "12px",
     },
     ".cm-panel.cm-search input[type=text]": {
@@ -67,7 +67,7 @@ export const editorTheme = EditorView.theme(
       backgroundColor: "var(--bg-alternate)",
       border: "1px solid var(--line-strong)",
       color: "var(--fg-normal)",
-      borderRadius: "0",
+      borderRadius: "var(--radius-sm)",
     },
   },
   { dark: true },
@@ -82,7 +82,16 @@ export const highlightStyle = HighlightStyle.define([
   { tag: t.link, color: "var(--accent-magenta)" },
   { tag: t.url, color: "var(--fg-inactive)" },
   { tag: t.quote, color: "var(--fg-inactive)" },
-  { tag: t.monospace, color: "#d8c2ff", backgroundColor: "var(--bg-alternate)" },
+  // Inline `code` is the one place notes use a monospace face.
+  {
+    tag: t.monospace,
+    color: "#d8c2ff",
+    backgroundColor: "var(--bg-alternate)",
+    fontFamily: "var(--font-mono)",
+    fontSize: "0.9em",
+    borderRadius: "3px",
+    padding: "1px 3px",
+  },
   // Markdown punctuation (#, *, >, ``` …): visible in raw mode but quiet.
   { tag: [t.processingInstruction, t.meta, t.contentSeparator], color: "#6d4f80" },
   { tag: t.comment, color: "#6d4f80", fontStyle: "italic" },

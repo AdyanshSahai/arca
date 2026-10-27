@@ -29,7 +29,7 @@ function palette() {
     muted: v("--fg-inactive"),
     accent: v("--accent-magenta"),
     line: v("--line-strong"),
-    font: v("--font-mono") || "monospace",
+    font: v("--font-ui") || "sans-serif",
   };
 }
 
@@ -156,7 +156,7 @@ export function GraphPanel() {
 
   return (
     <div className="flex h-full flex-col">
-      <div className="flex h-8 shrink-0 items-center gap-3 border-b border-line px-3 font-mono text-[11px]">
+      <div className="flex h-8 shrink-0 items-center gap-3 border-b border-line px-3 text-[11px]">
         <Toggle on={!local} onClick={() => setLocal(false)} label="GLOBAL" />
         <Toggle on={local} onClick={() => setLocal(true)} label="LOCAL" disabled={!active} />
         {local && (

@@ -89,7 +89,7 @@ function TabButton({ tab, index, active }: { tab: Tab; index: number; active: bo
         }
       }}
       title={focused?.path ?? "Empty tab"}
-      className={`group relative flex max-w-52 min-w-24 shrink-0 cursor-default items-center gap-2 border-r border-line pr-1 pl-3 font-mono text-[11px] ${
+      className={`group relative flex max-w-52 min-w-24 shrink-0 cursor-default items-center gap-2 border-r border-line pr-1 pl-3 text-[11px] ${
         active ? "bg-void text-fg" : "text-muted hover:bg-hover"
       }`}
     >

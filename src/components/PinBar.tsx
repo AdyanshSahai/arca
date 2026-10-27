@@ -22,7 +22,7 @@ export function PinBar() {
     <div className="flex h-[26px] shrink-0 items-center gap-px border-b border-line bg-void px-2">
       <PinIcon size={11} className="mr-2 shrink-0 text-line-strong" />
       {pins.length === 0 && (
-        <span className="font-mono text-[11px] text-muted/50">no pins. Pin notes with +, folders from the tree</span>
+        <span className=" text-[11px] text-muted/50">no pins. Pin notes with +, folders from the tree</span>
       )}
       <div className="flex min-w-0 items-center gap-px overflow-x-auto [scrollbar-width:none]">
         {pins.map((pin, i) => (
@@ -58,7 +58,7 @@ function PinButton({ pin, index, onOpen, onRemove }: { pin: Pin; index: number; 
       }}
       // Alt+N hint only for the first nine.
       title={`${pin.path}${index < 9 ? `  (Alt+${index + 1})` : ""}\nRight-click to unpin`}
-      className="flex h-5 shrink-0 items-center gap-1.5 px-2 font-mono text-[11px] text-fg/80 hover:bg-hover hover:text-accent"
+      className="flex h-5 shrink-0 items-center gap-1.5 px-2 text-[11px] text-fg/80 hover:bg-hover hover:text-accent"
     >
       <Icon size={11} className={pin.kind === "folder" ? "text-muted" : "text-muted/80"} />
       <span className="max-w-36 truncate">{pin.label}</span>

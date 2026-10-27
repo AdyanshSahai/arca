@@ -196,7 +196,7 @@ export function Editor({ pane, path, focused }: Props) {
 
   if (buffer?.error) {
     return (
-      <div className="flex h-full items-center justify-center p-6 font-mono text-xs text-muted">
+      <div className="flex h-full items-center justify-center p-6 text-xs text-muted">
         Could not open {path}: {buffer.error}
       </div>
     );

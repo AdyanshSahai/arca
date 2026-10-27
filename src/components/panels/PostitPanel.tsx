@@ -52,7 +52,7 @@ export function PostitPanel() {
 
   return (
     <div className="flex h-full flex-col">
-      <div className="flex h-8 shrink-0 items-center gap-3 border-b border-line px-3 font-mono text-[11px]">
+      <div className="flex h-8 shrink-0 items-center gap-3 border-b border-line px-3 text-[11px]">
         <button onClick={() => setOnlyCurrent(false)} className={!onlyCurrent ? "text-accent" : "text-muted hover:text-fg"}>
           ALL · {all.length}
         </button>
@@ -75,7 +75,7 @@ export function PostitPanel() {
 
       <div className="min-h-0 flex-1 overflow-y-auto p-3">
         {shown.length === 0 && (
-          <p className="font-mono text-[11px] leading-relaxed text-muted/50">
+          <p className=" text-[11px] leading-relaxed text-muted/50">
             No post-its {onlyCurrent ? "in this note" : "yet"}. Put the cursor in a note and press Ctrl+Alt+P.
           </p>
         )}
@@ -153,7 +153,7 @@ function PostitCard({ entry }: { entry: PostItEntry }) {
           />
         ))}
         <div className="flex-1" />
-        <span className="font-mono text-[10px] text-muted/50">:{entry.line}</span>
+        <span className=" text-[10px] text-muted/50">:{entry.line}</span>
         <button
           onClick={() => useLayout.getState().openNote(entry.path, { line: entry.line })}
           title="Show in note"

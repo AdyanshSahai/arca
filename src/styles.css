@@ -11,6 +11,11 @@
    ========================================================================== */
 
 @import "tailwindcss";
+/* Fonts are bundled with the app (npm @fontsource) so Arca looks the same
+   offline and on machines without them installed. Inter is the interface
+   and note font; JetBrains Mono is used only inside code. */
+@import "@fontsource-variable/inter";
+@import "@fontsource-variable/jetbrains-mono";
 
 /* ---- 1. Palette --------------------------------------------------------- */
 :root {
@@ -36,8 +41,12 @@
   --postit-green: #9fdcb4;
   --postit-amber: #f0cf8a;
 
-  --font-ui: "Inter", "IBM Plex Sans", "Cantarell", system-ui, sans-serif;
-  --font-mono: "JetBrains Mono", "Iosevka", "Fira Code", "Cascadia Code", ui-monospace, "DejaVu Sans Mono", monospace;
+  --font-ui: "Inter Variable", "Inter", system-ui, sans-serif;
+  --font-mono: "JetBrains Mono Variable", "JetBrains Mono", ui-monospace, monospace;
+
+  /* Corner radii: small and consistent, so the UI reads crisp, not bubbly. */
+  --radius-sm: 4px;
+  --radius-md: 6px;
 
   color-scheme: dark;
 }
@@ -56,8 +65,6 @@
   --color-line-strong: var(--line-strong);
   --color-hover: var(--hover);
   --color-accent-soft: var(--accent-soft);
-  --font-ui: var(--font-ui);
-  --font-mono: var(--font-mono);
 }
 
 /* ---- 3. Base ----------------------------------------------------------- */
@@ -75,6 +82,8 @@ body {
   font-family: var(--font-ui);
   font-size: 13px;
   -webkit-font-smoothing: antialiased;
+  /* Inter's contextual alternates + tabular-ish digits for counters. */
+  font-feature-settings: "cv11", "ss01", "calt";
   /* Desktop-app feel: chrome text isn't selectable, editors opt back in. */
   user-select: none;
   -webkit-user-select: none;
@@ -117,11 +126,27 @@ textarea {
 
 /* Tiny uppercase section labels used across panels ("BACKLINKS · 3"). */
 .label {
-  font-family: var(--font-mono);
-  font-size: 10px;
-  letter-spacing: 0.08em;
+  font-size: 10.5px;
+  font-weight: 600;
+  letter-spacing: 0.07em;
   text-transform: uppercase;
   color: var(--fg-inactive);
+}
+
+/* Keyboard shortcut caps ("Ctrl", "P") in hints and the empty pane. */
+kbd {
+  display: inline-block;
+  min-width: 18px;
+  padding: 1px 5px;
+  border: 1px solid var(--line-strong);
+  border-bottom-width: 2px;
+  border-radius: var(--radius-sm);
+  background: var(--bg-button);
+  color: var(--fg-normal);
+  font-family: var(--font-ui);
+  font-size: 11px;
+  line-height: 16px;
+  text-align: center;
 }
 
 /* Highlighted characters in search results. */
@@ -140,28 +165,34 @@ mark {
 .cm-editor.cm-focused {
   outline: none;
 }
+/* Notes are prose: proportional font in both modes. Code gets mono below. */
 .cm-scroller {
+  font-family: var(--font-ui);
+}
+.cm-codeblock {
   font-family: var(--font-mono);
+  font-size: 0.9em;
 }
 
 /* Live preview: comfortable reading measure, centred. */
 .arca-live .cm-content {
-  max-width: 78ch;
+  max-width: 720px;
   margin: 0 auto;
-  padding: 28px 24px 40vh; /* bottom padding lets the last line scroll to mid-screen */
+  padding: 40px 32px 40vh; /* bottom padding lets the last line scroll to mid-screen */
 }
 .arca-raw .cm-content {
-  padding: 16px 0 40vh;
+  max-width: 820px;
+  margin: 0 auto;
+  padding: 24px 32px 40vh;
 }
 
 /* Headings scale only in live preview; raw mode stays a uniform grid. */
-.arca-live .cm-h1 { font-size: 1.7em; font-weight: 700; line-height: 1.5; }
-.arca-live .cm-h2 { font-size: 1.4em; font-weight: 700; line-height: 1.5; }
-.arca-live .cm-h3 { font-size: 1.2em; font-weight: 600; }
+.arca-live .cm-h1 { font-size: 2em; font-weight: 700; line-height: 1.35; letter-spacing: -0.02em; padding: 0 0 6px; }
+.arca-live .cm-h2 { font-size: 1.45em; font-weight: 650; line-height: 1.4; letter-spacing: -0.01em; padding-top: 14px; }
+.arca-live .cm-h3 { font-size: 1.2em; font-weight: 600; padding-top: 8px; }
 .arca-live .cm-h4,
 .arca-live .cm-h5,
 .arca-live .cm-h6 { font-weight: 600; }
-.arca-live .cm-h1 { border-bottom: 1px solid var(--line); padding-bottom: 2px; margin-bottom: 4px; }
 
 /* Blockquote lines in live preview get a left rule instead of ">" marks. */
 .arca-live .cm-quote {
@@ -206,7 +237,9 @@ mark {
 .cm-tag {
   color: var(--fg-inactive);
   background: var(--accent-soft);
-  padding: 0 3px;
+  padding: 1px 6px;
+  border-radius: 999px;
+  font-size: 0.88em;
   cursor: pointer;
 }
 
@@ -220,6 +253,7 @@ mark {
   height: 12px;
   margin: 0 6px 0 0;
   border: 1px solid var(--fg-inactive);
+  border-radius: 3px;
   vertical-align: -1px;
   cursor: pointer;
 }
@@ -240,7 +274,8 @@ mark {
    first/last lines close the frame. `--pc` carries the colour. */
 .cm-postit {
   --pc: var(--postit-purple);
-  background: color-mix(in srgb, var(--pc) 7%, transparent);
+  background: color-mix(in srgb, var(--pc) 8%, transparent);
+  padding-left: 14px !important;
   border-left: 3px solid var(--pc);
   border-right: 1px solid color-mix(in srgb, var(--pc) 25%, transparent);
 }
@@ -257,9 +292,14 @@ mark {
 .cm-postit-amber { --pc: var(--postit-amber); }
 
 /* Header widget that replaces the opening <!-- postit --> marker in live mode. */
+/* Inside a post-it the quote rule would double the frame, so it yields. */
+.arca-live .cm-postit.cm-quote {
+  border-left: 3px solid var(--pc);
+  color: var(--fg-normal);
+}
 .cm-postit-header {
-  font-family: var(--font-mono);
-  font-size: 10px;
+  font-size: 10.5px;
+  font-weight: 600;
   letter-spacing: 0.08em;
   text-transform: uppercase;
   color: var(--pc);
@@ -284,7 +324,10 @@ mark {
 .cm-tooltip.cm-tooltip-autocomplete {
   background: var(--bg-button);
   border: 1px solid var(--line-strong);
-  font-family: var(--font-mono);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  font-family: var(--font-ui);
+  box-shadow: 0 12px 32px rgb(0 0 0 / 0.45);
 }
 .cm-tooltip-autocomplete > ul > li[aria-selected] {
   background: var(--accent-magenta) !important;

@@ -36,7 +36,7 @@ export function ContextMenu({ menu, onClose }: { menu: MenuSpec; onClose: () => 
     <div
       ref={ref}
       style={{ left: x, top: y }}
-      className="fixed z-50 min-w-44 border border-line-strong bg-btn py-1 font-mono text-[12px] shadow-[4px_4px_0_0_rgb(0_0_0/0.5)]"
+      className="fixed z-50 min-w-44 border border-line-strong bg-btn py-1 text-[12px] shadow-[4px_4px_0_0_rgb(0_0_0/0.5)]"
     >
       {menu.items.map((item, i) =>
         item === null ? (
