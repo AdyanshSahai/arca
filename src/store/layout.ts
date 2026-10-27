@@ -1,0 +1,300 @@
+// Tabs and split panes, modelled on Konsole.
+//
+// Each top-bar *tab* owns a binary tree of *splits*. The leaves are *panes*,
+// and every pane shows one note in its own editor:
+//
+//   Tab ── split(row) ─┬─ pane A  (hardware/cpu.md)
+//                      └─ split(col) ─┬─ pane B  (index.md)
+//                                     └─ pane C  (index.md, raw mode)
+//
+// Ctrl+Shift+( splits the focused pane left/right ("row"), Ctrl+Shift+)
+// splits it top/bottom ("col"). As in Konsole, the new pane starts on the
+// same document. The tab's title follows its focused pane.
+
+import { create } from "zustand";
+import { remapPath, isWithin } from "../lib/paths";
+import { useBuffers } from "./buffers";
+
+export type EditorMode = "live" | "raw";
+export type SplitDir = "row" | "col";
+
+export interface Pane {
+  id: string;
+  /** Note shown in this pane, or null for an empty pane. */
+  path: string | null;
+  mode: EditorMode;
+  /** One-shot request to scroll to a 1-based line once the note is shown. */
+  reveal?: { line: number; nonce: number };
+}
+
+export type LayoutNode =
+  | { kind: "pane"; paneId: string }
+  | { kind: "split"; id: string; dir: SplitDir; ratio: number; a: LayoutNode; b: LayoutNode };
+
+export interface Tab {
+  id: string;
+  root: LayoutNode;
+  focusedPane: string;
+}
+
+interface LayoutState {
+  tabs: Tab[];
+  activeTab: string;
+  panes: Record<string, Pane>;
+
+  /** Opens a note in the focused pane, or in a new tab with `newTab`. */
+  openNote: (path: string, opts?: { newTab?: boolean; line?: number }) => void;
+  newTab: (path?: string | null) => void;
+  closeTab: (tabId: string) => void;
+  /** Ctrl+Tab / Ctrl+Shift+Tab. */
+  cycleTab: (delta: 1 | -1) => void;
+  activateTab: (tabId: string) => void;
+  /** Splits the focused pane of the active tab. */
+  split: (dir: SplitDir) => void;
+  /** Closes a pane; the sibling takes its place. Closing the last pane closes the tab. */
+  closePane: (paneId: string) => void;
+  focusPane: (paneId: string) => void;
+  setRatio: (splitId: string, ratio: number) => void;
+  toggleMode: (paneId: string) => void;
+  /** Updates every pane after a file or folder rename. */
+  remap: (from: string, to: string) => void;
+  /** Empties panes showing a deleted file (or anything in a deleted folder). */
+  forget: (path: string) => void;
+  /** Serializable snapshot for persistence. */
+  snapshot: () => LayoutSnapshot;
+  restore: (snap: LayoutSnapshot) => void;
+}
+
+export interface LayoutSnapshot {
+  tabs: Tab[];
+  activeTab: string;
+  panes: Record<string, Pane>;
+}
+
+/** Short random ids; collisions inside one session are practically impossible. */
+const uid = () => Math.random().toString(36).slice(2, 10);
+
+function makePane(path: string | null, mode: EditorMode = "live"): Pane {
+  return { id: uid(), path, mode };
+}
+
+/** Every pane id in a layout tree, in visual order (left/top first). */
+export function paneIds(node: LayoutNode): string[] {
+  return node.kind === "pane" ? [node.paneId] : [...paneIds(node.a), ...paneIds(node.b)];
+}
+
+/** Returns a copy of `node` with the leaf `paneId` replaced by `replacement`. */
+function replaceLeaf(node: LayoutNode, paneId: string, replacement: LayoutNode): LayoutNode {
+  if (node.kind === "pane") return node.paneId === paneId ? replacement : node;
+  return { ...node, a: replaceLeaf(node.a, paneId, replacement), b: replaceLeaf(node.b, paneId, replacement) };
+}
+
+/**
+ * Removes leaf `paneId`, letting its sibling take over the parent split.
+ * Returns null if the tree was just that leaf.
+ */
+function removeLeaf(node: LayoutNode, paneId: string): LayoutNode | null {
+  if (node.kind === "pane") return node.paneId === paneId ? null : node;
+  const a = removeLeaf(node.a, paneId);
+  const b = removeLeaf(node.b, paneId);
+  if (a === null) return b; // left side vanished: collapse to the right
+  if (b === null) return a;
+  return { ...node, a, b };
+}
+
+/** Copy of the tree with split `id` given a new ratio. */
+function withRatio(node: LayoutNode, id: string, ratio: number): LayoutNode {
+  if (node.kind === "pane") return node;
+  if (node.id === id) return { ...node, ratio };
+  return { ...node, a: withRatio(node.a, id, ratio), b: withRatio(node.b, id, ratio) };
+}
+
+export const useLayout = create<LayoutState>((set, get) => {
+  /** The tab currently shown. */
+  const active = () => get().tabs.find((t) => t.id === get().activeTab)!;
+
+  /** Replaces one tab in the list. */
+  const putTab = (tab: Tab) => set({ tabs: get().tabs.map((t) => (t.id === tab.id ? tab : t)) });
+
+  /** Keeps only the buffers some pane still shows (unsaved text is flushed first). */
+  const gcBuffers = () => {
+    const used = new Set(
+      Object.values(get().panes)
+        .map((p) => p.path)
+        .filter((p): p is string => p !== null),
+    );
+    useBuffers.getState().retainOnly(used);
+  };
+
+  // Start with one tab holding one empty pane.
+  const first = makePane(null);
+  const firstTab: Tab = { id: uid(), root: { kind: "pane", paneId: first.id }, focusedPane: first.id };
+
+  return {
+    tabs: [firstTab],
+    activeTab: firstTab.id,
+    panes: { [first.id]: first },
+
+    openNote: (path, opts) => {
+      if (opts?.newTab) {
+        get().newTab(path);
+      } else {
+        const paneId = active().focusedPane;
+        const pane = get().panes[paneId];
+        set({ panes: { ...get().panes, [paneId]: { ...pane, path } } });
+      }
+      void useBuffers.getState().ensure(path);
+      if (opts?.line) {
+        // The pane that just got the note is the focused one in the active tab.
+        const paneId = active().focusedPane;
+        const pane = get().panes[paneId];
+        set({ panes: { ...get().panes, [paneId]: { ...pane, reveal: { line: opts.line, nonce: Date.now() } } } });
+      }
+      gcBuffers();
+    },
+
+    newTab: (path = null) => {
+      const pane = makePane(path);
+      const tab: Tab = { id: uid(), root: { kind: "pane", paneId: pane.id }, focusedPane: pane.id };
+      // Insert right after the current tab, like browsers and Konsole.
+      const idx = get().tabs.findIndex((t) => t.id === get().activeTab);
+      const tabs = [...get().tabs];
+      tabs.splice(idx + 1, 0, tab);
+      set({ tabs, activeTab: tab.id, panes: { ...get().panes, [pane.id]: pane } });
+      if (path) void useBuffers.getState().ensure(path);
+    },
+
+    closeTab: (tabId) => {
+      const { tabs, panes } = get();
+      const idx = tabs.findIndex((t) => t.id === tabId);
+      if (idx === -1) return;
+      const nextPanes = { ...panes };
+      for (const id of paneIds(tabs[idx].root)) delete nextPanes[id];
+      const remaining = tabs.filter((t) => t.id !== tabId);
+      if (remaining.length === 0) {
+        // Never leave the window without a tab: replace with a fresh empty one.
+        const pane = makePane(null);
+        const tab: Tab = { id: uid(), root: { kind: "pane", paneId: pane.id }, focusedPane: pane.id };
+        set({ tabs: [tab], activeTab: tab.id, panes: { ...nextPanes, [pane.id]: pane } });
+      } else {
+        // Activate the neighbour that slid into the closed tab's slot.
+        const activeTab =
+          get().activeTab === tabId ? remaining[Math.min(idx, remaining.length - 1)].id : get().activeTab;
+        set({ tabs: remaining, activeTab, panes: nextPanes });
+      }
+      gcBuffers();
+    },
+
+    cycleTab: (delta) => {
+      const { tabs, activeTab } = get();
+      const idx = tabs.findIndex((t) => t.id === activeTab);
+      // `+ tabs.length` keeps the modulo positive when going backwards.
+      set({ activeTab: tabs[(idx + delta + tabs.length) % tabs.length].id });
+    },
+
+    activateTab: (activeTab) => set({ activeTab }),
+
+    split: (dir) => {
+      const tab = active();
+      const current = get().panes[tab.focusedPane];
+      const fresh = makePane(current.path, current.mode);
+      const node: LayoutNode = {
+        kind: "split",
+        id: uid(),
+        dir,
+        ratio: 0.5,
+        a: { kind: "pane", paneId: current.id },
+        b: { kind: "pane", paneId: fresh.id },
+      };
+      set({ panes: { ...get().panes, [fresh.id]: fresh } });
+      // Focus moves to the new pane, as in Konsole.
+      putTab({ ...tab, root: replaceLeaf(tab.root, current.id, node), focusedPane: fresh.id });
+    },
+
+    closePane: (paneId) => {
+      const tab = get().tabs.find((t) => paneIds(t.root).includes(paneId));
+      if (!tab) return;
+      const root = removeLeaf(tab.root, paneId);
+      if (root === null) {
+        get().closeTab(tab.id);
+        return;
+      }
+      const panes = { ...get().panes };
+      delete panes[paneId];
+      set({ panes });
+      const focusedPane = tab.focusedPane === paneId ? paneIds(root)[0] : tab.focusedPane;
+      putTab({ ...tab, root, focusedPane });
+      gcBuffers();
+    },
+
+    focusPane: (paneId) => {
+      const tab = get().tabs.find((t) => paneIds(t.root).includes(paneId));
+      if (tab && tab.focusedPane !== paneId) putTab({ ...tab, focusedPane: paneId });
+    },
+
+    setRatio: (splitId, ratio) => {
+      // Clamp so neither side can be dragged to nothing.
+      const r = Math.min(0.9, Math.max(0.1, ratio));
+      set({ tabs: get().tabs.map((t) => ({ ...t, root: withRatio(t.root, splitId, r) })) });
+    },
+
+    toggleMode: (paneId) => {
+      const pane = get().panes[paneId];
+      if (!pane) return;
+      set({ panes: { ...get().panes, [paneId]: { ...pane, mode: pane.mode === "live" ? "raw" : "live" } } });
+    },
+
+    remap: (from, to) => {
+      const panes = { ...get().panes };
+      for (const [id, pane] of Object.entries(panes)) {
+        const next = pane.path && remapPath(pane.path, from, to);
+        if (next) panes[id] = { ...pane, path: next };
+      }
+      set({ panes });
+    },
+
+    forget: (path) => {
+      const panes = { ...get().panes };
+      for (const [id, pane] of Object.entries(panes)) {
+        if (pane.path && isWithin(pane.path, path)) panes[id] = { ...pane, path: null };
+      }
+      set({ panes });
+      gcBuffers();
+    },
+
+    snapshot: () => {
+      const { tabs, activeTab, panes } = get();
+      // Drop one-shot reveal requests; they mean nothing after a restart.
+      const clean = Object.fromEntries(Object.entries(panes).map(([id, p]) => [id, { ...p, reveal: undefined }]));
+      return { tabs, activeTab, panes: clean };
+    },
+
+    restore: (snap) => {
+      // Basic sanity check: every pane referenced by a tab must exist.
+      const ok =
+        snap.tabs.length > 0 &&
+        snap.tabs.every((t) => paneIds(t.root).every((id) => snap.panes[id])) &&
+        snap.tabs.some((t) => t.id === snap.activeTab);
+      if (!ok) return;
+      set({ tabs: snap.tabs, activeTab: snap.activeTab, panes: snap.panes });
+      for (const pane of Object.values(snap.panes)) {
+        if (pane.path) void useBuffers.getState().ensure(pane.path);
+      }
+    },
+  };
+});
+
+/** The focused pane of the active tab (what the status bar, backlinks etc. follow). */
+export function useFocusedPane(): Pane | undefined {
+  return useLayout((s) => {
+    const tab = s.tabs.find((t) => t.id === s.activeTab);
+    return tab ? s.panes[tab.focusedPane] : undefined;
+  });
+}
+
+/** Non-hook variant for event handlers. */
+export function focusedPane(): Pane | undefined {
+  const s = useLayout.getState();
+  const tab = s.tabs.find((t) => t.id === s.activeTab);
+  return tab ? s.panes[tab.focusedPane] : undefined;
+}
