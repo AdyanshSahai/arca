@@ -1,0 +1,297 @@
+/* ==========================================================================
+   Arca global styles
+   --------------------------------------------------------------------------
+   1. TwilightPixel palette: the exact variables from the spec, plus a few
+      derived tones (borders, hover, post-it colours).
+   2. Tailwind v4 theme mapping, so utilities like `bg-void` or
+      `text-muted` resolve to the palette.
+   3. Base element styles (fonts, scrollbars, selection).
+   4. CodeMirror styles that are easier to express as plain CSS than as an
+      EditorView.theme() object (live-preview headings, post-it frames…).
+   ========================================================================== */
+
+@import "tailwindcss";
+
+/* ---- 1. Palette --------------------------------------------------------- */
+:root {
+  --bg-normal: #0a060d; /* Deep void background */
+  --bg-alternate: #0e0521; /* Slightly lighter purple tint */
+  --bg-button: #180d2b; /* Button / Header normal */
+  --fg-normal: #ecf5ff; /* Crisp light-blue text */
+  --fg-inactive: #bc8bca; /* Soft lavender for muted text */
+  --selection-bg: #bc8bca; /* Selection highlight */
+  --selection-fg: #0a060d; /* Dark text on selection */
+  --accent-magenta: #ffbfff; /* Vibrant neon accent */
+
+  /* Derived tones (not in the spec, built from it). */
+  --line: #24153b; /* hairline borders between regions */
+  --line-strong: #3b2559; /* focused borders, split handles on hover */
+  --hover: #1d1133; /* row / button hover */
+  --accent-soft: rgb(255 191 255 / 0.12); /* tinted backgrounds for active items */
+
+  /* Post-it colours; the `color=` attribute picks one. */
+  --postit-purple: #bc8bca;
+  --postit-magenta: #ffbfff;
+  --postit-blue: #9db8ff;
+  --postit-green: #9fdcb4;
+  --postit-amber: #f0cf8a;
+
+  --font-ui: "Inter", "IBM Plex Sans", "Cantarell", system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", "Iosevka", "Fira Code", "Cascadia Code", ui-monospace, "DejaVu Sans Mono", monospace;
+
+  color-scheme: dark;
+}
+
+/* ---- 2. Tailwind theme mapping ---------------------------------------- */
+/* `inline` makes utilities reference the variables directly, so changing a
+   variable at runtime re-themes everything. */
+@theme inline {
+  --color-void: var(--bg-normal);
+  --color-alt: var(--bg-alternate);
+  --color-btn: var(--bg-button);
+  --color-fg: var(--fg-normal);
+  --color-muted: var(--fg-inactive);
+  --color-accent: var(--accent-magenta);
+  --color-line: var(--line);
+  --color-line-strong: var(--line-strong);
+  --color-hover: var(--hover);
+  --color-accent-soft: var(--accent-soft);
+  --font-ui: var(--font-ui);
+  --font-mono: var(--font-mono);
+}
+
+/* ---- 3. Base ----------------------------------------------------------- */
+html,
+body,
+#root {
+  height: 100%;
+  margin: 0;
+  overflow: hidden; /* the app manages its own scroll regions */
+}
+
+body {
+  background: var(--bg-normal);
+  color: var(--fg-normal);
+  font-family: var(--font-ui);
+  font-size: 13px;
+  -webkit-font-smoothing: antialiased;
+  /* Desktop-app feel: chrome text isn't selectable, editors opt back in. */
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+::selection {
+  background: var(--selection-bg);
+  color: var(--selection-fg);
+}
+
+/* Thin, square scrollbars that match the palette (WebKitGTK honours these). */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: var(--line-strong);
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--fg-inactive);
+}
+::-webkit-scrollbar-corner {
+  background: transparent;
+}
+
+input,
+textarea {
+  user-select: text;
+  -webkit-user-select: text;
+}
+
+/* Keyboard focus ring: a 1px accent outline, no glow. */
+:focus-visible {
+  outline: 1px solid var(--accent-magenta);
+  outline-offset: -1px;
+}
+
+/* Tiny uppercase section labels used across panels ("BACKLINKS · 3"). */
+.label {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--fg-inactive);
+}
+
+/* Highlighted characters in search results. */
+mark {
+  background: none;
+  color: var(--accent-magenta);
+  font-weight: 600;
+}
+
+/* ---- 4. CodeMirror ----------------------------------------------------- */
+.cm-editor {
+  height: 100%;
+  user-select: text;
+  -webkit-user-select: text;
+}
+.cm-editor.cm-focused {
+  outline: none;
+}
+.cm-scroller {
+  font-family: var(--font-mono);
+}
+
+/* Live preview: comfortable reading measure, centred. */
+.arca-live .cm-content {
+  max-width: 78ch;
+  margin: 0 auto;
+  padding: 28px 24px 40vh; /* bottom padding lets the last line scroll to mid-screen */
+}
+.arca-raw .cm-content {
+  padding: 16px 0 40vh;
+}
+
+/* Headings scale only in live preview; raw mode stays a uniform grid. */
+.arca-live .cm-h1 { font-size: 1.7em; font-weight: 700; line-height: 1.5; }
+.arca-live .cm-h2 { font-size: 1.4em; font-weight: 700; line-height: 1.5; }
+.arca-live .cm-h3 { font-size: 1.2em; font-weight: 600; }
+.arca-live .cm-h4,
+.arca-live .cm-h5,
+.arca-live .cm-h6 { font-weight: 600; }
+.arca-live .cm-h1 { border-bottom: 1px solid var(--line); padding-bottom: 2px; margin-bottom: 4px; }
+
+/* Blockquote lines in live preview get a left rule instead of ">" marks. */
+.arca-live .cm-quote {
+  border-left: 2px solid var(--line-strong);
+  padding-left: 12px !important;
+  color: var(--fg-inactive);
+}
+
+/* Fenced code: a tinted block across the full line width. */
+.cm-codeblock {
+  background: var(--bg-alternate);
+}
+.arca-live .cm-codeblock {
+  padding-left: 12px !important;
+}
+
+/* [[WikiLinks]]: raw-mode text and live-mode chip. */
+.cm-wikilink {
+  color: var(--accent-magenta);
+  text-decoration: underline;
+  text-decoration-color: rgb(255 191 255 / 0.35);
+  text-underline-offset: 3px;
+}
+.cm-wikilink-chip {
+  color: var(--accent-magenta);
+  cursor: pointer;
+  border-bottom: 1px dashed rgb(255 191 255 / 0.5);
+}
+.cm-wikilink-chip:hover {
+  background: var(--accent-soft);
+}
+.cm-wikilink-chip.is-missing {
+  color: var(--fg-inactive);
+  border-bottom-color: var(--line-strong);
+}
+.cm-wikilink-chip.is-external::after {
+  content: "↗";
+  font-size: 0.75em;
+  margin-left: 2px;
+  opacity: 0.7;
+}
+.cm-tag {
+  color: var(--fg-inactive);
+  background: var(--accent-soft);
+  padding: 0 3px;
+  cursor: pointer;
+}
+
+/* Live preview list bullets and task checkboxes. */
+.cm-bullet {
+  color: var(--accent-magenta);
+}
+.cm-task {
+  appearance: none;
+  width: 12px;
+  height: 12px;
+  margin: 0 6px 0 0;
+  border: 1px solid var(--fg-inactive);
+  vertical-align: -1px;
+  cursor: pointer;
+}
+.cm-task:checked {
+  background: var(--accent-magenta);
+  border-color: var(--accent-magenta);
+  box-shadow: inset 0 0 0 2px var(--bg-normal);
+}
+.cm-hr {
+  display: inline-block;
+  width: 100%;
+  border-top: 1px solid var(--line-strong);
+  vertical-align: middle;
+}
+
+/* ---- Post-its inside the editor --------------------------------------- */
+/* Every line of a post-it block gets `cm-postit` plus a colour class; the
+   first/last lines close the frame. `--pc` carries the colour. */
+.cm-postit {
+  --pc: var(--postit-purple);
+  background: color-mix(in srgb, var(--pc) 7%, transparent);
+  border-left: 3px solid var(--pc);
+  border-right: 1px solid color-mix(in srgb, var(--pc) 25%, transparent);
+}
+.cm-postit-first {
+  border-top: 1px solid color-mix(in srgb, var(--pc) 25%, transparent);
+}
+.cm-postit-last {
+  border-bottom: 1px solid color-mix(in srgb, var(--pc) 25%, transparent);
+}
+.cm-postit-purple { --pc: var(--postit-purple); }
+.cm-postit-magenta { --pc: var(--postit-magenta); }
+.cm-postit-blue { --pc: var(--postit-blue); }
+.cm-postit-green { --pc: var(--postit-green); }
+.cm-postit-amber { --pc: var(--postit-amber); }
+
+/* Header widget that replaces the opening <!-- postit --> marker in live mode. */
+.cm-postit-header {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--pc);
+  cursor: pointer;
+}
+.cm-postit-header:hover {
+  text-decoration: underline;
+}
+.cm-postit-marker {
+  color: color-mix(in srgb, var(--pc) 60%, transparent);
+}
+
+/* Folded region placeholder ("…"). */
+.cm-foldPlaceholder {
+  background: var(--accent-soft) !important;
+  border: none !important;
+  color: var(--accent-magenta) !important;
+  padding: 0 6px !important;
+}
+
+/* Autocomplete popup for [[ links. */
+.cm-tooltip.cm-tooltip-autocomplete {
+  background: var(--bg-button);
+  border: 1px solid var(--line-strong);
+  font-family: var(--font-mono);
+}
+.cm-tooltip-autocomplete > ul > li[aria-selected] {
+  background: var(--accent-magenta) !important;
+  color: var(--bg-normal) !important;
+}
+.cm-completionDetail {
+  color: var(--fg-inactive);
+  font-style: normal !important;
+  margin-left: 1em;
+}
