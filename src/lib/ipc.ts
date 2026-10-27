@@ -56,6 +56,19 @@ export const ipc = {
   followLink: (target: string, from: string) => invoke<LinkTarget>("follow_link", { target, from }),
   openInDefaultApp: (path: string) => invoke<void>("open_in_default_app", { path }),
 
+  // --- attachments ---
+  /**
+   * Saves raw bytes (a pasted image) as an attachment of `note`. Sent as a
+   * binary body, not JSON; the strings travel percent-encoded in headers.
+   * Returns the asset's vault-relative path.
+   */
+  saveAttachment: (note: string, name: string, bytes: Uint8Array) =>
+    invoke<string>("save_attachment", bytes, {
+      headers: { "x-arca-note": encodeURIComponent(note), "x-arca-name": encodeURIComponent(name) },
+    }),
+  /** Copies a file from anywhere on disk into the note's .assets/ folder. */
+  importAttachment: (note: string, source: string) => invoke<string>("import_attachment", { note, source }),
+
   // --- export ---
   /** Returns how many notes were written to `dest`. */
   exportNotes: (scope: string, format: "html" | "markdown", dest: string, open: boolean) =>

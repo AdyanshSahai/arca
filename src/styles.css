@@ -447,3 +447,15 @@ mark {
 .cm-table tr:nth-child(even) td { background: color-mix(in srgb, var(--bg-alternate) 60%, transparent); }
 .cm-table td:hover,
 .cm-table th:hover { outline: 1px solid var(--accent-magenta); outline-offset: -1px; }
+
+/* Images and rendered markdown links in live preview. */
+.cm-image {
+  display: block;
+  max-width: 100%;
+  max-height: 480px;
+  margin: 6px 0;
+  border-radius: 6px;
+  cursor: pointer;
+}
+.cm-image-missing { color: var(--fg-inactive); font-size: 0.9em; }
+.cm-md-link { color: var(--accent-magenta); cursor: pointer; text-decoration: underline; text-decoration-color: rgb(255 191 255 / 0.35); text-underline-offset: 3px; }

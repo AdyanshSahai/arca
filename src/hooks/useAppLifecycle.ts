@@ -6,7 +6,10 @@
 //   - shutdown: flush unsaved notes before the window closes.
 
 import { listen } from "@tauri-apps/api/event";
+import { getCurrentWebview } from "@tauri-apps/api/webview";
 import { getCurrentWindow } from "@tauri-apps/api/window";
+import { editorRegistry } from "../editor/registry";
+import { attachDroppedFiles } from "../lib/attachments";
 import { useEffect, useState } from "react";
 import { ipc } from "../lib/ipc";
 import { useBuffers } from "../store/buffers";
@@ -75,6 +78,35 @@ export function useVaultEvents() {
     return () => {
       void unlisten.then((off) => off());
       window.removeEventListener("arca:files-created", onCreated);
+    };
+  }, []);
+}
+
+/**
+ * Files dropped from the file manager onto an editor become attachments of
+ * that note, inserted where they were dropped. Tauri delivers OS drops as
+ * native events with file paths (the webview never sees the files).
+ */
+export function useFileDrops() {
+  useEffect(() => {
+    const off = getCurrentWebview().onDragDropEvent(async (event) => {
+      if (event.payload.type !== "drop" || event.payload.paths.length === 0) return;
+      // Native positions are physical pixels; the DOM uses CSS pixels.
+      const x = event.payload.position.x / window.devicePixelRatio;
+      const y = event.payload.position.y / window.devicePixelRatio;
+      const paneEl = document.elementFromPoint(x, y)?.closest<HTMLElement>("[data-pane-id]");
+      const paneId = paneEl?.dataset.paneId;
+      const pane = paneId ? useLayout.getState().panes[paneId] : undefined;
+      const view = paneId ? editorRegistry.get(paneId) : undefined;
+      if (!pane?.path || !view) {
+        useUi.getState().toast("Drop files onto an open note to attach them");
+        return;
+      }
+      const pos = view.posAtCoords({ x, y }) ?? view.state.selection.main.head;
+      await attachDroppedFiles(view, pane.path, event.payload.paths, pos);
+    });
+    return () => {
+      void off.then((f) => f());
     };
   }, []);
 }

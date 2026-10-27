@@ -16,7 +16,9 @@ tauri-build = { version = "2", features = [] }
 
 [dependencies]
 arca-core = { path = "../crates/arca-core" }
-tauri = { version = "2", features = [] }
+# protocol-asset: lets the webview show images stored in the vault
+# (scoped at runtime to the open vault only; see open_vault).
+tauri = { version = "2", features = ["protocol-asset"] }
 # Native "pick a vault folder" dialog.
 tauri-plugin-dialog = "2"
 # Opening URLs and local files (PDF textbooks…) with the system's default app.

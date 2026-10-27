@@ -147,8 +147,19 @@ function build(view: EditorView): DecorationSet {
           const url = link.getChild("URL");
           if (!url || isActive(node)) return; // not an inline link, or being edited
           // Hide every "[", "]", "(", ")" mark and the URL itself.
-          for (const mark of link.getChildren("LinkMark")) out.push(hide.range(mark.from, mark.to));
+          const marks = link.getChildren("LinkMark");
+          for (const mark of marks) out.push(hide.range(mark.from, mark.to));
           out.push(hide.range(url.from, url.to));
+          // The visible text (between "[" and "]") becomes clickable; the
+          // click handler in wikilinks.ts follows `data-href`.
+          if (marks.length >= 2 && marks[1].from > marks[0].to) {
+            out.push(
+              Decoration.mark({ class: "cm-md-link", attributes: { "data-href": state.sliceDoc(url.from, url.to) } }).range(
+                marks[0].to,
+                marks[1].from,
+              ),
+            );
+          }
           const title = link.getChild("LinkTitle");
           if (title) out.push(hide.range(title.from, title.to));
           return;

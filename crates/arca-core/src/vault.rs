@@ -35,6 +35,29 @@ use crate::error::{CoreError, Result};
 /// being destroyed, so a misclick is always recoverable.
 pub const TRASH_DIR: &str = ".trash";
 
+/// Per-folder directory for attachments (pasted images, dropped files).
+/// It sits next to the notes that use it, so links stay short
+/// (`.assets/diagram.png`) and move with the chapter. Being hidden, it
+/// stays out of the tree.
+pub const ASSETS_DIR: &str = ".assets";
+
+/// Turns an arbitrary file name into a safe, link-friendly one: path parts
+/// are dropped, spaces become dashes, and anything unusual is removed.
+pub fn sanitize_file_name(name: &str) -> String {
+    let base = name.rsplit(['/', '\\']).next().unwrap_or(name);
+    let mut out = String::with_capacity(base.len());
+    for c in base.chars() {
+        if c.is_alphanumeric() || matches!(c, '.' | '-' | '_') {
+            out.push(c);
+        } else if !out.ends_with('-') {
+            out.push('-'); // spaces and symbols collapse into one dash
+        }
+    }
+    // "photo-.png" → "photo.png": no dash right before the extension.
+    let out = out.replace("-.", ".").trim_matches(|c| c == '-' || c == '.').to_string();
+    if out.is_empty() { "file".to_string() } else { out }
+}
+
 /// File extensions treated as notes.
 const NOTE_EXTENSIONS: &[&str] = &["md", "markdown"];
 
@@ -385,6 +408,31 @@ impl Vault {
         Ok(())
     }
 
+    /// Saves an attachment for the note at `note_rel` into the note's folder's
+    /// `.assets/` directory and returns the asset's vault-relative path. An
+    /// existing file is never overwritten: `name.png` becomes `name-1.png`…
+    pub fn save_asset(&self, note_rel: &str, file_name: &str, bytes: &[u8]) -> Result<String> {
+        let dir = crate::links::parent_dir(note_rel);
+        let assets = if dir.is_empty() { ASSETS_DIR.to_string() } else { format!("{dir}/{ASSETS_DIR}") };
+        let name = sanitize_file_name(file_name);
+        let (stem, ext) = match name.rsplit_once('.') {
+            Some((s, e)) if !s.is_empty() => (s.to_string(), format!(".{e}")),
+            _ => (name.clone(), String::new()),
+        };
+        let abs_dir = self.resolve(&assets)?;
+        self.ensure_parent_inside(&abs_dir.join("x"))?;
+        fs::create_dir_all(&abs_dir)?;
+        // First free name: stem.ext, stem-1.ext, stem-2.ext…
+        let mut candidate = name.clone();
+        let mut n = 1;
+        while abs_dir.join(&candidate).exists() {
+            candidate = format!("{stem}-{n}{ext}");
+            n += 1;
+        }
+        fs::write(abs_dir.join(&candidate), bytes)?;
+        Ok(format!("{assets}/{candidate}"))
+    }
+
     /// "Deletes" a file or folder by moving it into `.trash/`, prefixed with a
     /// timestamp so repeated deletions of the same name never collide.
     ///
@@ -500,6 +548,20 @@ mod tests {
         assert!(tree.children.iter().all(|c| c.name != "books.md"));
         assert!(tree.children.iter().any(|c| c.name == "index.md"));
         assert_eq!(default_folder_note("a/hardware"), "a/hardware/hardware.md");
+    }
+
+    #[test]
+    fn assets_are_saved_beside_the_note_without_overwriting() {
+        let (_d, v) = vault();
+        assert_eq!(sanitize_file_name("../My Diagram (v2).PNG"), "My-Diagram-v2.PNG");
+        let a = v.save_asset("hw/cpu.md", "pic.png", b"one").unwrap();
+        let b = v.save_asset("hw/cpu.md", "pic.png", b"two").unwrap();
+        assert_eq!(a, "hw/.assets/pic.png");
+        assert_eq!(b, "hw/.assets/pic-1.png");
+        assert_eq!(fs::read(v.root().join(&a)).unwrap(), b"one");
+        assert_eq!(v.save_asset("root.md", "x y.pdf", b"").unwrap(), ".assets/x-y.pdf");
+        // Hidden: never listed in the tree.
+        assert!(v.tree().unwrap().children.iter().all(|c| c.name != ".assets"));
     }
 
     #[test]

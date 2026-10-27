@@ -21,7 +21,7 @@ import { Toolbar } from "./components/Toolbar";
 import { Toasts } from "./components/Toasts";
 import { Welcome } from "./components/Welcome";
 import { WorkArea } from "./components/layout/WorkArea";
-import { useBootstrap, usePersistence, useVaultEvents } from "./hooks/useAppLifecycle";
+import { useBootstrap, useFileDrops, usePersistence, useVaultEvents } from "./hooks/useAppLifecycle";
 import { useKeybindings } from "./hooks/useKeybindings";
 import { useUi } from "./store/ui";
 import { useVault } from "./store/vault";
@@ -31,6 +31,7 @@ export function App() {
   useKeybindings();
   useVaultEvents();
   usePersistence();
+  useFileDrops();
 
   const info = useVault((s) => s.info);
   // In full-view mode the drawer takes over the work area.

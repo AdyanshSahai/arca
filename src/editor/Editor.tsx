@@ -20,6 +20,7 @@ import { Annotation, Compartment, EditorSelection, EditorState } from "@codemirr
 import { drawSelection, EditorView, highlightActiveLine, keymap, placeholder } from "@codemirror/view";
 import { useEffect, useMemo, useRef } from "react";
 import { followLink } from "../lib/actions";
+import { assetUrl, handlePaste } from "../lib/attachments";
 import { NoteIndex } from "../lib/links";
 import { useBuffers } from "../store/buffers";
 import type { EditorMode, Pane } from "../store/layout";
@@ -64,6 +65,7 @@ export function Editor({ pane, path, focused }: Props) {
 
   const buffer = useBuffers((s) => s.buffers[path]);
   const notes = useVault((s) => s.notes);
+  const vaultRoot = useVault((s) => s.info?.root ?? "");
 
   // The link context changes whenever the vault's note list does.
   const linkCtx = useMemo(
@@ -72,8 +74,10 @@ export function Editor({ pane, path, focused }: Props) {
       noteList: notes,
       follow: (target: string) => void followLink(target, path),
       searchTag: (tag: string) => useUi.getState().requestSearch("topic", `#${tag}`),
+      notePath: path,
+      assetUrl: (src: string) => assetUrl(vaultRoot, path, src),
     }),
-    [notes, path],
+    [notes, path, vaultRoot],
   );
 
   // Keep the latest `focused` flag in a ref for the update listener below,
@@ -127,6 +131,10 @@ export function Editor({ pane, path, focused }: Props) {
         richBlocks,
         ctxComp.of(linkContext.of(linkCtx)),
         modeComp.of(modeExtensions(pane.mode)),
+        // Pasting images saves them as attachments (lib/attachments.ts).
+        EditorView.domEventHandlers({
+          paste: (event, view) => handlePaste(view, path, event),
+        }),
         // Push edits into the shared buffer and report cursor info.
         EditorView.updateListener.of((u) => {
           if (u.docChanged && !u.transactions.some((tr) => tr.annotation(External))) {

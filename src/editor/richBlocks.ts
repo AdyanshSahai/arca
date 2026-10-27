@@ -8,6 +8,7 @@
 //   $$ … $$  (own lines)       → display KaTeX block
 //   ```rust … ```              → code box: language picker + copy button
 //   | a | b | …                → rendered <table>; click a cell to edit it
+//   ![alt](.assets/pic.png)    → the image itself
 //
 // Inline things (callouts, inline math, code headers) are ViewPlugins.
 // Things that replace whole lines (display math, tables) must come from a
@@ -26,7 +27,7 @@ import {
 import katex from "katex";
 import { activeLines } from "./activeLines";
 import { parseTable, type ParsedTable } from "./tables";
-import { livePreviewOn } from "./wikilinks";
+import { linkContext, livePreviewOn } from "./wikilinks";
 
 // ---------------------------------------------------------------------------
 // Shared helpers
@@ -190,6 +191,70 @@ function buildInlineMath(view: EditorView): DecorationSet {
       }
       pos = line.to + 1;
     }
+  }
+  return Decoration.set(out, true);
+}
+
+// ---------------------------------------------------------------------------
+// Images: ![alt](src)
+// ---------------------------------------------------------------------------
+
+class ImageWidget extends WidgetType {
+  constructor(
+    readonly url: string,
+    readonly alt: string,
+    readonly pos: number,
+  ) {
+    super();
+  }
+  eq(o: ImageWidget) {
+    return o.url === this.url && o.alt === this.alt && o.pos === this.pos;
+  }
+  toDOM(view: EditorView) {
+    const img = document.createElement("img");
+    img.className = "cm-image";
+    img.src = this.url;
+    img.alt = this.alt;
+    img.title = "Click to edit the link";
+    img.addEventListener("mousedown", (e) => {
+      e.preventDefault();
+      view.dispatch({ selection: EditorSelection.cursor(this.pos) });
+      view.focus();
+    });
+    // A broken link shows its alt text instead of a broken-image icon.
+    img.addEventListener("error", () => img.replaceWith(Object.assign(document.createElement("span"), {
+      className: "cm-image-missing",
+      textContent: `⚠ missing image: ${this.alt || this.url}`,
+    })));
+    return img;
+  }
+  ignoreEvent() {
+    return true;
+  }
+}
+
+function buildImages(view: EditorView): DecorationSet {
+  const { state } = view;
+  const ctx = state.facet(linkContext);
+  if (!ctx) return Decoration.none;
+  const active = activeLines(state);
+  const out: Range<Decoration>[] = [];
+  for (const { from, to } of view.visibleRanges) {
+    syntaxTree(state).iterate({
+      from,
+      to,
+      enter: (node) => {
+        if (node.name !== "Image") return;
+        const url = node.node.getChild("URL");
+        if (!url || active.has(state.doc.lineAt(node.from).number)) return false;
+        const marks = node.node.getChildren("LinkMark");
+        // Alt text sits between "![" and "]".
+        const alt = marks.length >= 2 ? state.sliceDoc(marks[0].to, marks[1].from) : "";
+        const src = ctx.assetUrl(state.sliceDoc(url.from, url.to));
+        out.push(Decoration.replace({ widget: new ImageWidget(src, alt, node.from) }).range(node.from, node.to));
+        return false;
+      },
+    });
   }
   return Decoration.set(out, true);
 }
@@ -452,7 +517,12 @@ function inlinePlugin(build: (view: EditorView) => DecorationSet) {
 }
 
 /** Live-preview-only rich rendering. Include inside the live mode compartment. */
-export const richLive = [inlinePlugin(buildCallouts), inlinePlugin(buildInlineMath), inlinePlugin(buildCodeHeaders)];
+export const richLive = [
+  inlinePlugin(buildCallouts),
+  inlinePlugin(buildInlineMath),
+  inlinePlugin(buildCodeHeaders),
+  inlinePlugin(buildImages),
+];
 
 /**
  * The block field checks the live-preview facet itself (it returns nothing

@@ -36,6 +36,10 @@ export interface LinkContext {
   follow: (target: string) => void;
   /** Runs a topic search for a tag (without "#"). */
   searchTag: (tag: string) => void;
+  /** Vault-relative path of the note being edited. */
+  notePath: string;
+  /** Loadable URL for an image `src` written in this note. */
+  assetUrl: (src: string) => string;
 }
 
 /** Provided once per editor; the last provided value wins. */
@@ -179,11 +183,26 @@ const clickHandler = EditorView.domEventHandlers({
       ctx.follow(chip.dataset.target);
       return true;
     }
+    // Rendered [text](url) links follow on a plain click, like chips.
+    const rendered = el.closest<HTMLElement>(".cm-md-link[data-href]");
+    if (rendered?.dataset.href) {
+      event.preventDefault();
+      ctx.follow(decodeURI(rendered.dataset.href));
+      return true;
+    }
     if (!(event.ctrlKey || event.metaKey)) return false;
     const mark = el.closest<HTMLElement>("[data-target]");
     if (mark?.dataset.target) {
       event.preventDefault();
       ctx.follow(mark.dataset.target);
+      return true;
+    }
+    // [text](url) links rendered by live preview (see livePreview.ts):
+    // web links, local files (attachments) and relative note links.
+    const href = el.closest<HTMLElement>("[data-href]");
+    if (href?.dataset.href) {
+      event.preventDefault();
+      ctx.follow(decodeURI(href.dataset.href));
       return true;
     }
     const tag = el.closest<HTMLElement>("[data-tag]");

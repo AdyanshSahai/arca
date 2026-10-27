@@ -16,7 +16,7 @@ use arca_core::vault::TreeNode;
 use arca_core::workspace::{Backlink, Graph, LinkTarget, NoteInfo, PostItEntry, TagCount};
 use arca_core::Workspace;
 use serde::Serialize;
-use tauri::{AppHandle, State};
+use tauri::{AppHandle, Manager, State};
 use tauri_plugin_opener::OpenerExt;
 
 use crate::error::{CmdError, CmdResult};
@@ -77,6 +77,11 @@ pub async fn open_vault(app: AppHandle, state: State<'_, AppState>, path: String
     // refresh the new workspace with paths from the old one.
     *state.watcher.lock().unwrap_or_else(|e| e.into_inner()) = None;
     *state.lock_ws() = Some(ws);
+    // Let the webview load images from this vault (and only this vault)
+    // through the asset protocol; nothing is allowed statically.
+    app.asset_protocol_scope()
+        .allow_directory(&root, true)
+        .map_err(|e| CmdError(format!("cannot allow vault assets: {e}")))?;
     let w = watcher::start(app, &root).map_err(|e| CmdError(format!("cannot watch vault: {e}")))?;
     *state.watcher.lock().unwrap_or_else(|e| e.into_inner()) = Some(w);
 
@@ -247,6 +252,70 @@ pub async fn open_in_default_app(app: AppHandle, state: State<'_, AppState>, pat
     app.opener()
         .open_path(abs.to_string_lossy(), None::<&str>)?;
     Ok(())
+}
+
+// ----------------------------------------------------------------------
+// Attachments
+// ----------------------------------------------------------------------
+
+/// Decodes a percent-encoded header value (the frontend uses
+/// encodeURIComponent, because HTTP-style headers must be ASCII).
+fn percent_decode(s: &str) -> String {
+    let bytes = s.as_bytes();
+    let mut out = Vec::with_capacity(bytes.len());
+    let mut i = 0;
+    while i < bytes.len() {
+        // "%XX" needs two more characters after the "%". Header values are
+        // ASCII (to_str checked that), so byte slicing is safe here.
+        if bytes[i] == b'%' && i + 2 < bytes.len() {
+            if let Ok(b) = u8::from_str_radix(&s[i + 1..i + 3], 16) {
+                out.push(b);
+                i += 3;
+                continue;
+            }
+        }
+        out.push(bytes[i]);
+        i += 1;
+    }
+    String::from_utf8_lossy(&out).into_owned()
+}
+
+/// Saves pasted bytes (e.g. a clipboard image) as an attachment of a note.
+/// The body is raw binary, not JSON; the note path and file name arrive in
+/// the `x-arca-note` / `x-arca-name` headers. Returns the asset's
+/// vault-relative path.
+#[tauri::command]
+pub async fn save_attachment(state: State<'_, AppState>, request: tauri::ipc::Request<'_>) -> CmdResult<String> {
+    let tauri::ipc::InvokeBody::Raw(bytes) = request.body() else {
+        return Err(CmdError("expected raw bytes".into()));
+    };
+    let header = |name: &str| {
+        request
+            .headers()
+            .get(name)
+            .and_then(|v| v.to_str().ok())
+            .map(percent_decode)
+            .ok_or_else(|| CmdError(format!("missing {name} header")))
+    };
+    let note = header("x-arca-note")?;
+    let name = header("x-arca-name")?;
+    state.with_ws(|ws| Ok(ws.vault().save_asset(&note, &name, bytes)?))
+}
+
+/// Copies a file from anywhere on disk (dropped onto the editor) into the
+/// note's `.assets/` folder. The source is only read, never moved.
+#[tauri::command]
+pub async fn import_attachment(state: State<'_, AppState>, note: String, source: String) -> CmdResult<String> {
+    let src = PathBuf::from(&source);
+    let name = src
+        .file_name()
+        .map(|n| n.to_string_lossy().into_owned())
+        .ok_or_else(|| CmdError(format!("not a file: {source}")))?;
+    if !src.is_file() {
+        return Err(CmdError(format!("only files can be attached: {source}")));
+    }
+    let bytes = std::fs::read(&src)?;
+    state.with_ws(|ws| Ok(ws.vault().save_asset(&note, &name, &bytes)?))
 }
 
 // ----------------------------------------------------------------------
