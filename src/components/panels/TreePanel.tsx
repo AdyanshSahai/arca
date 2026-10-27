@@ -9,9 +9,18 @@
 // - Folders are dual-purpose: clicking the name opens the folder's own
 //   note (written on first keystroke if it doesn't exist yet), and the
 //   arrow expands or collapses its children.
+//
+// Built for deep hierarchies (10+ levels): the visible rows are flattened
+// into one list, indentation tightens past level 6, faint guide lines mark
+// each level, and folders show how many entries they hold. Keyboard (when
+// the tree has focus):
+//   ↑ / ↓      move           →  expand, or step into the first child
+//   ← collapse, or jump to the parent folder
+//   Enter      open           Space  toggle folder / open note
+//   Home / End first / last row
 
 import { ChevronRight, FilePlus, FileText, Folder, FolderMinus, FolderOpen, FolderPlus, Paperclip } from "lucide-react";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { errorMessage, ipc } from "../../lib/ipc";
 import { scrollWithin } from "../../lib/scroll";
 import { baseName, defaultFolderNote, dirName, isTextPath, isWithin, joinPath } from "../../lib/paths";
@@ -31,6 +40,44 @@ function ancestors(path: string): string[] {
 /** MIME-ish key for our drag payload, so foreign drops are ignored. */
 const DND_TYPE = "application/x-arca-path";
 
+/**
+ * Left offset (px) of a row at `depth`: 16px per level for the first six,
+ * then 8px per level, so a note 12 levels down still has room for its name.
+ */
+function indentOf(depth: number): number {
+  return depth <= 6 ? depth * 16 : 96 + (depth - 6) * 8;
+}
+
+/** One visible row of the flattened tree. */
+interface FlatRow {
+  node: TreeNode;
+  depth: number;
+  /** Path of the parent folder ("" for top-level rows). */
+  parent: string;
+}
+
+/** Depth-first list of the rows currently visible (expanded folders only). */
+function flatten(nodes: TreeNode[], expanded: Set<string>, depth = 0, parent = "", out: FlatRow[] = []): FlatRow[] {
+  for (const node of nodes) {
+    out.push({ node, depth, parent });
+    if (node.isDir && expanded.has(node.path)) flatten(node.children, expanded, depth + 1, node.path, out);
+  }
+  return out;
+}
+
+/** What clicking a row (or pressing Enter on it) does. */
+function activate(node: TreeNode, newTab: boolean) {
+  if (node.isDir) {
+    const note = node.notePath ?? defaultFolderNote(node.path);
+    useLayout.getState().openNote(note, { newTab, create: !node.notePath });
+  } else if (node.isNote || isTextPath(node.path)) {
+    // Notes and plain-text files open in the editor; anything else in its own app.
+    useLayout.getState().openNote(node.path, { newTab });
+  } else {
+    ipc.openInDefaultApp(node.path).catch((err) => useUi.getState().toast(errorMessage(err), "error"));
+  }
+}
+
 export function TreePanel() {
   const tree = useVault((s) => s.tree);
   const activePath = useFocusedPane()?.path ?? null;
@@ -38,6 +85,11 @@ export function TreePanel() {
   const [menu, setMenu] = useState<MenuSpec | null>(null);
   /** Folder currently highlighted as a drop target. */
   const [dropTarget, setDropTarget] = useState<string | null>(null);
+  /** Keyboard cursor: the row arrow keys act on (separate from the open note). */
+  const [cursor, setCursor] = useState<string | null>(null);
+  const scroller = useRef<HTMLDivElement>(null);
+
+  const rows = useMemo(() => (tree ? flatten(tree.children, expanded) : []), [tree, expanded]);
 
   const expand = useCallback((paths: string[]) => {
     setExpanded((prev) => new Set([...prev, ...paths]));
@@ -80,6 +132,55 @@ export function TreePanel() {
     if (to === from || isWithin(toDir, from)) return;
     await useVault.getState().moveEntry(from, to);
     expand([toDir]);
+  };
+
+  /** Moves the keyboard cursor to a row and keeps it visible. */
+  const moveCursor = (path: string) => {
+    setCursor(path);
+    requestAnimationFrame(() => {
+      const el = scroller.current?.querySelector<HTMLElement>(`[data-tree-path="${CSS.escape(path)}"]`);
+      if (el && scroller.current) scrollWithin(scroller.current, el);
+    });
+  };
+
+  const onKeyDown = (e: React.KeyboardEvent) => {
+    if (rows.length === 0) return;
+    const idx = Math.max(0, rows.findIndex((r) => r.node.path === cursor));
+    const row = rows[idx];
+    const isOpen = row.node.isDir && expanded.has(row.node.path);
+    let handled = true;
+    switch (e.key) {
+      case "ArrowDown":
+        moveCursor(rows[Math.min(idx + 1, rows.length - 1)].node.path);
+        break;
+      case "ArrowUp":
+        moveCursor(rows[Math.max(idx - 1, 0)].node.path);
+        break;
+      case "ArrowRight":
+        if (row.node.isDir && !isOpen) toggle(row.node.path);
+        else if (isOpen && row.node.children.length > 0) moveCursor(row.node.children[0].path);
+        break;
+      case "ArrowLeft":
+        if (isOpen) toggle(row.node.path);
+        else if (row.parent) moveCursor(row.parent);
+        break;
+      case "Home":
+        moveCursor(rows[0].node.path);
+        break;
+      case "End":
+        moveCursor(rows[rows.length - 1].node.path);
+        break;
+      case "Enter":
+        activate(row.node, e.ctrlKey || e.metaKey);
+        break;
+      case " ":
+        if (row.node.isDir) toggle(row.node.path);
+        else activate(row.node, false);
+        break;
+      default:
+        handled = false;
+    }
+    if (handled) e.preventDefault();
   };
 
   const openMenu = (e: React.MouseEvent, node: TreeNode | null) => {
@@ -125,8 +226,14 @@ export function TreePanel() {
         </IconButton>
       </div>
       <div
+        ref={scroller}
         data-tree-scroll
-        className={`min-h-0 flex-1 overflow-y-auto px-2 py-2 ${dropTarget === "" ? "bg-accent-soft" : ""}`}
+        // Focusable so arrow keys work; `group/tree` lets rows style the
+        // keyboard cursor only while the tree itself has focus.
+        tabIndex={0}
+        onKeyDown={onKeyDown}
+        onFocus={() => !cursor && rows[0] && setCursor(activePath && rows.some((r) => r.node.path === activePath) ? activePath : rows[0].node.path)}
+        className={`group/tree min-h-0 flex-1 overflow-x-hidden overflow-y-auto px-2 py-2 outline-none ${dropTarget === "" ? "bg-accent-soft" : ""}`}
         onContextMenu={(e) => openMenu(e, null)}
         // Dropping on empty space below the rows = move to the vault root.
         onDragOver={(e) => {
@@ -145,15 +252,20 @@ export function TreePanel() {
         {tree.children.length === 0 && (
           <p className="px-3 py-3 text-[12px] text-muted/60">Empty vault. Right-click to create a note.</p>
         )}
-        {tree.children.map((child) => (
+        {rows.map(({ node, depth }) => (
           <Row
-            key={child.path}
-            node={child}
-            depth={0}
-            expanded={expanded}
+            key={node.path}
+            node={node}
+            depth={depth}
+            isOpen={expanded.has(node.path)}
             activePath={activePath}
+            isCursor={cursor === node.path}
             dropTarget={dropTarget}
             onToggle={toggle}
+            onSelect={(open) => {
+              setCursor(node.path);
+              if (open && node.isDir && !expanded.has(node.path)) toggle(node.path);
+            }}
             onMenu={openMenu}
             onDropTarget={setDropTarget}
             onMove={move}
@@ -168,113 +280,118 @@ export function TreePanel() {
 interface RowProps {
   node: TreeNode;
   depth: number;
-  expanded: Set<string>;
+  isOpen: boolean;
   activePath: string | null;
+  /** Row holds the keyboard cursor. */
+  isCursor: boolean;
   dropTarget: string | null;
   onToggle: (path: string) => void;
+  /** Click on the row: move the cursor there (and expand folders being opened). */
+  onSelect: (opening: boolean) => void;
   onMenu: (e: React.MouseEvent, node: TreeNode) => void;
   onDropTarget: (path: string | null) => void;
   onMove: (from: string, toDir: string) => void;
 }
 
 function Row(props: RowProps) {
-  const { node, depth, expanded, activePath, dropTarget, onToggle, onMenu, onDropTarget, onMove } = props;
-  const isOpen = expanded.has(node.path);
+  const { node, depth, isOpen, activePath, isCursor, dropTarget, onToggle, onSelect, onMenu, onDropTarget, onMove } = props;
   // A folder's page: its existing note, or where a new one would go.
   const folderNote = node.isDir ? (node.notePath ?? defaultFolderNote(node.path)) : null;
   const isActive = node.isDir ? folderNote === activePath : node.path === activePath;
 
   const onClick = (e: React.MouseEvent) => {
-    const newTab = e.ctrlKey || e.metaKey || e.button === 1;
-    if (node.isDir) {
-      // Opening a folder's page also reveals its children.
-      if (!isOpen) onToggle(node.path);
-      useLayout.getState().openNote(folderNote!, { newTab, create: !node.notePath });
-      return;
-    }
-    // Notes and plain-text files open in the editor; anything else in its own app.
-    if (node.isNote || isTextPath(node.path)) {
-      useLayout.getState().openNote(node.path, { newTab: e.ctrlKey || e.metaKey || e.button === 1 });
-    } else {
-      ipc.openInDefaultApp(node.path).catch((err) => useUi.getState().toast(errorMessage(err), "error"));
-    }
+    // Opening a folder's page also reveals its children.
+    onSelect(true);
+    activate(node, e.ctrlKey || e.metaKey || e.button === 1);
   };
 
   return (
-    <>
-      <div
-        data-tree-path={node.path}
-        draggable
-        onDragStart={(e) => {
-          e.dataTransfer.setData(DND_TYPE, node.path);
-          e.dataTransfer.effectAllowed = "move";
-        }}
-        onDragOver={(e) => {
-          // Only folders accept drops; stop the root container from claiming it.
-          if (node.isDir && e.dataTransfer.types.includes(DND_TYPE)) {
-            e.preventDefault();
-            e.stopPropagation();
-            onDropTarget(node.path);
-          }
-        }}
-        onDrop={(e) => {
-          if (!node.isDir) return;
+    <div
+      data-tree-path={node.path}
+      draggable
+      onDragStart={(e) => {
+        e.dataTransfer.setData(DND_TYPE, node.path);
+        e.dataTransfer.effectAllowed = "move";
+      }}
+      onDragOver={(e) => {
+        // Only folders accept drops; stop the root container from claiming it.
+        if (node.isDir && e.dataTransfer.types.includes(DND_TYPE)) {
           e.preventDefault();
           e.stopPropagation();
-          onDropTarget(null);
-          const from = e.dataTransfer.getData(DND_TYPE);
-          if (from) onMove(from, node.path);
-        }}
-        onClick={onClick}
-        onAuxClick={(e) => e.button === 1 && onClick(e)}
-        onContextMenu={(e) => onMenu(e, node)}
-        // Indent 12px per level; the base 8px aligns with the panel header.
-        style={{ paddingLeft: 8 + depth * 16 }}
-        className={`relative flex h-[30px] cursor-default items-center gap-2 rounded-md pr-2 text-[13.5px] transition-colors ${
-          isActive ? "bg-accent-soft text-accent" : "text-fg/85 hover:bg-hover"
-        } ${dropTarget === node.path ? "outline outline-1 -outline-offset-1 outline-accent" : ""}`}
-      >
-        {node.isDir ? (
-          // The arrow only toggles; it never opens the folder's note.
-          <span
-            role="button"
-            title={isOpen ? "Collapse" : "Expand"}
-            onClick={(e) => {
-              e.stopPropagation();
-              onToggle(node.path);
-            }}
-            className="-my-1 -ml-1 flex h-6 w-5 shrink-0 items-center justify-center rounded hover:bg-btn"
-          >
-            <ChevronRight size={13} className={`text-muted/70 transition-transform ${isOpen ? "rotate-90" : ""}`} />
-          </span>
-        ) : (
-          // Same width as the folder arrow (20px − 4px negative margin).
-          <span className="w-4 shrink-0" />
-        )}
-        {/* Folder / note / other-file icon. */}
-        {node.isDir ? (
-          isOpen ? (
-            <FolderOpen size={15} className="shrink-0 text-accent/75" />
-          ) : (
-            <Folder size={15} className="shrink-0 text-accent/75" />
-          )
-        ) : node.isNote || isTextPath(node.path) ? (
-          <FileText size={15} className={`shrink-0 ${isActive ? "text-accent" : "text-muted/70"}`} />
-        ) : (
-          <Paperclip size={15} className="shrink-0 text-muted/45" />
-        )}
+          onDropTarget(node.path);
+        }
+      }}
+      onDrop={(e) => {
+        if (!node.isDir) return;
+        e.preventDefault();
+        e.stopPropagation();
+        onDropTarget(null);
+        const from = e.dataTransfer.getData(DND_TYPE);
+        if (from) onMove(from, node.path);
+      }}
+      onClick={onClick}
+      onAuxClick={(e) => e.button === 1 && onClick(e)}
+      onContextMenu={(e) => onMenu(e, node)}
+      // 8px base padding aligns the first level with the panel header.
+      style={{ paddingLeft: 8 + indentOf(depth) }}
+      className={`relative flex h-[30px] min-w-0 cursor-default items-center gap-2 rounded-md pr-2 text-[13.5px] transition-colors ${
+        isActive ? "bg-accent-soft text-accent" : "text-fg/85 hover:bg-hover"
+      } ${dropTarget === node.path ? "outline outline-1 -outline-offset-1 outline-accent" : ""} ${
+        // Keyboard cursor ring, only while the tree has focus.
+        isCursor ? "group-focus/tree:shadow-[inset_0_0_0_1px_var(--fg-inactive)]" : ""
+      }`}
+    >
+      {/* Indent guides: one faint vertical line per ancestor level, centred
+          under that level's arrow. */}
+      {Array.from({ length: depth }, (_, level) => (
         <span
-          className={`truncate ${node.isDir ? "font-medium text-fg/90" : node.isNote ? "" : isTextPath(node.path) ? "text-fg/70" : "text-fg/45"}`}
-          // Folders with written text get a subtle hint in the tooltip.
-          title={node.isDir ? (node.notePath ? `Open ${node.notePath}` : "Click to write this chapter's overview") : undefined}
+          key={level}
+          aria-hidden
+          className="pointer-events-none absolute inset-y-0 w-px bg-line"
+          style={{ left: 8 + indentOf(level) + 6 }}
+        />
+      ))}
+      {node.isDir ? (
+        // The arrow only toggles; it never opens the folder's note.
+        <span
+          role="button"
+          title={isOpen ? "Collapse" : "Expand"}
+          onClick={(e) => {
+            e.stopPropagation();
+            onToggle(node.path);
+          }}
+          className="-my-1 -ml-1 flex h-6 w-5 shrink-0 items-center justify-center rounded hover:bg-btn"
         >
-          {/* Notes drop the ".md"; other files keep their extension so the type is clear. */}
-          {node.isNote ? node.name.replace(/\.(md|markdown)$/i, "") : node.name}
+          <ChevronRight size={13} className={`text-muted/70 transition-transform ${isOpen ? "rotate-90" : ""}`} />
         </span>
-      </div>
-      {node.isDir &&
-        isOpen &&
-        node.children.map((child) => <Row key={child.path} {...props} node={child} depth={depth + 1} />)}
-    </>
+      ) : (
+        // Same width as the folder arrow (20px − 4px negative margin).
+        <span className="w-4 shrink-0" />
+      )}
+      {/* Folder / note / other-file icon. */}
+      {node.isDir ? (
+        isOpen ? (
+          <FolderOpen size={15} className="shrink-0 text-accent/75" />
+        ) : (
+          <Folder size={15} className="shrink-0 text-accent/75" />
+        )
+      ) : node.isNote || isTextPath(node.path) ? (
+        <FileText size={15} className={`shrink-0 ${isActive ? "text-accent" : "text-muted/70"}`} />
+      ) : (
+        <Paperclip size={15} className="shrink-0 text-muted/45" />
+      )}
+      <span
+        className={`min-w-0 flex-1 truncate ${node.isDir ? "font-medium text-fg/90" : node.isNote ? "" : isTextPath(node.path) ? "text-fg/70" : "text-fg/45"}`}
+        // Full path on hover, since deep rows may be truncated.
+        title={node.isDir ? (node.notePath ? `${node.path}  (has an overview page)` : `${node.path}  (click to write an overview)`) : node.path}
+      >
+        {/* Notes drop the ".md"; other files keep their extension so the type is clear. */}
+        {node.isNote ? node.name.replace(/\.(md|markdown)$/i, "") : node.name}
+      </span>
+      {/* Child count on folders, so collapsed chapters still say how big they are. */}
+      {node.isDir && node.children.length > 0 && (
+        <span className="shrink-0 rounded px-1.5 text-[11px] text-muted/55 tabular-nums">{node.children.length}</span>
+      )}
+    </div>
   );
 }
