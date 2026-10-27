@@ -49,6 +49,8 @@ interface UiState {
    * mode is asked for twice in a row.
    */
   searchRequest: { mode: SearchMode; query?: string; nonce: number } | null;
+  /** Text files whose "convert to Markdown?" notice was dismissed this session. */
+  dismissedTextNotices: Set<string>;
 
   /** Opens a panel; opening the one already shown closes the drawer. */
   togglePanel: (panel: PanelId) => void;
@@ -60,6 +62,7 @@ interface UiState {
   toast: (text: string, tone?: Toast["tone"]) => void;
   dismissToast: (id: number) => void;
   requestSearch: (mode: SearchMode, query?: string) => void;
+  dismissTextNotice: (path: string) => void;
 }
 
 /** Monotonic id source for toasts. */
@@ -71,6 +74,7 @@ export const useUi = create<UiState>((set, get) => ({
   dialog: null,
   toasts: [],
   searchRequest: null,
+  dismissedTextNotices: new Set(),
 
   togglePanel: (panel) => set({ panel: get().panel === panel ? null : panel }),
   showPanel: (panel) => set({ panel }),
@@ -89,4 +93,6 @@ export const useUi = create<UiState>((set, get) => ({
 
   requestSearch: (mode, query) =>
     set({ panel: "search", searchRequest: { mode, query, nonce: Date.now() } }),
+  // A new Set each time so zustand subscribers see the change.
+  dismissTextNotice: (path) => set({ dismissedTextNotices: new Set(get().dismissedTextNotices).add(path) }),
 }));

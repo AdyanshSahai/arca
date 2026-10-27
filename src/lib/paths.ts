@@ -29,6 +29,11 @@ export function isNotePath(path: string): boolean {
   return /\.(md|markdown)$/i.test(path);
 }
 
+/** Plain-text files Arca opens in its editor (mirrors TEXT_EXTENSIONS in vault.rs). */
+export function isTextPath(path: string): boolean {
+  return /\.(txt|text)$/i.test(path);
+}
+
 /**
  * Rewrites `path` after `from` was renamed to `to`. Covers both the entry
  * itself and anything inside it when it was a folder. Returns `null` if

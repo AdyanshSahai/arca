@@ -5,6 +5,7 @@
 import { ChevronRight, Columns2, FilePlus, Rows2, Search, X } from "lucide-react";
 import { Editor } from "../../editor/Editor";
 import { openFolder } from "../../lib/actions";
+import { isTextPath } from "../../lib/paths";
 import { useBuffers } from "../../store/buffers";
 import { type EditorMode, useLayout } from "../../store/layout";
 import { useUi } from "../../store/ui";
@@ -101,13 +102,46 @@ export function PaneView({ paneId, focused }: { paneId: string; focused: boolean
           </IconButton>
         </div>
       </div>
-      <div className="min-h-0 flex-1">
+      <div className="relative min-h-0 flex-1">
+        {pane.path && isTextPath(pane.path) && <TextFileNotice path={pane.path} />}
         {pane.path ? (
           // Keyed by path: a different note gets a fresh editor (own history).
           <Editor key={pane.path} pane={pane} path={pane.path} focused={focused} />
         ) : (
           <EmptyPane />
         )}
+      </div>
+    </div>
+  );
+}
+
+/**
+ * Small notice floating at the bottom of a pane showing a .txt file. It
+ * offers to convert the file to Markdown (a rename to .md) and can be closed
+ * with its ×; closing it hides it for that file until the app restarts.
+ */
+function TextFileNotice({ path }: { path: string }) {
+  const dismissed = useUi((s) => s.dismissedTextNotices.has(path));
+  if (dismissed) return null;
+  const convert = () => void useVault.getState().moveEntry(path, path.replace(/\.(txt|text)$/i, ".md"));
+  return (
+    <div className="pointer-events-none absolute inset-x-0 bottom-4 z-10 flex justify-center px-4">
+      <div className="pointer-events-auto flex items-center gap-3 rounded-lg border border-line-strong bg-btn/95 py-1.5 pr-1.5 pl-3.5 text-[12px] shadow-[0_8px_24px_rgb(0_0_0/0.45)] backdrop-blur">
+        <span className="text-fg/75">This is a plain text file.</span>
+        <button
+          onClick={convert}
+          className="rounded-md px-2 py-1 font-medium text-accent transition-colors hover:bg-accent-soft"
+        >
+          Convert to Markdown
+        </button>
+        <button
+          onClick={() => useUi.getState().dismissTextNotice(path)}
+          title="Dismiss"
+          aria-label="Dismiss"
+          className="flex h-7 w-7 items-center justify-center rounded-md text-muted transition-colors hover:bg-hover hover:text-fg"
+        >
+          <X size={15} />
+        </button>
       </div>
     </div>
   );

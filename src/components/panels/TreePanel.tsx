@@ -14,7 +14,7 @@ import { ChevronRight, FilePlus, FileText, Folder, FolderMinus, FolderOpen, Fold
 import { useCallback, useEffect, useState } from "react";
 import { errorMessage, ipc } from "../../lib/ipc";
 import { scrollWithin } from "../../lib/scroll";
-import { baseName, defaultFolderNote, dirName, isWithin, joinPath } from "../../lib/paths";
+import { baseName, defaultFolderNote, dirName, isTextPath, isWithin, joinPath } from "../../lib/paths";
 import type { TreeNode } from "../../lib/types";
 import { useFocusedPane, useLayout } from "../../store/layout";
 import { useUi } from "../../store/ui";
@@ -192,7 +192,8 @@ function Row(props: RowProps) {
       useLayout.getState().openNote(folderNote!, { newTab, create: !node.notePath });
       return;
     }
-    if (node.isNote) {
+    // Notes and plain-text files open in the editor; anything else in its own app.
+    if (node.isNote || isTextPath(node.path)) {
       useLayout.getState().openNote(node.path, { newTab: e.ctrlKey || e.metaKey || e.button === 1 });
     } else {
       ipc.openInDefaultApp(node.path).catch((err) => useUi.getState().toast(errorMessage(err), "error"));
@@ -257,13 +258,13 @@ function Row(props: RowProps) {
           ) : (
             <Folder size={15} className="shrink-0 text-accent/75" />
           )
-        ) : node.isNote ? (
+        ) : node.isNote || isTextPath(node.path) ? (
           <FileText size={15} className={`shrink-0 ${isActive ? "text-accent" : "text-muted/70"}`} />
         ) : (
           <Paperclip size={15} className="shrink-0 text-muted/45" />
         )}
         <span
-          className={`truncate ${node.isDir ? "font-medium text-fg/90" : node.isNote ? "" : "text-fg/45"}`}
+          className={`truncate ${node.isDir ? "font-medium text-fg/90" : node.isNote ? "" : isTextPath(node.path) ? "text-fg/70" : "text-fg/45"}`}
           // Folders with written text get a subtle hint in the tooltip.
           title={node.isDir ? (node.notePath ? `Open ${node.notePath}` : "Click to write this chapter's overview") : undefined}
         >

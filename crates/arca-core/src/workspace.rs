@@ -18,7 +18,7 @@ use crate::error::{CoreError, Result};
 use crate::links::{self, LinkKind, Resolver, TagRef, WikiLink};
 use crate::postit::{self, PostIt};
 use crate::search::{self, FileHit, IndexDoc, SearchIndex, TextHit, TopicKind};
-use crate::vault::{is_note_path, TreeNode, Vault};
+use crate::vault::{is_note_path, is_text_path, TreeNode, Vault};
 
 /// Cached facts about one note, rebuilt whenever its file changes.
 #[derive(Debug, Clone)]
@@ -238,11 +238,19 @@ impl Workspace {
     }
 
     /// Saves a note and updates its index entry straight away.
+    ///
+    /// Plain-text files (`.txt`) can be saved too, but aren't indexed. Notes
+    /// inside hidden folders (e.g. `.arca/templates/`) are saved without
+    /// being indexed, so they never show up in search or the graph.
     pub fn write_note(&mut self, rel: &str, content: &str) -> Result<()> {
-        if !is_note_path(Path::new(rel)) {
+        let path = Path::new(rel);
+        if !is_note_path(path) && !is_text_path(path) {
             return Err(CoreError::InvalidName(rel.to_string()));
         }
         self.vault.write_note(rel, content)?;
+        if !is_note_path(path) || Vault::is_hidden_rel(rel) {
+            return Ok(());
+        }
         let is_new = !self.notes.contains_key(rel);
         self.ingest(rel, content)?;
         if is_new {
@@ -600,6 +608,19 @@ mod tests {
         let (_d, mut ws) = workspace();
         ws.create_note("hardware/Missing Note").unwrap();
         assert!(ws.graph().nodes.iter().all(|n| !n.ghost));
+    }
+
+    #[test]
+    fn text_files_save_but_are_not_indexed() {
+        let (_d, mut ws) = workspace();
+        ws.write_note("refs/notes.txt", "plain registers text").unwrap();
+        assert_eq!(ws.read_note("refs/notes.txt").unwrap(), "plain registers text");
+        assert!(ws.notes().iter().all(|n| n.path != "refs/notes.txt"));
+        // Hidden-folder notes are saved but stay out of the index.
+        ws.write_note(".arca/templates/t.md", "# T").unwrap();
+        assert!(ws.notes().iter().all(|n| !n.path.starts_with(".arca")));
+        // Anything else is still refused.
+        assert!(ws.write_note("bin/tool.sh", "x").is_err());
     }
 
     #[test]

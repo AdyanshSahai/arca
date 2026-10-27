@@ -71,6 +71,18 @@ pub struct Vault {
     root: PathBuf,
 }
 
+/// Plain-text extensions that Arca can open and edit like notes. They are
+/// not indexed or linked; the UI offers to convert them to Markdown.
+const TEXT_EXTENSIONS: &[&str] = &["txt", "text"];
+
+/// Returns `true` for plain-text files ([`TEXT_EXTENSIONS`]).
+pub fn is_text_path(path: &Path) -> bool {
+    path.extension()
+        .and_then(|e| e.to_str())
+        .map(|e| TEXT_EXTENSIONS.iter().any(|n| e.eq_ignore_ascii_case(n)))
+        .unwrap_or(false)
+}
+
 /// Returns `true` if a path has one of the [`NOTE_EXTENSIONS`].
 pub fn is_note_path(path: &Path) -> bool {
     path.extension()
