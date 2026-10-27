@@ -42,8 +42,12 @@ interface LayoutState {
   activeTab: string;
   panes: Record<string, Pane>;
 
-  /** Opens a note in the focused pane, or in a new tab with `newTab`. */
-  openNote: (path: string, opts?: { newTab?: boolean; line?: number }) => void;
+  /**
+   * Opens a note in the focused pane, or in a new tab with `newTab`.
+   * `create` allows a path that doesn't exist yet (folder notes); the file
+   * is written on the first keystroke.
+   */
+  openNote: (path: string, opts?: { newTab?: boolean; line?: number; create?: boolean }) => void;
   newTab: (path?: string | null) => void;
   closeTab: (tabId: string) => void;
   /** Ctrl+Tab / Ctrl+Shift+Tab. */
@@ -143,7 +147,7 @@ export const useLayout = create<LayoutState>((set, get) => {
         const pane = get().panes[paneId];
         set({ panes: { ...get().panes, [paneId]: { ...pane, path } } });
       }
-      void useBuffers.getState().ensure(path);
+      void useBuffers.getState().ensure(path, { allowMissing: opts?.create });
       if (opts?.line) {
         // The pane that just got the note is the focused one in the active tab.
         const paneId = active().focusedPane;

@@ -40,6 +40,14 @@ export function remapPath(path: string, from: string, to: string): string | null
   return null;
 }
 
+/**
+ * Where a new folder note for `dir` is created: "a/hardware" →
+ * "a/hardware/hardware.md". Mirrors `default_folder_note` in vault.rs.
+ */
+export function defaultFolderNote(dir: string): string {
+  return `${dir}/${baseName(dir)}.md`;
+}
+
 /** True if `path` is `dir` itself or lives anywhere under it. */
 export function isWithin(path: string, dir: string): boolean {
   return path === dir || path.startsWith(dir + "/");

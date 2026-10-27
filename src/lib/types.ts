@@ -10,6 +10,11 @@ export interface TreeNode {
   isDir: boolean;
   isNote: boolean;
   children: TreeNode[];
+  /**
+   * Folders only: the folder's own note (hardware/hardware.md,
+   * hardware/index.md, or hardware.md beside it), or null if it has none.
+   */
+  notePath: string | null;
 }
 
 export interface NoteInfo {

@@ -20,6 +20,11 @@ export interface Buffer {
   loaded: boolean;
   error?: string;
   /**
+   * The file doesn't exist yet: an unwritten folder note. It is created on
+   * the first save, so merely opening a folder never leaves an empty file.
+   */
+  missing?: boolean;
+  /**
    * Bumped whenever content changes from *outside* the editor (disk reload,
    * post-it edited from the sidebar). Editors watch this to know they must
    * replace their document instead of treating it as their own keystroke.
@@ -29,8 +34,12 @@ export interface Buffer {
 
 interface BufferState {
   buffers: Record<string, Buffer>;
-  /** Reads a note from disk unless it is already loaded. */
-  ensure: (path: string) => Promise<void>;
+  /**
+   * Reads a note from disk unless it is already loaded. With
+   * `allowMissing`, a file that doesn't exist yet opens as an empty
+   * `missing` buffer instead of an error.
+   */
+  ensure: (path: string, opts?: { allowMissing?: boolean }) => Promise<void>;
   /** Called by editors on every change; schedules an autosave. */
   edit: (path: string, content: string) => void;
   /** Replaces content from outside the editor (e.g. a sidebar post-it edit). */
@@ -60,8 +69,10 @@ export const useBuffers = create<BufferState>((set, get) => {
   return {
     buffers: {},
 
-    ensure: async (path) => {
-      if (get().buffers[path]) return;
+    ensure: async (path, opts) => {
+      const existing = get().buffers[path];
+      // Retry a previous "not found" if this caller is allowed to create it.
+      if (existing && !(opts?.allowMissing && existing.error)) return;
       // Placeholder first, so concurrent callers don't read the file twice.
       set({
         buffers: {
@@ -73,7 +84,13 @@ export const useBuffers = create<BufferState>((set, get) => {
         const text = await ipc.readNote(path);
         patch(path, { content: text, saved: text, loaded: true, externalRev: 1 });
       } catch (err) {
-        patch(path, { loaded: true, error: errorMessage(err) });
+        const message = errorMessage(err);
+        // arca-core reports absent files as "not found: <path>".
+        if (opts?.allowMissing && message.startsWith("not found")) {
+          patch(path, { content: "", saved: "", loaded: true, missing: true, error: undefined, externalRev: 1 });
+        } else {
+          patch(path, { loaded: true, error: message });
+        }
       }
     },
 
@@ -105,7 +122,10 @@ export const useBuffers = create<BufferState>((set, get) => {
       try {
         await ipc.writeNote(path, content);
         // Only mark what we actually wrote as saved: typing may have continued.
-        patch(path, { saved: content });
+        patch(path, { saved: content, missing: false });
+        // A brand-new file (first save of a folder note) changes the tree.
+        // The watcher ignores our own writes, so announce it ourselves.
+        if (buf.missing) window.dispatchEvent(new Event("arca:files-created"));
       } catch (err) {
         useUi.getState().toast(`Save failed: ${errorMessage(err)}`, "error");
       }

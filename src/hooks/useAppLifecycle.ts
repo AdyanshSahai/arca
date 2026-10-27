@@ -69,8 +69,12 @@ export function useVaultEvents() {
         if (buffers.buffers[p]) await buffers.reloadFromDisk(p);
       }
     });
+    // First save of a new folder note: refresh so the tree picks it up.
+    const onCreated = () => void useVault.getState().refresh();
+    window.addEventListener("arca:files-created", onCreated);
     return () => {
       void unlisten.then((off) => off());
+      window.removeEventListener("arca:files-created", onCreated);
     };
   }, []);
 }

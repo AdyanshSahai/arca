@@ -6,11 +6,14 @@
 // - Drag an entry onto a folder (or the empty area below the tree, which
 //   means the vault root) to move it.
 // - The note in the focused pane is highlighted and its folders expanded.
+// - Folders are dual-purpose: clicking the name opens the folder's own
+//   note (written on first keystroke if it doesn't exist yet), and the
+//   arrow expands or collapses its children.
 
 import { ChevronRight, FilePlus, FileText, Folder, FolderMinus, FolderOpen, FolderPlus, Paperclip } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import { errorMessage, ipc } from "../../lib/ipc";
-import { baseName, dirName, isWithin, joinPath } from "../../lib/paths";
+import { baseName, defaultFolderNote, dirName, isWithin, joinPath } from "../../lib/paths";
 import type { TreeNode } from "../../lib/types";
 import { useFocusedPane, useLayout } from "../../store/layout";
 import { useUi } from "../../store/ui";
@@ -172,10 +175,18 @@ interface RowProps {
 function Row(props: RowProps) {
   const { node, depth, expanded, activePath, dropTarget, onToggle, onMenu, onDropTarget, onMove } = props;
   const isOpen = expanded.has(node.path);
-  const isActive = node.path === activePath;
+  // A folder's page: its existing note, or where a new one would go.
+  const folderNote = node.isDir ? (node.notePath ?? defaultFolderNote(node.path)) : null;
+  const isActive = node.isDir ? folderNote === activePath : node.path === activePath;
 
   const onClick = (e: React.MouseEvent) => {
-    if (node.isDir) return onToggle(node.path);
+    const newTab = e.ctrlKey || e.metaKey || e.button === 1;
+    if (node.isDir) {
+      // Opening a folder's page also reveals its children.
+      if (!isOpen) onToggle(node.path);
+      useLayout.getState().openNote(folderNote!, { newTab, create: !node.notePath });
+      return;
+    }
     if (node.isNote) {
       useLayout.getState().openNote(node.path, { newTab: e.ctrlKey || e.metaKey || e.button === 1 });
     } else {
@@ -218,9 +229,21 @@ function Row(props: RowProps) {
         } ${dropTarget === node.path ? "outline outline-1 -outline-offset-1 outline-accent" : ""}`}
       >
         {node.isDir ? (
-          <ChevronRight size={13} className={`shrink-0 text-muted/70 transition-transform ${isOpen ? "rotate-90" : ""}`} />
+          // The arrow only toggles; it never opens the folder's note.
+          <span
+            role="button"
+            title={isOpen ? "Collapse" : "Expand"}
+            onClick={(e) => {
+              e.stopPropagation();
+              onToggle(node.path);
+            }}
+            className="-my-1 -ml-1 flex h-6 w-5 shrink-0 items-center justify-center rounded hover:bg-btn"
+          >
+            <ChevronRight size={13} className={`text-muted/70 transition-transform ${isOpen ? "rotate-90" : ""}`} />
+          </span>
         ) : (
-          <span className="w-[13px] shrink-0" />
+          // Same width as the folder arrow (20px − 4px negative margin).
+          <span className="w-4 shrink-0" />
         )}
         {/* Folder / note / other-file icon. */}
         {node.isDir ? (
@@ -234,7 +257,11 @@ function Row(props: RowProps) {
         ) : (
           <Paperclip size={14} className="shrink-0 text-muted/45" />
         )}
-        <span className={`truncate ${node.isDir ? "font-medium text-fg/90" : node.isNote ? "" : "text-fg/45"}`}>
+        <span
+          className={`truncate ${node.isDir ? "font-medium text-fg/90" : node.isNote ? "" : "text-fg/45"}`}
+          // Folders with written text get a subtle hint in the tooltip.
+          title={node.isDir ? (node.notePath ? `Open ${node.notePath}` : "Click to write this chapter's overview") : undefined}
+        >
           {/* Notes drop the ".md"; other files keep their extension so the type is clear. */}
           {node.isNote ? node.name.replace(/\.(md|markdown)$/i, "") : node.name}
         </span>

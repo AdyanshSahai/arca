@@ -17,7 +17,7 @@ import { syntaxHighlighting, foldKeymap } from "@codemirror/language";
 import { languages } from "@codemirror/language-data";
 import { highlightSelectionMatches, search, searchKeymap } from "@codemirror/search";
 import { Annotation, Compartment, EditorSelection, EditorState } from "@codemirror/state";
-import { drawSelection, EditorView, highlightActiveLine, keymap } from "@codemirror/view";
+import { drawSelection, EditorView, highlightActiveLine, keymap, placeholder } from "@codemirror/view";
 import { useEffect, useMemo, useRef } from "react";
 import { followLink } from "../lib/actions";
 import { NoteIndex } from "../lib/links";
@@ -84,6 +84,8 @@ export function Editor({ pane, path, focused }: Props) {
   useEffect(() => {
     if (!loaded || !host.current) return;
     const initial = useBuffers.getState().buffers[path]?.content ?? "";
+    // An unwritten folder note gets an inviting hint instead of a blank page.
+    const isNewFolderNote = useBuffers.getState().buffers[path]?.missing ?? false;
 
     const state = EditorState.create({
       doc: initial,
@@ -94,6 +96,11 @@ export function Editor({ pane, path, focused }: Props) {
         highlightSelectionMatches(),
         EditorView.lineWrapping,
         markdown({ base: markdownLanguage, codeLanguages: languages }),
+        placeholder(
+          isNewFolderNote
+            ? "Write an overview for this chapter… (the file is created when you start typing)"
+            : "Start writing…",
+        ),
         syntaxHighlighting(highlightStyle),
         editorTheme,
         autocompletion({ override: [wikiCompletion], icons: false }),

@@ -201,6 +201,12 @@ mark {
   color: var(--fg-inactive);
 }
 
+/* Grey hint text in empty notes (CodeMirror's placeholder extension). */
+.cm-placeholder {
+  color: color-mix(in srgb, var(--fg-inactive) 55%, transparent);
+  font-style: italic;
+}
+
 /* Fenced code: a tinted block across the full line width. */
 .cm-codeblock {
   background: var(--bg-alternate);
