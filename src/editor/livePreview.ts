@@ -119,11 +119,14 @@ function build(view: EditorView): DecorationSet {
           return;
         }
         if (name === "HeaderMark") {
-          if (!isActive(node)) {
-            // Also swallow the single space after the hashes.
-            const end = state.sliceDoc(node.to, node.to + 1) === " " ? node.to + 1 : node.to;
-            out.push(hide.range(node.from, end));
-          }
+          // Also swallow the single space after the hashes.
+          const end = state.sliceDoc(node.to, node.to + 1) === " " ? node.to + 1 : node.to;
+          // Unlike other markup, the "#"s are revealed only when the cursor
+          // touches them, not whenever it's somewhere on the heading line.
+          // Otherwise clicking around the note made the title's "#" pop in
+          // and out, which looked like a glitch.
+          const touched = state.selection.ranges.some((r) => r.from <= end && r.to >= node.from);
+          if (!touched) out.push(hide.range(node.from, end));
           return;
         }
 

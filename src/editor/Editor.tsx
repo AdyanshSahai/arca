@@ -87,8 +87,12 @@ export function Editor({ pane, path, focused }: Props) {
     // An unwritten folder note gets an inviting hint instead of a blank page.
     const isNewFolderNote = useBuffers.getState().buffers[path]?.missing ?? false;
 
+    // Start with the cursor at the end of the first line (normally the title)
+    // instead of before its "# ", so the heading opens fully rendered.
+    const firstLineEnd = initial.indexOf("\n") === -1 ? initial.length : initial.indexOf("\n");
     const state = EditorState.create({
       doc: initial,
+      selection: EditorSelection.cursor(firstLineEnd),
       extensions: [
         history(),
         drawSelection(),
