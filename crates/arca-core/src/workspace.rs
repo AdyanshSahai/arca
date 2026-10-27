@@ -509,7 +509,8 @@ impl Workspace {
 }
 
 /// A note's title is its first `# Heading` (outside code blocks), or the
-/// file name without extension if there is none.
+/// file name without extension if there is none. A folder's `index.md`
+/// falls back to the folder name instead of "index".
 fn title_of(path: &str, content: &str) -> String {
     let masked = links::mask_code(content);
     let heading = masked.lines().zip(content.lines()).find_map(|(m, orig)| {
@@ -518,10 +519,12 @@ fn title_of(path: &str, content: &str) -> String {
         m.strip_prefix("# ").map(|_| orig[2..].trim().to_string())
     });
     heading.filter(|h| !h.is_empty()).unwrap_or_else(|| {
-        Path::new(path)
-            .file_stem()
-            .map(|s| s.to_string_lossy().into_owned())
-            .unwrap_or_default()
+        let p = Path::new(path);
+        let stem = p.file_stem().map(|s| s.to_string_lossy().into_owned()).unwrap_or_default();
+        match p.parent().and_then(|d| d.file_name()) {
+            Some(folder) if stem.eq_ignore_ascii_case("index") => folder.to_string_lossy().into_owned(),
+            _ => stem,
+        }
     })
 }
 

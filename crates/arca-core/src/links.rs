@@ -249,6 +249,15 @@ impl Resolver {
         for path in notes {
             let key = normalize_target(path);
             let stem = key.rsplit('/').next().unwrap_or(&key).to_string();
+            // Folder notes stored as "<folder>/index.md" also answer to the
+            // folder's name, so [[hardware]] finds hardware/index.md.
+            if stem == "index" {
+                if let Some((dir, _)) = key.rsplit_once('/') {
+                    let folder = dir.rsplit('/').next().unwrap_or(dir).to_string();
+                    r.by_stem.entry(folder).or_default().push(path.clone());
+                    r.by_path.entry(dir.to_string()).or_insert_with(|| path.clone());
+                }
+            }
             r.by_stem.entry(stem).or_default().push(path.clone());
             r.by_path.insert(key, path.clone());
         }
@@ -334,5 +343,12 @@ mod tests {
         assert_eq!(r.resolve("hardware/cpu", "index.md").as_deref(), Some("hardware/cpu.md"));
         assert_eq!(r.resolve("b/deep#Section", "index.md").as_deref(), Some("a/b/deep.md"));
         assert_eq!(r.resolve("missing", "index.md"), None);
+    }
+
+    #[test]
+    fn folder_index_answers_to_folder_name() {
+        let notes: Vec<String> = ["hardware/index.md", "hardware/cpu.md"].iter().map(|s| s.to_string()).collect();
+        let r = Resolver::new(&notes);
+        assert_eq!(r.resolve("hardware", "x.md").as_deref(), Some("hardware/index.md"));
     }
 }

@@ -9,6 +9,18 @@
 //!
 //! Nested folders are the "chapter" hierarchy, so [`Vault::tree`] simply
 //! mirrors the directory structure.
+//!
+//! ## Folder notes
+//!
+//! A folder can carry its own note: an overview for the whole chapter. The
+//! tree attaches it to the folder node (`note_path`) and hides it from the
+//! child list, so clicking the folder opens its text while the arrow
+//! expands its children. For a folder `hardware/` the first match wins:
+//!
+//! 1. `hardware/hardware.md`, which is also what Arca creates for new
+//!    folder notes,
+//! 2. `hardware/index.md`,
+//! 3. `hardware.md` sitting next to the folder.
 
 use std::fs;
 use std::path::{Component, Path, PathBuf};
@@ -39,6 +51,16 @@ pub struct TreeNode {
     pub is_note: bool,
     /// Children, sorted folders-first then alphabetically. Empty for files.
     pub children: Vec<TreeNode>,
+    /// Folders only: the folder's own note, if one exists (see the module
+    /// docs on folder notes). That note is not repeated in `children`.
+    pub note_path: Option<String>,
+}
+
+/// Where a brand-new folder note for `dir` should be created
+/// (`"a/hardware"` → `"a/hardware/hardware.md"`).
+pub fn default_folder_note(dir: &str) -> String {
+    let name = dir.rsplit('/').next().unwrap_or(dir);
+    format!("{dir}/{name}.md")
 }
 
 /// Handle on an opened vault directory.
@@ -185,8 +207,28 @@ impl Vault {
                     name,
                     is_dir: false,
                     children: Vec::new(),
+                    note_path: None,
                 });
             }
+        }
+
+        // Pattern 3: a sibling "<folder>.md" next to a folder without an
+        // inner note becomes that folder's note and leaves this listing.
+        let sibling_notes: Vec<(usize, String)> = children
+            .iter()
+            .enumerate()
+            .filter(|(_, c)| c.is_dir && c.note_path.is_none())
+            .filter_map(|(i, c)| {
+                let wanted = format!("{}.md", c.name).to_lowercase();
+                children
+                    .iter()
+                    .find(|f| f.is_note && f.name.to_lowercase() == wanted)
+                    .map(|f| (i, f.path.clone()))
+            })
+            .collect();
+        for (i, note) in sibling_notes {
+            children[i].note_path = Some(note.clone());
+            children.retain(|c| c.path != note);
         }
         // Folders first, then case-insensitive alphabetical order.
         children.sort_by(|a, b| {
@@ -194,15 +236,34 @@ impl Vault {
                 .cmp(&a.is_dir)
                 .then_with(|| a.name.to_lowercase().cmp(&b.name.to_lowercase()))
         });
+        let name = dir
+            .file_name()
+            .map(|n| n.to_string_lossy().into_owned())
+            .unwrap_or_default();
+        let path = self.relativize(dir).unwrap_or_default();
+
+        // Patterns 1 and 2: a note inside the folder named after it, or
+        // index.md. The vault root has no node of its own to attach to,
+        // so its index.md stays a normal visible note.
+        let mut note_path = None;
+        if !path.is_empty() {
+            let own = format!("{name}.md").to_lowercase();
+            let pos = children
+                .iter()
+                .position(|c| c.is_note && c.name.to_lowercase() == own)
+                .or_else(|| children.iter().position(|c| c.is_note && c.name.eq_ignore_ascii_case("index.md")));
+            if let Some(pos) = pos {
+                note_path = Some(children.remove(pos).path);
+            }
+        }
+
         Ok(TreeNode {
-            name: dir
-                .file_name()
-                .map(|n| n.to_string_lossy().into_owned())
-                .unwrap_or_default(),
-            path: self.relativize(dir).unwrap_or_default(),
+            name,
+            path,
             is_dir: true,
             is_note: false,
             children,
+            note_path,
         })
     }
 
@@ -404,6 +465,29 @@ mod tests {
         let names: Vec<_> = tree.children.iter().map(|c| c.name.as_str()).collect();
         assert_eq!(names, vec!["a", "b.md"]); // folder first, .git hidden
         assert_eq!(tree.children[0].children[0].path, "a/z.md");
+    }
+
+    #[test]
+    fn folder_notes_attach_to_their_folder() {
+        let (_d, v) = vault();
+        v.create_note("hardware/hardware.md").unwrap(); // pattern 1
+        v.create_note("hardware/cpu.md").unwrap();
+        v.create_note("software/index.md").unwrap(); // pattern 2
+        v.create_folder("books").unwrap();
+        v.create_note("books.md").unwrap(); // pattern 3 (sibling)
+        v.create_note("index.md").unwrap(); // root index stays visible
+
+        let tree = v.tree().unwrap();
+        let find = |name: &str| tree.children.iter().find(|c| c.name == name).unwrap();
+        assert_eq!(find("hardware").note_path.as_deref(), Some("hardware/hardware.md"));
+        // The folder note is not listed again among the children.
+        assert_eq!(find("hardware").children.len(), 1);
+        assert_eq!(find("software").note_path.as_deref(), Some("software/index.md"));
+        assert!(find("software").children.is_empty());
+        assert_eq!(find("books").note_path.as_deref(), Some("books.md"));
+        assert!(tree.children.iter().all(|c| c.name != "books.md"));
+        assert!(tree.children.iter().any(|c| c.name == "index.md"));
+        assert_eq!(default_folder_note("a/hardware"), "a/hardware/hardware.md");
     }
 
     #[test]
