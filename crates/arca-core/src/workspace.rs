@@ -473,13 +473,13 @@ impl Workspace {
     // Search
     // ------------------------------------------------------------------
 
-    pub fn search_files(&self, query: &str, limit: usize) -> Result<Vec<FileHit>> {
+    pub fn search_files(&self, query: &str, limit: usize, case_sensitive: bool) -> Result<Vec<FileHit>> {
         let paths: Vec<String> = self.notes.keys().cloned().collect();
-        search::match_filename(&paths, query, limit)
+        search::match_filename(&paths, query, limit, case_sensitive)
     }
 
-    pub fn search_text(&self, query: &str, scope: Option<&str>, limit: usize) -> Result<Vec<TextHit>> {
-        self.index.full_text(query, scope, limit)
+    pub fn search_text(&self, query: &str, scope: Option<&str>, limit: usize, case_sensitive: bool) -> Result<Vec<TextHit>> {
+        self.index.full_text(query, scope, limit, case_sensitive)
     }
 
     pub fn search_topic(&self, kind: TopicKind, term: &str, limit: usize) -> Result<Vec<TextHit>> {
@@ -600,7 +600,7 @@ mod tests {
         assert_eq!(ws.read_note("hardware/cpu.md").unwrap(), new);
         assert_eq!(ws.postits()[0].postit.text, "Check flags.");
         // Search sees the new text right away.
-        assert_eq!(ws.search_text("flags", None, 5).unwrap().len(), 1);
+        assert_eq!(ws.search_text("flags", None, 5, false).unwrap().len(), 1);
     }
 
     #[test]
@@ -628,7 +628,7 @@ mod tests {
         let (_d, mut ws) = workspace();
         ws.trash("hardware").unwrap();
         assert_eq!(ws.notes().len(), 1);
-        assert!(ws.search_text("registers", None, 5).unwrap().is_empty());
+        assert!(ws.search_text("registers", None, 5, false).unwrap().is_empty());
         assert_eq!(ws.tags().len(), 0);
     }
 }

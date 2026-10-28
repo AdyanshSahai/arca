@@ -153,8 +153,13 @@ pub async fn trash_entry(state: State<'_, AppState>, path: String) -> CmdResult<
 // ----------------------------------------------------------------------
 
 #[tauri::command]
-pub async fn search_files(state: State<'_, AppState>, query: String, limit: Option<usize>) -> CmdResult<Vec<FileHit>> {
-    state.with_ws(|ws| Ok(ws.search_files(&query, limit.unwrap_or(DEFAULT_LIMIT))?))
+pub async fn search_files(
+    state: State<'_, AppState>,
+    query: String,
+    limit: Option<usize>,
+    case_sensitive: Option<bool>,
+) -> CmdResult<Vec<FileHit>> {
+    state.with_ws(|ws| Ok(ws.search_files(&query, limit.unwrap_or(DEFAULT_LIMIT), case_sensitive.unwrap_or(false))?))
 }
 
 /// Full-text search. `scope` is a folder path; omit it to search everything.
@@ -164,8 +169,10 @@ pub async fn search_text(
     query: String,
     scope: Option<String>,
     limit: Option<usize>,
+    case_sensitive: Option<bool>,
 ) -> CmdResult<Vec<TextHit>> {
-    state.with_ws(|ws| Ok(ws.search_text(&query, scope.as_deref(), limit.unwrap_or(DEFAULT_LIMIT))?))
+    let cs = case_sensitive.unwrap_or(false);
+    state.with_ws(|ws| Ok(ws.search_text(&query, scope.as_deref(), limit.unwrap_or(DEFAULT_LIMIT), cs)?))
 }
 
 /// Topic search. `kind` is `"tag"` or `"link"`.

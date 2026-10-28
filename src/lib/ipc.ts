@@ -39,9 +39,10 @@ export const ipc = {
   trashEntry: (path: string) => invoke<string>("trash_entry", { path }),
 
   // --- search ---
-  searchFiles: (query: string, limit?: number) => invoke<FileHit[]>("search_files", { query, limit }),
-  searchText: (query: string, scope?: string, limit?: number) =>
-    invoke<TextHit[]>("search_text", { query, scope, limit }),
+  searchFiles: (query: string, limit?: number, caseSensitive?: boolean) =>
+    invoke<FileHit[]>("search_files", { query, limit, caseSensitive }),
+  searchText: (query: string, scope?: string, limit?: number, caseSensitive?: boolean) =>
+    invoke<TextHit[]>("search_text", { query, scope, limit, caseSensitive }),
   searchTopic: (kind: "tag" | "link", term: string, limit?: number) =>
     invoke<TextHit[]>("search_topic", { kind, term, limit }),
   listTags: () => invoke<TagCount[]>("list_tags"),

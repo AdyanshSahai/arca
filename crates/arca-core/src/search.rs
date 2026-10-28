@@ -176,7 +176,11 @@ impl SearchIndex {
     /// matches as a prefix, so results appear while the user is still typing
     /// a word. `scope` limits results to one folder (vault-relative, no
     /// trailing slash); `None` or `""` searches the whole vault.
-    pub fn full_text(&self, query: &str, scope: Option<&str>, limit: usize) -> Result<Vec<TextHit>> {
+    ///
+    /// With `case_sensitive`, results must contain every query word with the
+    /// exact capitalisation typed. Tantivy's index is lower-cased, so it
+    /// finds candidates and they're filtered here.
+    pub fn full_text(&self, query: &str, scope: Option<&str>, limit: usize, case_sensitive: bool) -> Result<Vec<TextHit>> {
         let f = self.fields;
         if query.trim().is_empty() {
             return Ok(Vec::new());
@@ -199,7 +203,7 @@ impl SearchIndex {
             ])),
             None => text_query,
         };
-        self.collect_hits(full.as_ref(), limit, &highlight_words(query))
+        self.collect_hits(full.as_ref(), limit, &query_words(query, case_sensitive), case_sensitive)
     }
 
     /// Topic search: every note carrying `#tag` (or linking to `target`).
@@ -225,15 +229,20 @@ impl SearchIndex {
             TopicKind::Tag => format!("#{term}"),
             TopicKind::Link => format!("[[{term}"),
         };
-        self.collect_hits(&query, limit, &[marker])
+        self.collect_hits(&query, limit, &[marker], false)
     }
 
     /// Runs a query and turns the top documents into [`TextHit`]s with a
     /// snippet built around the first occurrence of any of `words`.
-    fn collect_hits(&self, query: &dyn Query, limit: usize, words: &[String]) -> Result<Vec<TextHit>> {
+    ///
+    /// `case_sensitive` keeps only documents containing every word exactly
+    /// as written (title or body). Extra candidates are fetched so that
+    /// filtering still leaves up to `limit` results.
+    fn collect_hits(&self, query: &dyn Query, limit: usize, words: &[String], case_sensitive: bool) -> Result<Vec<TextHit>> {
         let searcher = self.reader.searcher();
-        let top = searcher.search(query, &TopDocs::with_limit(limit).order_by_score())?;
-        let mut hits = Vec::with_capacity(top.len());
+        let fetch = if case_sensitive { limit * 5 } else { limit };
+        let top = searcher.search(query, &TopDocs::with_limit(fetch).order_by_score())?;
+        let mut hits = Vec::with_capacity(top.len().min(limit));
         for (score, addr) in top {
             let d: TantivyDocument = searcher.doc(addr)?;
             // Reads a stored text field, defaulting to "".
@@ -244,12 +253,19 @@ impl SearchIndex {
                     .to_string()
             };
             let body = get(self.fields.body);
+            let title = get(self.fields.title);
+            if case_sensitive && !words.iter().all(|w| body.contains(w.as_str()) || title.contains(w.as_str())) {
+                continue; // matched only when ignoring case
+            }
             hits.push(TextHit {
                 path: get(self.fields.path),
-                title: get(self.fields.title),
+                title,
                 score,
-                snippet: make_snippet(&body, words),
+                snippet: make_snippet(&body, words, case_sensitive),
             });
+            if hits.len() == limit {
+                break;
+            }
         }
         Ok(hits)
     }
@@ -265,9 +281,10 @@ fn ancestor_dirs(path: &str) -> Vec<&str> {
     path.match_indices('/').map(|(i, _)| &path[..i]).collect()
 }
 
-/// Extracts plain search words from a query string for highlighting:
-/// operators, field prefixes and excluded terms (`-word`) are dropped.
-fn highlight_words(query: &str) -> Vec<String> {
+/// Extracts plain search words from a query string (for highlighting and
+/// case-sensitive filtering): operators, field prefixes and excluded terms
+/// (`-word`) are dropped. Lower-cased unless `case_sensitive`.
+fn query_words(query: &str, case_sensitive: bool) -> Vec<String> {
     query
         .split(|c: char| c.is_whitespace() || c == '"' || c == '(' || c == ')')
         .filter(|w| !w.is_empty() && !w.starts_with('-'))
@@ -275,17 +292,20 @@ fn highlight_words(query: &str) -> Vec<String> {
         // `title:foo` → `foo`.
         .map(|w| w.rsplit(':').next().unwrap_or(w).trim_start_matches('+'))
         .filter(|w| !w.is_empty())
-        .map(str::to_ascii_lowercase)
+        .map(|w| if case_sensitive { w.to_string() } else { w.to_ascii_lowercase() })
         .collect()
 }
 
-/// Cuts a short fragment of `body` around the first case-insensitive hit of
-/// any word and records where every word occurs inside it.
+/// Cuts a short fragment of `body` around the first hit of any word and
+/// records where every word occurs inside it. Hits ignore case unless
+/// `case_sensitive`.
 ///
 /// ASCII-only lower-casing is used on purpose: it never changes byte
 /// lengths, so offsets in the lowered copy are valid in the original.
-fn make_snippet(body: &str, words: &[String]) -> Snippet {
-    let lower = body.to_ascii_lowercase();
+fn make_snippet(body: &str, words: &[String], case_sensitive: bool) -> Snippet {
+    // `lower` is the text matched against; with case sensitivity it's the
+    // body itself.
+    let lower = if case_sensitive { body.to_string() } else { body.to_ascii_lowercase() };
     let first = words.iter().filter_map(|w| lower.find(w.as_str())).min();
 
     // Window [start, end) around the first hit, snapped to char boundaries.
@@ -348,11 +368,13 @@ fn floor_char_boundary(s: &str, i: usize) -> usize {
 /// * Anything else is a fuzzy subsequence match: every query character must
 ///   appear in order. Matches score higher when they are consecutive, start
 ///   a word, or fall in the file name rather than the folder part.
-pub fn match_filename(paths: &[String], query: &str, limit: usize) -> Result<Vec<FileHit>> {
+///
+/// Both ignore case unless `case_sensitive`.
+pub fn match_filename(paths: &[String], query: &str, limit: usize, case_sensitive: bool) -> Result<Vec<FileHit>> {
     let query = query.trim();
     let mut hits: Vec<FileHit> = if query.len() >= 2 && query.starts_with('/') && query.ends_with('/') {
         let re = RegexBuilder::new(&query[1..query.len() - 1])
-            .case_insensitive(true)
+            .case_insensitive(!case_sensitive)
             .build()?;
         paths
             .iter()
@@ -370,7 +392,7 @@ pub fn match_filename(paths: &[String], query: &str, limit: usize) -> Result<Vec
         paths
             .iter()
             .filter_map(|p| {
-                let (score, indices) = fuzzy_score(query, p)?;
+                let (score, indices) = fuzzy_score(query, p, case_sensitive)?;
                 Some(FileHit {
                     path: p.clone(),
                     score,
@@ -397,15 +419,19 @@ fn utf16_range(text: &str, s: usize, e: usize) -> Vec<u32> {
 }
 
 /// Greedy fuzzy subsequence scorer. Returns `None` if `query` is not a
-/// subsequence of `candidate` (case-insensitive), else a score and the
-/// UTF-16 positions of the matched characters.
+/// subsequence of `candidate` (ignoring case unless `case_sensitive`), else
+/// a score and the UTF-16 positions of the matched characters.
 ///
 /// The `.md` extension is ignored so it never inflates or blocks a match.
-fn fuzzy_score(query: &str, candidate: &str) -> Option<(i64, Vec<u32>)> {
+fn fuzzy_score(query: &str, candidate: &str, case_sensitive: bool) -> Option<(i64, Vec<u32>)> {
     let haystack = candidate.strip_suffix(".md").unwrap_or(candidate);
     // Byte index where the file name (after the last "/") begins.
     let name_start = haystack.rfind('/').map_or(0, |i| i + 1);
-    let mut q = query.chars().filter(|c| !c.is_whitespace()).flat_map(char::to_lowercase).peekable();
+    // Normalise a char for comparison: lower-cased unless case matters.
+    let norm = |c: char| -> char {
+        if case_sensitive { c } else { c.to_lowercase().next().unwrap_or(c) }
+    };
+    let mut q = query.chars().filter(|c| !c.is_whitespace()).map(norm).peekable();
     if q.peek().is_none() {
         return Some((0, Vec::new()));
     }
@@ -418,7 +444,7 @@ fn fuzzy_score(query: &str, candidate: &str) -> Option<(i64, Vec<u32>)> {
 
     for (byte_i, ch) in haystack.char_indices() {
         if let Some(&want) = q.peek() {
-            if ch.to_lowercase().eq(std::iter::once(want)) {
+            if norm(ch) == want {
                 q.next();
                 indices.push(utf16_pos);
                 score += 1;
@@ -487,15 +513,27 @@ mod tests {
     #[test]
     fn full_text_with_prefix_and_scope() {
         let ix = index();
-        assert_eq!(paths(&ix.full_text("regis", None, 10).unwrap()), vec!["hardware/cpu.md", "software/os.md"]);
-        assert_eq!(paths(&ix.full_text("regis", Some("hardware"), 10).unwrap()), vec!["hardware/cpu.md"]);
+        assert_eq!(paths(&ix.full_text("regis", None, 10, false).unwrap()), vec!["hardware/cpu.md", "software/os.md"]);
+        assert_eq!(paths(&ix.full_text("regis", Some("hardware"), 10, false).unwrap()), vec!["hardware/cpu.md"]);
         // Half-typed syntax must not error.
-        assert!(ix.full_text("\"unclosed", None, 10).is_ok());
+        assert!(ix.full_text("\"unclosed", None, 10, false).is_ok());
+    }
+
+    #[test]
+    fn case_sensitive_full_text() {
+        let ix = index();
+        // "CPUID" appears only upper-case; "cpuid" doesn't exist as typed.
+        assert_eq!(paths(&ix.full_text("CPUID", None, 10, true).unwrap()), vec!["hardware/cpu.md"]);
+        assert!(ix.full_text("cpuid", None, 10, true).unwrap().is_empty());
+        assert_eq!(paths(&ix.full_text("cpuid", None, 10, false).unwrap()), vec!["hardware/cpu.md"]);
+        // Highlights respect case too.
+        let hit = &ix.full_text("CPUID", None, 10, true).unwrap()[0];
+        assert_eq!(hit.snippet.highlights.len(), 1);
     }
 
     #[test]
     fn snippet_highlights_are_utf16() {
-        let s = make_snippet("héllo registers", &["registers".into()]);
+        let s = make_snippet("héllo registers", &["registers".into()], false);
         // "héllo " is 6 UTF-16 units (é is one unit) but 7 bytes.
         assert_eq!(s.highlights, vec![(6, 15)]);
     }
@@ -514,21 +552,24 @@ mod tests {
         ix.upsert(&IndexDoc { path: "software/os.md", title: "OS", body: "nothing here", tags: vec![], links: vec![] })
             .unwrap();
         ix.commit().unwrap();
-        assert_eq!(paths(&ix.full_text("registers", None, 10).unwrap()), vec!["hardware/cpu.md"]);
+        assert_eq!(paths(&ix.full_text("registers", None, 10, false).unwrap()), vec!["hardware/cpu.md"]);
         ix.remove("hardware/cpu.md");
         ix.commit().unwrap();
-        assert!(ix.full_text("registers", None, 10).unwrap().is_empty());
+        assert!(ix.full_text("registers", None, 10, false).unwrap().is_empty());
     }
 
     #[test]
     fn fuzzy_filename_ranking() {
         let p: Vec<String> = ["hardware/cpu.md", "notes/copy-paste.md", "cpu-cache.md"].iter().map(|s| s.to_string()).collect();
-        let hits = match_filename(&p, "cpu", 10).unwrap();
+        let hits = match_filename(&p, "cpu", 10, false).unwrap();
         // "copy-paste" has no "u", so it must not match.
         assert_eq!(hits.len(), 2);
         assert_eq!(hits[0].path, "cpu-cache.md"); // consecutive + word start + short
-        assert!(match_filename(&p, "xyz", 10).unwrap().is_empty());
-        let re = match_filename(&p, "/^hard/", 10).unwrap();
+        assert!(match_filename(&p, "xyz", 10, false).unwrap().is_empty());
+        // Case-sensitive: "CPU" isn't in any (lower-case) path.
+        assert!(match_filename(&p, "CPU", 10, true).unwrap().is_empty());
+        assert_eq!(match_filename(&p, "CPU", 10, false).unwrap().len(), 2);
+        let re = match_filename(&p, "/^hard/", 10, false).unwrap();
         assert_eq!(re.len(), 1);
         assert_eq!(re[0].indices, vec![0, 1, 2, 3]);
     }

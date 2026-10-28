@@ -33,13 +33,15 @@ const MODES: { id: SearchMode; label: string; hint: string }[] = [
 type Row = { path: string; title: string; detail?: React.ReactNode; titleNode?: React.ReactNode };
 
 export function SearchPanel() {
-  const request = useUi((s) => s.searchRequest);
+  // Mode, query and options live in the ui store so they persist.
+  const { mode, query, folderOnly, caseSensitive } = useUi((s) => s.search);
+  const setSearch = useUi((s) => s.setSearch);
+  const focusRequest = useUi((s) => s.searchFocus);
+  const setMode = (m: SearchMode) => setSearch({ mode: m });
+  const setQuery = (q: string) => setSearch({ query: q });
+  const setFolderOnly = (v: boolean) => setSearch({ folderOnly: v });
   const revision = useVault((s) => s.revision);
   const pane = useFocusedPane();
-  const [mode, setMode] = useState<SearchMode>("files");
-  const [query, setQuery] = useState("");
-  /** Text mode: restrict to the focused note's folder. */
-  const [folderOnly, setFolderOnly] = useState(false);
   const [rows, setRows] = useState<Row[]>([]);
   const [tags, setTags] = useState<TagCount[]>([]);
   const [selected, setSelected] = useState(0);
@@ -56,14 +58,13 @@ export function SearchPanel() {
 
   const scopeDir = pane?.path ? dirName(pane.path) : "";
 
-  // Shortcut requests (Ctrl+P, Ctrl+Shift+F, tag clicks) switch mode/query.
+  // Shortcuts (Ctrl+Shift+F, tag clicks) have already set mode/query in the
+  // store; here we only move focus into the box. Focus also lands there
+  // when the panel first opens.
   useEffect(() => {
-    if (!request) return;
-    setMode(request.mode);
-    if (request.query !== undefined) setQuery(request.query);
     input.current?.focus();
     input.current?.select();
-  }, [request]);
+  }, [focusRequest]);
 
   // The query text of the previous search run, to tell typing apart from
   // clicks on the mode / scope switches.
@@ -81,7 +82,7 @@ export function SearchPanel() {
         const q = query.trim();
         let next: Row[] = [];
         if (mode === "files") {
-          const hits: FileHit[] = await ipc.searchFiles(q);
+          const hits: FileHit[] = await ipc.searchFiles(q, undefined, caseSensitive);
           next = hits.map((h) => ({
             path: h.path,
             title: h.path,
@@ -90,7 +91,7 @@ export function SearchPanel() {
         } else if (q) {
           const hits: TextHit[] =
             mode === "text"
-              ? await ipc.searchText(q, folderOnly && scopeDir ? scopeDir : undefined)
+              ? await ipc.searchText(q, folderOnly && scopeDir ? scopeDir : undefined, undefined, caseSensitive)
               : // "[[cpu" / "[[cpu]]" searches links; anything else is a tag.
                 await ipc.searchTopic(q.startsWith("[[") ? "link" : "tag", q);
           next = hits.map((h) => ({
@@ -115,7 +116,7 @@ export function SearchPanel() {
       cancelled = true;
       window.clearTimeout(handle);
     };
-  }, [mode, query, folderOnly, scopeDir, revision]);
+  }, [mode, query, folderOnly, caseSensitive, scopeDir, revision]);
 
   const openRow = (row: Row, newTab: boolean) => useLayout.getState().openNote(row.path, { newTab, pick: true });
 
@@ -169,8 +170,22 @@ export function SearchPanel() {
           onKeyDown={onKeyDown}
           spellCheck={false}
           placeholder={MODES.find((m) => m.id === mode)!.hint}
-          className="h-9 w-full rounded-md border border-line-strong bg-void pr-3 pl-8 text-[13px] text-fg transition-colors placeholder:text-muted/40 focus:border-accent focus:outline-none"
+          className="h-9 w-full rounded-md border border-line-strong bg-void pr-11 pl-8 text-[13px] text-fg transition-colors placeholder:text-muted/40 focus:border-accent focus:outline-none"
           />
+          {/* "Aa" = match case, like VS Code's toggle. Tags are always lower-case. */}
+          <button
+            onClick={() => setSearch({ caseSensitive: !caseSensitive })}
+            disabled={mode === "topic"}
+            title={caseSensitive ? "Match case: on" : "Match case: off"}
+            aria-pressed={caseSensitive}
+            className={`absolute top-1/2 right-1.5 flex h-6 w-8 -translate-y-1/2 items-center justify-center rounded text-[12px] font-semibold transition-colors disabled:opacity-25 ${
+              caseSensitive && mode !== "topic"
+                ? "bg-accent-soft text-accent shadow-[inset_0_0_0_1px_var(--accent-magenta)]"
+                : "text-muted/70 hover:bg-hover hover:text-fg"
+            }`}
+          >
+            Aa
+          </button>
         </div>
         {mode === "text" && (
           <div className="mt-2.5 flex items-center gap-3 text-[12px]">

@@ -11,6 +11,15 @@ export type DrawerSize = "quarter" | "half" | "full";
 
 export type SearchMode = "files" | "text" | "topic";
 
+export interface SearchState {
+  mode: SearchMode;
+  query: string;
+  /** Text mode: only search the focused note's folder. */
+  folderOnly: boolean;
+  /** Match capitalisation exactly (files and text modes). */
+  caseSensitive: boolean;
+}
+
 /** A modal text prompt (new note, rename…) or a yes/no confirmation. */
 export type Dialog =
   | {
@@ -44,11 +53,13 @@ interface UiState {
   dialog: Dialog | null;
   toasts: Toast[];
   /**
-   * A request for the search panel to switch mode / prefill / focus. The
-   * `nonce` changes on every request so the panel reacts even when the same
-   * mode is asked for twice in a row.
+   * The search panel's state. It lives here, not in the component, so it
+   * survives the panel closing and reopening instead of resetting (and
+   * jumping) every time.
    */
-  searchRequest: { mode: SearchMode; query?: string; nonce: number } | null;
+  search: SearchState;
+  /** Bumped when a shortcut asks the search input to take focus. */
+  searchFocus: number;
   /**
    * Command palette: null when closed, otherwise the text it opened with
    * (">" = actions only).
@@ -78,7 +89,9 @@ interface UiState {
   closeDialog: () => void;
   toast: (text: string, tone?: Toast["tone"]) => void;
   dismissToast: (id: number) => void;
+  /** Opens the search panel in `mode`, optionally replacing the query, and focuses it. */
   requestSearch: (mode: SearchMode, query?: string) => void;
+  setSearch: (patch: Partial<SearchState>) => void;
   dismissTextNotice: (path: string) => void;
   openPalette: (initial?: string) => void;
   askForPane: (choice: { path: string; line?: number; create?: boolean }) => void;
@@ -98,7 +111,8 @@ export const useUi = create<UiState>((set, get) => ({
   drawerSize: "quarter",
   dialog: null,
   toasts: [],
-  searchRequest: null,
+  search: { mode: "files", query: "", folderOnly: false, caseSensitive: false },
+  searchFocus: 0,
   dismissedTextNotices: new Set(),
   palette: null,
   paneChoice: null,
@@ -121,7 +135,12 @@ export const useUi = create<UiState>((set, get) => ({
   dismissToast: (id) => set({ toasts: get().toasts.filter((t) => t.id !== id) }),
 
   requestSearch: (mode, query) =>
-    set({ panel: "search", searchRequest: { mode, query, nonce: Date.now() } }),
+    set({
+      panel: "search",
+      search: { ...get().search, mode, ...(query !== undefined ? { query } : {}) },
+      searchFocus: get().searchFocus + 1,
+    }),
+  setSearch: (patch) => set({ search: { ...get().search, ...patch } }),
   // A new Set each time so zustand subscribers see the change.
   openPalette: (initial = "") => set({ palette: initial }),
   askForPane: (paneChoice) => set({ paneChoice }),
