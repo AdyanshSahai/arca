@@ -3,8 +3,12 @@
 // - Nodes are notes; edges are resolved [[links]]. Ghost nodes are links to
 //   notes that don't exist yet. They're hollow, and clicking one offers to
 //   create the note.
-// - The focused note is magenta; hovering a node lights up its neighbours.
-// - "Local" limits the graph to N hops around the focused note.
+// - Local view (default): the active note and its neighbours up to 1–3
+//   links away (depth slider). Global view (toggle): every note, coloured
+//   by chapter, filterable by folder and by tag.
+// - The active note is drawn as a square (colour already means chapter,
+//   size means hover, hollow means ghost), with its label always shown in
+//   bold. Hovering a node lights up its neighbours.
 // - Bigger drawer sizes (½, full) make this genuinely usable.
 //
 // The graph never animates. Positions are computed up front by
@@ -52,9 +56,11 @@ export function GraphPanel() {
   const revision = useVault((s) => s.revision);
   const active = useContextPane()?.path ?? null;
   const [graph, setGraph] = useState<Graph>({ nodes: [], edges: [] });
-  const [local, setLocal] = useState(false);
-  const [depth, setDepth] = useState(1);
-  const [showGhosts, setShowGhosts] = useState(true);
+  // Mode, depth and filters live in the ui store (they survive the panel
+  // closing). Local view needs an active note; without one, show global.
+  const { mode, depth, folder, tag, ghosts: showGhosts } = useUi((s) => s.graph);
+  const setGraphPrefs = useUi((s) => s.setGraph);
+  const local = mode === "local" && !!active;
   const [hover, setHover] = useState<string | null>(null);
   const [size, setSize] = useState({ w: 300, h: 300 });
   const box = useRef<HTMLDivElement>(null);
@@ -149,13 +155,24 @@ export function GraphPanel() {
         frontier = next;
       }
     }
-    const visible = (n: GraphNode) => (showGhosts || !n.ghost) && (!keep || keep.has(n.id));
-    const shown = graph.nodes.filter(visible);
+    // Global filters: folder (and everything under it) and tag.
+    const inFolder = (n: GraphNode) => !folder || n.folder === folder || n.folder.startsWith(folder + "/");
+    const hasTag = (n: GraphNode) => !tag || n.tags.includes(tag);
+    const filtered = !localRoot && (folder || tag);
+    let shown = graph.nodes.filter(
+      (n) => !n.ghost && (!keep || keep.has(n.id)) && (!filtered || (inFolder(n) && hasTag(n))),
+    );
+    if (showGhosts) {
+      // Ghosts only appear next to a note that's shown.
+      const ids = new Set(shown.map((n) => n.id));
+      const linked = new Set(graph.edges.filter((e) => ids.has(e.source)).map((e) => e.target));
+      shown = shown.concat(graph.nodes.filter((n) => n.ghost && linked.has(n.id) && (!keep || keep.has(n.id))));
+    }
     const ids = new Set(shown.map((n) => n.id));
     const edges = graph.edges.filter((e) => ids.has(e.source) && ids.has(e.target));
     // Lay out once, here, then pin every node (fx/fy) so the widget's own
     // physics has nothing to move. Global view clusters by chapter.
-    const viewKey = localRoot ? `local:${localRoot}:${depth}` : "global";
+    const viewKey = localRoot ? `local:${localRoot}:${depth}` : `global:${folder}:${tag}`;
     const memory = positions.current.get(viewKey) ?? new Map<string, Positioned>();
     bump("graph:layout"); // profiling: how often the (costly) layout runs
     const placed = layoutGraph(shown, edges, memory, !localRoot);
@@ -165,7 +182,19 @@ export function GraphPanel() {
       return { ...n, x: p.x, y: p.y, fx: p.x, fy: p.y };
     });
     return { nodes, links: edges.map((e) => ({ ...e })) };
-  }, [graph, depth, localRoot, showGhosts, neighbours]);
+  }, [graph, depth, localRoot, showGhosts, neighbours, folder, tag]);
+
+  // Choices for the global filters, from the graph data itself.
+  const folderOptions = useMemo(() => {
+    const all = new Set<string>();
+    for (const n of graph.nodes) {
+      // Every ancestor folder too, so "hardware" covers "hardware/cpu".
+      const parts = n.folder ? n.folder.split("/") : [];
+      parts.forEach((_, i) => all.add(parts.slice(0, i + 1).join("/")));
+    }
+    return [...all].sort();
+  }, [graph]);
+  const tagOptions = useMemo(() => [...new Set(graph.nodes.flatMap((n) => n.tags))].sort(), [graph]);
 
   // After new data arrives, fit the view once the simulation has come to
   // rest (see `onEngineStop`), not on a guessed timer.
@@ -203,24 +232,32 @@ export function GraphPanel() {
 
     ctx.globalAlpha = dimmed ? 0.25 : 1;
     ctx.beginPath();
-    ctx.arc(node.x!, node.y!, r, 0, 2 * Math.PI);
+    if (isActive) {
+      // The current note is a square (same area as its circle would be):
+      // shape is the one channel not already used for something else.
+      const half = r * 0.89;
+      ctx.rect(node.x! - half, node.y! - half, half * 2, half * 2);
+    } else {
+      ctx.arc(node.x!, node.y!, r, 0, 2 * Math.PI);
+    }
     if (node.ghost) {
       ctx.strokeStyle = colors.muted;
       ctx.lineWidth = 1 / scale;
       ctx.stroke();
     } else {
       const base = colorByChapter ? clusterColor(clusters, topFolder(node.folder)) : colors.muted;
-      ctx.fillStyle = isActive ? colors.accent : isHover ? colors.fg : base;
+      ctx.fillStyle = isHover ? colors.fg : base;
       ctx.fill();
     }
     // Labels: focused/hovered/related nodes, hubs (3+ links), everything in
     // local view, and everything once zoomed in. Keeps the global view calm.
     if (isActive || lit || localRoot || node.degree >= 3 || scale > 1.4) {
       const fontSize = 11 / scale;
-      ctx.font = `${fontSize}px ${colors.font}`;
+      // The current note's label is bold (and always shown).
+      ctx.font = `${isActive ? "700 " : ""}${fontSize}px ${colors.font}`;
       ctx.textAlign = "center";
       ctx.textBaseline = "top";
-      ctx.fillStyle = isActive ? colors.accent : node.ghost ? colors.muted : colors.fg;
+      ctx.fillStyle = node.ghost ? colors.muted : colors.fg;
       ctx.fillText(node.label, node.x!, node.y! + r + 2 / scale);
     }
     ctx.globalAlpha = 1;
@@ -228,35 +265,68 @@ export function GraphPanel() {
 
   return (
     <div className="flex h-full flex-col">
-      <div className="flex h-12 shrink-0 items-center gap-2 border-b border-line px-4 text-[12px]">
-        <Segmented
-          value={local ? "local" : "global"}
-          options={[
-            { id: "global", label: "Global" },
-            { id: "local", label: "Local", disabled: !active, title: "Only notes near the focused one" },
-          ]}
-          onChange={(v) => setLocal(v === "local")}
-        />
-        {local && (
+      <div className="shrink-0 space-y-2 border-b border-line px-4 py-2.5 text-[12px]">
+        <div className="flex items-center gap-2">
           <Segmented
-            value={String(depth)}
-            options={[1, 2, 3].map((d) => ({ id: String(d), label: d, title: `${d} hop${d > 1 ? "s" : ""}` }))}
-            onChange={(v) => setDepth(Number(v))}
+            value={local ? "local" : "global"}
+            options={[
+              { id: "local", label: "Local", disabled: !active, title: "The active note and its neighbours" },
+              { id: "global", label: "Global", title: "Every note in the vault" },
+            ]}
+            onChange={(v) => setGraphPrefs({ mode: v })}
           />
+          {local && (
+            // Depth slider: how many links away from the active note.
+            <label className="flex items-center gap-2 text-muted" title="How many links away from the active note">
+              Depth
+              <input
+                type="range"
+                min={1}
+                max={3}
+                step={1}
+                value={depth}
+                onChange={(e) => setGraphPrefs({ depth: Number(e.target.value) })}
+                className="w-20 accent-[var(--accent-magenta)]"
+              />
+              <span className="w-3 text-fg tabular-nums">{depth}</span>
+            </label>
+          )}
+          <div className="flex-1" />
+          <label className="flex cursor-pointer items-center gap-1.5 text-muted hover:text-fg" title="Show links to notes that don't exist yet">
+            <input
+              type="checkbox"
+              checked={showGhosts}
+              onChange={() => setGraphPrefs({ ghosts: !showGhosts })}
+              className="cm-task !m-0"
+            />
+            Ghosts
+          </label>
+          <span className="text-muted/50 tabular-nums" title="nodes · links">
+            {data.nodes.length} · {data.links.length}
+          </span>
+        </div>
+        {!local && (
+          // Global view filters.
+          <div className="flex items-center gap-2">
+            <FilterSelect
+              label="Folder"
+              value={folder}
+              options={folderOptions}
+              // Indent nested folders with non-breaking spaces (plain ones collapse).
+              format={(f) => `${"\u00a0\u00a0".repeat(f.split("/").length - 1)}${f.split("/").pop()}`}
+              onChange={(v) => setGraphPrefs({ folder: v })}
+            />
+            <FilterSelect label="Tag" value={tag} options={tagOptions} format={(t) => `#${t}`} onChange={(v) => setGraphPrefs({ tag: v })} />
+            {(folder || tag) && (
+              <button
+                onClick={() => setGraphPrefs({ folder: "", tag: "" })}
+                className="rounded-md px-2 py-[3px] text-muted transition-colors hover:bg-hover hover:text-fg"
+              >
+                Clear
+              </button>
+            )}
+          </div>
         )}
-        <div className="flex-1" />
-        <label className="flex cursor-pointer items-center gap-1.5 text-muted hover:text-fg" title="Show links to notes that don't exist yet">
-          <input
-            type="checkbox"
-            checked={showGhosts}
-            onChange={() => setShowGhosts(!showGhosts)}
-            className="cm-task !m-0"
-          />
-          Ghosts
-        </label>
-        <span className="text-muted/50 tabular-nums" title="nodes · links">
-          {data.nodes.length} · {data.links.length}
-        </span>
       </div>
       {/* `relative` box measured by the ResizeObserver; the canvas lives in an
           absolute layer inside it so it can't affect the box's size. */}
@@ -360,5 +430,38 @@ function ZoomButton({ title, onClick, children }: { title: string; onClick: () =
     >
       {children}
     </button>
+  );
+}
+
+/** A compact labelled <select> for the global view's filters ("" = all). */
+function FilterSelect({
+  label,
+  value,
+  options,
+  format,
+  onChange,
+}: {
+  label: string;
+  value: string;
+  options: string[];
+  format: (v: string) => string;
+  onChange: (v: string) => void;
+}) {
+  return (
+    <label className="flex min-w-0 flex-1 items-center gap-1.5 text-muted">
+      {label}
+      <select
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        className="btn-soft min-w-0 flex-1 rounded-md px-1.5 py-[3px] text-[12px] outline-none"
+      >
+        <option value="">All</option>
+        {options.map((o) => (
+          <option key={o} value={o}>
+            {format(o)}
+          </option>
+        ))}
+      </select>
+    </label>
   );
 }

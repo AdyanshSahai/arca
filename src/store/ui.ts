@@ -26,6 +26,19 @@ export interface Prefs {
 
 export const DEFAULT_PREFS: Prefs = { theme: "twilight", viewPlacement: "sidebar", notePlacement: "ask-split" };
 
+/** Graph view settings, kept here so they survive the panel closing. */
+export interface GraphPrefs {
+  /** Local = the active note's neighbourhood (default); global = everything. */
+  mode: "local" | "global";
+  /** Local view: how many links away from the active note (1–3). */
+  depth: number;
+  /** Global view filters: a folder ("" = all) and a tag ("" = all). */
+  folder: string;
+  tag: string;
+  /** Show links to notes that don't exist yet. */
+  ghosts: boolean;
+}
+
 export type PaneChoice =
   | { kind: "note"; path: string; line?: number; create?: boolean }
   | { kind: "view"; view: PanelId };
@@ -104,6 +117,7 @@ interface UiState {
    * read-only, with no markdown revealed. Off = writing mode.
    */
   reading: boolean;
+  graph: GraphPrefs;
 
   /** Text files whose "convert to Markdown?" notice was dismissed this session. */
   dismissedTextNotices: Set<string>;
@@ -125,6 +139,7 @@ interface UiState {
   askForPane: (choice: PaneChoice) => void;
   setPrefs: (patch: Partial<Prefs>) => void;
   toggleReading: () => void;
+  setGraph: (patch: Partial<GraphPrefs>) => void;
 
   openSettings: () => void;
   closeSettings: () => void;
@@ -152,6 +167,7 @@ export const useUi = create<UiState>((set, get) => ({
   prefs: DEFAULT_PREFS,
   settingsOpen: false,
   reading: false,
+  graph: { mode: "local", depth: 1, folder: "", tag: "", ghosts: true },
 
   templatePicker: null,
   exportDialog: null,
@@ -194,6 +210,7 @@ export const useUi = create<UiState>((set, get) => ({
     set({ prefs });
   },
   toggleReading: () => set({ reading: !get().reading }),
+  setGraph: (patch) => set({ graph: { ...get().graph, ...patch } }),
   openSettings: () => set({ settingsOpen: true }),
   closeSettings: () => set({ settingsOpen: false }),
   openTemplatePicker: (dir) => set({ templatePicker: { dir } }),

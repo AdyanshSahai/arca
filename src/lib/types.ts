@@ -71,6 +71,8 @@ export interface GraphNode {
   /** A [[link]] target with no note behind it yet. */
   ghost: boolean;
   degree: number;
+  /** Unique lower-case tags (for the global view's tag filter). */
+  tags: string[];
 }
 
 export interface GraphEdge {

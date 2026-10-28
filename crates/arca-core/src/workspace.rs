@@ -51,6 +51,9 @@ pub struct GraphNode {
     pub ghost: bool,
     /// Number of edges touching this node; drives the drawn radius.
     pub degree: usize,
+    /// The note's unique tags (lower-case, no "#"), for the graph's tag
+    /// filter. Empty for ghosts.
+    pub tags: Vec<String>,
 }
 
 #[derive(Debug, Clone, Serialize, PartialEq, Eq, Hash)]
@@ -345,12 +348,18 @@ impl Workspace {
         let mut nodes: Vec<GraphNode> = self
             .notes
             .values()
-            .map(|m| GraphNode {
-                id: m.path.clone(),
-                label: m.title.clone(),
-                folder: links::parent_dir(&m.path).to_string(),
-                ghost: false,
-                degree: degree.get(m.path.as_str()).copied().unwrap_or(0),
+            .map(|m| {
+                let mut tags: Vec<String> = m.tags.iter().map(|t| t.tag.clone()).collect();
+                tags.sort();
+                tags.dedup();
+                GraphNode {
+                    id: m.path.clone(),
+                    label: m.title.clone(),
+                    folder: links::parent_dir(&m.path).to_string(),
+                    ghost: false,
+                    degree: degree.get(m.path.as_str()).copied().unwrap_or(0),
+                    tags,
+                }
             })
             .collect();
         nodes.extend(ghosts.into_iter().map(|(id, label)| GraphNode {
@@ -359,6 +368,7 @@ impl Workspace {
             label,
             folder: String::new(),
             ghost: true,
+            tags: Vec::new(),
         }));
 
         let mut edges: Vec<GraphEdge> = edges.into_iter().collect();
@@ -574,6 +584,8 @@ mod tests {
         let g = ws.graph();
         assert_eq!(g.nodes.len(), 4); // 3 notes + 1 ghost
         assert!(g.nodes.iter().any(|n| n.ghost && n.id == "ghost:missing note"));
+        let cpu = g.nodes.iter().find(|n| n.id == "hardware/cpu.md").unwrap();
+        assert_eq!(cpu.tags, vec!["hardware"]);
         assert_eq!(g.edges.len(), 4);
     }
 
