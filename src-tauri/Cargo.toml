@@ -28,3 +28,8 @@ serde_json = "1"
 # File-system watching so edits made outside Arca show up live.
 notify = "8"
 notify-debouncer-full = "0.5"
+
+# Linux only: GTK settings for the native file dialogs (same version Tauri
+# already links, so nothing extra is compiled).
+[target.'cfg(target_os = "linux")'.dependencies]
+gtk = "0.18"

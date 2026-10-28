@@ -19,6 +19,9 @@ const ITEMS: { id: PanelId; title: string; Icon: typeof FolderTree }[] = [
 /** Shows the native folder picker and opens the chosen folder as a vault. */
 export async function pickVault(): Promise<void> {
   const dir = await open({ directory: true, multiple: false, title: "Open vault folder" });
+  // Focus returns to the button that opened the dialog, which then shows a
+  // stray focus ring; drop focus instead.
+  (document.activeElement as HTMLElement | null)?.blur();
   if (typeof dir === "string") await useVault.getState().open(dir);
 }
 

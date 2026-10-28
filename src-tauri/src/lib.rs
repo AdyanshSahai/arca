@@ -19,12 +19,31 @@ mod watcher;
 
 use tauri::Manager;
 
+/// Makes GTK file dialogs (open vault, export "Save as") look like a normal
+/// desktop window: the window manager's title bar with _ □ X at the top
+/// right, and Cancel / Open buttons at the bottom. GTK's default puts
+/// Cancel and Open in a header bar at the top, with Cancel in the corner
+/// where a close button usually is.
+///
+/// This only changes the setting inside Arca's own process; it doesn't
+/// touch system-wide GTK configuration.
+fn use_classic_gtk_dialogs() {
+    #[cfg(target_os = "linux")]
+    {
+        use gtk::prelude::GtkSettingsExt;
+        if let Some(settings) = gtk::Settings::default() {
+            settings.set_gtk_dialogs_use_header(false);
+        }
+    }
+}
+
 /// Builds and runs the application. Called from `main.rs`.
 pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_opener::init())
         .setup(|app| {
+            use_classic_gtk_dialogs();
             // Load preferences from the OS config dir (e.g. ~/.config/dev.adyansh.arca).
             let config_dir = app.path().app_config_dir()?;
             app.manage(state::AppState::new(config_dir));
