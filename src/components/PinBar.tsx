@@ -43,7 +43,7 @@ export function PinBar() {
         disabled={!canPin}
         onClick={() => pane?.path && void addPin(pane.path, "note")}
         title={canPin ? "Pin the current note" : "Open an unpinned note to pin it"}
-        className="flex h-7 shrink-0 items-center gap-1.5 rounded-md px-2 text-[12px] text-muted transition-colors hover:bg-hover hover:text-accent disabled:opacity-35 disabled:hover:bg-transparent disabled:hover:text-muted"
+        className="btn-soft flex h-7 shrink-0 items-center gap-1.5 rounded-md px-2.5 text-[12px]"
       >
         <Plus size={14} />
         Pin

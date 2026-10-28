@@ -45,7 +45,7 @@ export function TitleBar() {
         <button
           onClick={() => void pickVault()}
           title={`${vault.root}\nClick to open another vault`}
-          className="ml-2 flex h-8 max-w-56 shrink-0 items-center gap-2 rounded-lg px-2.5 text-[13px] text-fg/80 transition-colors hover:bg-hover"
+          className="btn-soft ml-2 flex h-8 max-w-56 shrink-0 items-center gap-2 rounded-lg px-2.5 text-[13px]"
         >
           <FolderClosed size={15} className="shrink-0 text-accent/80" />
           <span className="truncate">{vault.name}</span>

@@ -118,6 +118,43 @@ textarea {
   -webkit-user-select: text;
 }
 
+/* Desktop webviews show a plain arrow over buttons, so nothing looked
+   clickable. Everything interactive gets the hand cursor. */
+button:not(:disabled),
+[role="button"],
+select,
+summary,
+label:has(input),
+input[type="checkbox"],
+input[type="radio"] {
+  cursor: pointer;
+}
+button:disabled {
+  cursor: not-allowed;
+}
+
+/* A reusable "this is a button" look for small text controls (Aa, + Pin,
+   the vault switcher…): a visible border and fill at rest, brighter on
+   hover, accent when pressed/on. */
+.btn-soft {
+  border: 1px solid var(--line-strong);
+  background: var(--bg-button);
+  color: var(--fg-normal);
+  transition: background-color 120ms, border-color 120ms, color 120ms;
+}
+.btn-soft:hover:not(:disabled) {
+  border-color: color-mix(in srgb, var(--accent-magenta) 45%, var(--line-strong));
+  background: color-mix(in srgb, var(--accent-magenta) 8%, var(--bg-button));
+}
+.btn-soft[aria-pressed="true"] {
+  border-color: var(--accent-magenta);
+  background: var(--accent-soft);
+  color: var(--accent-magenta);
+}
+.btn-soft:disabled {
+  opacity: 0.35;
+}
+
 /* Keyboard focus ring: a 1px accent outline, no glow. */
 :focus-visible {
   outline: 1px solid var(--accent-magenta);

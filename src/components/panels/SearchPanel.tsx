@@ -177,12 +177,8 @@ export function SearchPanel() {
             onClick={() => setSearch({ caseSensitive: !caseSensitive })}
             disabled={mode === "topic"}
             title={caseSensitive ? "Match case: on" : "Match case: off"}
-            aria-pressed={caseSensitive}
-            className={`absolute top-1/2 right-1.5 flex h-6 w-8 -translate-y-1/2 items-center justify-center rounded text-[12px] font-semibold transition-colors disabled:opacity-25 ${
-              caseSensitive && mode !== "topic"
-                ? "bg-accent-soft text-accent shadow-[inset_0_0_0_1px_var(--accent-magenta)]"
-                : "text-muted/70 hover:bg-hover hover:text-fg"
-            }`}
+            aria-pressed={caseSensitive && mode !== "topic"}
+            className="btn-soft absolute top-1/2 right-1.5 flex h-6 w-8 -translate-y-1/2 items-center justify-center rounded text-[12px] font-semibold"
           >
             Aa
           </button>

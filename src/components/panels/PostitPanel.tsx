@@ -66,7 +66,7 @@ export function PostitPanel() {
         <button
           onClick={insertPostitInFocused}
           title="Insert a post-it at the cursor  (Ctrl+Alt+P)"
-          className="flex items-center gap-1 rounded-md px-2 py-1 text-muted transition-colors hover:bg-hover hover:text-accent"
+          className="btn-soft flex items-center gap-1 rounded-md px-2.5 py-1"
         >
           <Plus size={13} /> New
         </button>
