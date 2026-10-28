@@ -97,6 +97,7 @@ export function allCommands(): Command[] {
     { id: "drawer.quarter", label: "Drawer: quarter width", group: "View", run: () => ui.setDrawerSize("quarter") },
     { id: "drawer.half", label: "Drawer: half width", group: "View", run: () => ui.setDrawerSize("half") },
     { id: "drawer.full", label: "Drawer: full view", group: "View", run: () => ui.setDrawerSize("full") },
+    { id: "settings", label: "Settings…", group: "View", shortcut: "Ctrl+,", run: () => ui.openSettings() },
     {
       id: "vault.open",
       label: "Open another vault…",

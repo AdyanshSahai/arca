@@ -21,6 +21,7 @@
 //   Ctrl+N                      new note (in the focused note's folder)
 //   Ctrl+Alt+P                  insert post-it at the cursor
 //   Ctrl+B                      toggle the drawer
+//   Ctrl+,                      settings
 //   Ctrl+S                      save now (autosave runs anyway)
 //   Alt+1…9                     open pinned shortcut N
 
@@ -212,6 +213,10 @@ export function useKeybindings() {
         take();
         if (useVault.getState().info) useVault.getState().promptNewNote(pane?.path ? dirName(pane.path) : "");
         return;
+      }
+      if (mod && !e.shiftKey && e.key === ",") {
+        take();
+        return ui.openSettings();
       }
       if (mod && !e.shiftKey && key === "b") {
         take();

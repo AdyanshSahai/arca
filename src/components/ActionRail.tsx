@@ -4,7 +4,7 @@
 // vaults.
 
 import { open } from "@tauri-apps/plugin-dialog";
-import { FolderOpen } from "lucide-react";
+import { FolderOpen, Settings } from "lucide-react";
 import { paneIds, useLayout } from "../store/layout";
 import { type PanelId, useUi } from "../store/ui";
 import { useVault } from "../store/vault";
@@ -57,6 +57,9 @@ export function ActionRail() {
         );
       })}
       <div className="flex-1" />
+      <IconButton title="Settings  (Ctrl+,)" onClick={() => useUi.getState().openSettings()} className="!h-10 !w-10 !rounded-lg">
+        <Settings size={19} strokeWidth={1.6} />
+      </IconButton>
       <IconButton title="Open another vault…" onClick={() => void pickVault()} className="!h-10 !w-10 !rounded-lg">
         <FolderOpen size={19} strokeWidth={1.6} />
       </IconButton>
