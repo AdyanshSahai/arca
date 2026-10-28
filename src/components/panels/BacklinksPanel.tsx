@@ -66,7 +66,7 @@ export function BacklinksPanel() {
         {backlinks.map((b, i) => (
           <button
             key={`${b.source}:${b.line}:${i}`}
-            onClick={(e) => useLayout.getState().openNote(b.source, { line: b.line, newTab: e.ctrlKey || e.metaKey })}
+            onClick={(e) => useLayout.getState().openNote(b.source, { line: b.line, newTab: e.ctrlKey || e.metaKey, pick: true })}
             className="block w-full rounded-md px-2.5 py-2 text-left transition-colors hover:bg-hover"
           >
             <div className="flex items-baseline gap-2 text-[13px]">

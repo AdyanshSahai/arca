@@ -117,7 +117,7 @@ export function SearchPanel() {
     };
   }, [mode, query, folderOnly, scopeDir, revision]);
 
-  const openRow = (row: Row, newTab: boolean) => useLayout.getState().openNote(row.path, { newTab });
+  const openRow = (row: Row, newTab: boolean) => useLayout.getState().openNote(row.path, { newTab, pick: true });
 
   const onKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === "ArrowDown") {

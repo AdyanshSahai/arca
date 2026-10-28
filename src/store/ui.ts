@@ -61,6 +61,11 @@ interface UiState {
   exportDialog: { scope?: string } | null;
   /** Template picker: null when closed, else the folder to create the note in. */
   templatePicker: { dir: string } | null;
+  /**
+   * A note waiting for the user to pick which pane it should take over
+   * (shown as numbered overlays on the panes; see PaneView).
+   */
+  paneChoice: { path: string; line?: number; create?: boolean } | null;
   /** Text files whose "convert to Markdown?" notice was dismissed this session. */
   dismissedTextNotices: Set<string>;
 
@@ -76,6 +81,8 @@ interface UiState {
   requestSearch: (mode: SearchMode, query?: string) => void;
   dismissTextNotice: (path: string) => void;
   openPalette: (initial?: string) => void;
+  askForPane: (choice: { path: string; line?: number; create?: boolean }) => void;
+  cancelPaneChoice: () => void;
   openTemplatePicker: (dir: string) => void;
   openExport: (scope?: string) => void;
   closeExport: () => void;
@@ -94,6 +101,7 @@ export const useUi = create<UiState>((set, get) => ({
   searchRequest: null,
   dismissedTextNotices: new Set(),
   palette: null,
+  paneChoice: null,
   templatePicker: null,
   exportDialog: null,
 
@@ -116,6 +124,8 @@ export const useUi = create<UiState>((set, get) => ({
     set({ panel: "search", searchRequest: { mode, query, nonce: Date.now() } }),
   // A new Set each time so zustand subscribers see the change.
   openPalette: (initial = "") => set({ palette: initial }),
+  askForPane: (paneChoice) => set({ paneChoice }),
+  cancelPaneChoice: () => set({ paneChoice: null }),
   openTemplatePicker: (dir) => set({ templatePicker: { dir } }),
   openExport: (scope) => set({ exportDialog: { scope } }),
   closeExport: () => set({ exportDialog: null }),

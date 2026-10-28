@@ -154,7 +154,7 @@ function PostitCard({ entry }: { entry: PostItEntry }) {
         <div className="flex-1" />
         <span className="text-[11px] text-muted/50 tabular-nums">line {entry.line}</span>
         <button
-          onClick={() => useLayout.getState().openNote(entry.path, { line: entry.line })}
+          onClick={() => useLayout.getState().openNote(entry.path, { line: entry.line, pick: true })}
           title="Show in note"
           className="text-muted hover:text-accent"
         >

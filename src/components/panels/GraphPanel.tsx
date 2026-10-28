@@ -254,7 +254,7 @@ export function GraphPanel() {
             onNodeHover={(n) => setHover(n ? (n.id as string) : null)}
             onNodeClick={(n, ev) => {
               if (n.ghost) void followLink(n.label, active ?? "");
-              else useLayout.getState().openNote(n.id as string, { newTab: ev.ctrlKey || ev.metaKey });
+              else useLayout.getState().openNote(n.id as string, { newTab: ev.ctrlKey || ev.metaKey, pick: true });
             }}
             // No animation at all: run the whole simulation off-screen before
             // the first paint (warmup), then stop immediately (cooldown 0).

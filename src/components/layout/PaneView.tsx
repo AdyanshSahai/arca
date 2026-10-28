@@ -5,9 +5,9 @@
 import { ChevronRight, Columns2, FilePlus, Rows2, Search, X } from "lucide-react";
 import { Editor } from "../../editor/Editor";
 import { openFolder } from "../../lib/actions";
-import { isTextPath } from "../../lib/paths";
+import { isTextPath, stem } from "../../lib/paths";
 import { useBuffers } from "../../store/buffers";
-import { type EditorMode, useLayout } from "../../store/layout";
+import { type EditorMode, paneIds, useLayout } from "../../store/layout";
 import { useUi } from "../../store/ui";
 import { useVault } from "../../store/vault";
 import { IconButton } from "../ui/IconButton";
@@ -41,6 +41,7 @@ export function PaneView({ paneId, focused }: { paneId: string; focused: boolean
       // w-full + min-w-0: fill the split slot instead of shrinking to content.
       className="relative flex h-full w-full min-w-0 flex-col bg-void"
     >
+      <PaneChoiceOverlay paneId={paneId} focused={focused} />
       {/* Focused pane: a thin accent line along the top edge. */}
       <div className={`absolute inset-x-0 top-0 h-[2px] ${focused ? "bg-accent/70" : "bg-transparent"}`} />
       <div className="flex h-11 shrink-0 items-center gap-1.5 border-b border-line px-4">
@@ -112,6 +113,41 @@ export function PaneView({ paneId, focused }: { paneId: string; focused: boolean
         )}
       </div>
     </div>
+  );
+}
+
+/**
+ * While a note is waiting for a pane (opened from the sidebar, palette or
+ * pins in a split tab), every pane of the active tab shows a big number.
+ * Click a pane, press its number, Enter for the focused one, or Esc.
+ */
+function PaneChoiceOverlay({ paneId, focused }: { paneId: string; focused: boolean }) {
+  const choice = useUi((s) => s.paneChoice);
+  // This pane's 1-based number among the active tab's panes (0 = not shown).
+  const number = useLayout((s) => {
+    const tab = s.tabs.find((t) => t.id === s.activeTab);
+    return tab ? paneIds(tab.root).indexOf(paneId) + 1 : 0;
+  });
+  if (!choice || number === 0) return null;
+  const name = stem(choice.path);
+  return (
+    <button
+      onClick={() => useLayout.getState().openNoteIn(paneId, choice.path, { line: choice.line, create: choice.create })}
+      className={`group absolute inset-0 z-30 flex flex-col items-center justify-center gap-3 bg-void/80 backdrop-blur-[2px] transition-colors hover:bg-accent-soft ${
+        focused ? "shadow-[inset_0_0_0_2px_var(--accent-magenta)]" : "shadow-[inset_0_0_0_1px_var(--line-strong)]"
+      }`}
+    >
+      <span className="flex h-16 w-16 items-center justify-center rounded-2xl border border-line-strong bg-btn text-[30px] font-semibold text-accent transition-transform group-hover:scale-105">
+        {number}
+      </span>
+      <span className="text-[14px] text-fg">
+        Open <span className="font-semibold">{name}</span> here
+      </span>
+      <span className="text-[12px] text-muted/70">
+        Press {number}
+        {focused ? " or Enter" : ""} · Esc to cancel
+      </span>
+    </button>
   );
 }
 

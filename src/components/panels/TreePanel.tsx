@@ -69,10 +69,10 @@ function flatten(nodes: TreeNode[], expanded: Set<string>, depth = 0, parent = "
 function activate(node: TreeNode, newTab: boolean) {
   if (node.isDir) {
     const note = node.notePath ?? defaultFolderNote(node.path);
-    useLayout.getState().openNote(note, { newTab, create: !node.notePath });
+    useLayout.getState().openNote(note, { newTab, create: !node.notePath, pick: true });
   } else if (node.isNote || isTextPath(node.path)) {
     // Notes and plain-text files open in the editor; anything else in its own app.
-    useLayout.getState().openNote(node.path, { newTab });
+    useLayout.getState().openNote(node.path, { newTab, pick: true });
   } else {
     ipc.openInDefaultApp(node.path).catch((err) => useUi.getState().toast(errorMessage(err), "error"));
   }

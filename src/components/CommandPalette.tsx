@@ -102,7 +102,7 @@ function Palette({ initial }: { initial: string }) {
   const run = (item: Item, newTab: boolean) => {
     close();
     if (item.kind === "command") item.command.run();
-    else useLayout.getState().openNote(item.path, { newTab });
+    else useLayout.getState().openNote(item.path, { newTab, pick: true });
   };
 
   const onKeyDown = (e: React.KeyboardEvent) => {

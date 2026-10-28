@@ -197,7 +197,7 @@ export const useVault = create<VaultState>((set, get) => ({
   activatePin: (pin) => {
     switch (pin.kind) {
       case "note":
-        useLayout.getState().openNote(pin.path);
+        useLayout.getState().openNote(pin.path, { pick: true });
         break;
       case "folder":
         // Show the tree drawer and ask it to reveal + expand the folder.

@@ -76,6 +76,22 @@ export function useKeybindings() {
       const pane = focusedPane();
       if (ui.panel) lastPanel = ui.panel;
 
+      // A note is waiting for a pane: 1–9 picks by number, Enter picks the
+      // focused pane, Esc cancels. Nothing else runs until it's answered.
+      if (ui.paneChoice) {
+        const tab = layout.tabs.find((t) => t.id === layout.activeTab);
+        const ids = tab ? paneIds(tab.root) : [];
+        const { path, line, create } = ui.paneChoice;
+        let target: string | undefined;
+        if (/^[1-9]$/.test(e.key)) target = ids[Number(e.key) - 1];
+        else if (e.key === "Enter") target = tab?.focusedPane;
+        if (target) layout.openNoteIn(target, path, { line, create });
+        else if (e.key === "Escape") ui.cancelPaneChoice();
+        e.preventDefault();
+        e.stopPropagation();
+        return;
+      }
+
       /** Marks the event handled. */
       const take = () => {
         e.preventDefault();

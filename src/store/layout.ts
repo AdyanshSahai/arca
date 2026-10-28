@@ -14,6 +14,7 @@
 import { create } from "zustand";
 import { remapPath, isWithin } from "../lib/paths";
 import { useBuffers } from "./buffers";
+import { useUi } from "./ui";
 
 export type EditorMode = "live" | "raw";
 export type SplitDir = "row" | "col";
@@ -45,9 +46,12 @@ interface LayoutState {
   /**
    * Opens a note in the focused pane, or in a new tab with `newTab`.
    * `create` allows a path that doesn't exist yet (folder notes); the file
-   * is written on the first keystroke.
+   * is written on the first keystroke. With `pick`, a tab with several
+   * panes first asks which pane the note should take over.
    */
-  openNote: (path: string, opts?: { newTab?: boolean; line?: number; create?: boolean }) => void;
+  openNote: (path: string, opts?: OpenOpts) => void;
+  /** Opens a note in a specific pane (the answer to a pane prompt). */
+  openNoteIn: (paneId: string, path: string, opts?: OpenOpts) => void;
   newTab: (path?: string | null) => void;
   closeTab: (tabId: string) => void;
   /** Ctrl+Tab / Ctrl+Shift+Tab. */
@@ -67,6 +71,14 @@ interface LayoutState {
   /** Serializable snapshot for persistence. */
   snapshot: () => LayoutSnapshot;
   restore: (snap: LayoutSnapshot) => void;
+}
+
+export interface OpenOpts {
+  newTab?: boolean;
+  line?: number;
+  create?: boolean;
+  /** Ask which pane to use when the active tab is split (sidebar, palette, pins). */
+  pick?: boolean;
 }
 
 export interface LayoutSnapshot {
@@ -140,6 +152,12 @@ export const useLayout = create<LayoutState>((set, get) => {
     panes: { [first.id]: first },
 
     openNote: (path, opts) => {
+      // Split tab + opened from outside the panes: let the user choose
+      // which pane takes the note instead of silently replacing one.
+      if (opts?.pick && !opts.newTab && paneIds(active().root).length > 1) {
+        useUi.getState().askForPane({ path, line: opts.line, create: opts.create });
+        return;
+      }
       if (opts?.newTab) {
         get().newTab(path);
       } else {
@@ -155,6 +173,12 @@ export const useLayout = create<LayoutState>((set, get) => {
         set({ panes: { ...get().panes, [paneId]: { ...pane, reveal: { line: opts.line, nonce: Date.now() } } } });
       }
       gcBuffers();
+    },
+
+    openNoteIn: (paneId, path, opts) => {
+      useUi.getState().cancelPaneChoice();
+      get().focusPane(paneId);
+      get().openNote(path, { ...opts, pick: false });
     },
 
     newTab: (path = null) => {
