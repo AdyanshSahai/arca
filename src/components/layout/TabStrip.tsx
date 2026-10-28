@@ -2,9 +2,9 @@
 // one Konsole-style split layout). The active tab shares the pane area's
 // background so the two read as one surface.
 //
-// Panes can be moved between tabs by dragging a pane's header onto a tab
-// (or onto "+" for a new tab), or with Ctrl+Shift+PageUp / PageDown /
-// Ctrl+Shift+H from the keyboard (see useKeybindings).
+// Panes can be moved between tabs by dragging a pane's header onto a tab,
+// or onto any empty part of the strip (or "+") for a new tab. From the
+// keyboard: Ctrl+Shift+PageUp / PageDown / Ctrl+Shift+H (see useKeybindings).
 
 import { FileText, Plus, X } from "lucide-react";
 import { useState } from "react";
@@ -21,24 +21,40 @@ export function TabStrip() {
   /** Tab (or "new") currently under a dragged pane, for highlighting. */
   const [dropOn, setDropOn] = useState<string | null>(null);
 
-  /** Props that make an element accept dropped panes. */
+  /**
+   * Props that make an element accept dropped panes. Tabs and "+" stop the
+   * event there; anything that reaches the strip itself means "new tab".
+   */
   const dropTarget = (target: string) => ({
     onDragOver: (e: React.DragEvent) => {
       if (!e.dataTransfer.types.includes(PANE_DND_TYPE)) return;
       e.preventDefault();
+      e.stopPropagation(); // the innermost target wins
       e.dataTransfer.dropEffect = "move";
       setDropOn(target);
     },
-    onDragLeave: () => setDropOn((cur) => (cur === target ? null : cur)),
+    onDragLeave: (e: React.DragEvent) => {
+      // Moving onto a child element also fires dragleave; ignore those.
+      if (e.currentTarget.contains(e.relatedTarget as Node | null)) return;
+      setDropOn((cur) => (cur === target ? null : cur));
+    },
     onDrop: (e: React.DragEvent) => {
       const paneId = e.dataTransfer.getData(PANE_DND_TYPE);
+      e.preventDefault();
+      e.stopPropagation();
       setDropOn(null);
       if (paneId) movePane(paneId, target);
     },
   });
 
   return (
-    <div className="flex h-10 shrink-0 items-end gap-1 overflow-x-auto border-b border-line bg-alt px-2 [scrollbar-width:none]">
+    <div
+      // The whole strip is a drop zone: empty space = move into a new tab.
+      {...dropTarget("new")}
+      className={`flex h-10 shrink-0 items-end gap-1 overflow-x-auto border-b border-line px-2 transition-colors [scrollbar-width:none] ${
+        dropOn === "new" ? "bg-accent-soft" : "bg-alt"
+      }`}
+    >
       {tabs.map((tab, i) => (
         <TabButton
           key={tab.id}
@@ -51,10 +67,9 @@ export function TabStrip() {
       ))}
       <button
         onClick={() => newTab()}
-        {...dropTarget("new")}
-        title="New tab  (Ctrl+T). Drop a pane here to move it into a new tab"
+        title="New tab  (Ctrl+T). Drop a pane anywhere on this strip to move it into a new tab"
         className={`mb-1 ml-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-muted transition-colors hover:bg-hover hover:text-fg ${
-          dropOn === "new" ? "bg-accent-soft text-accent ring-1 ring-accent" : ""
+          dropOn === "new" ? "text-accent" : ""
         }`}
       >
         <Plus size={15} />
