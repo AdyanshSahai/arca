@@ -10,7 +10,8 @@ use std::path::Path;
 use std::time::Duration;
 
 use arca_core::vault::Vault;
-use notify::RecursiveMode;
+use notify::event::ModifyKind;
+use notify::{EventKind, RecursiveMode};
 use notify_debouncer_full::{new_debouncer, DebounceEventResult, Debouncer, RecommendedCache};
 use serde::Serialize;
 use tauri::{AppHandle, Emitter, Manager};
@@ -32,6 +33,25 @@ struct ChangedPayload {
     paths: Vec<String>,
 }
 
+/// True for events that mean a file's contents or existence changed:
+/// creation, removal, renames and data writes.
+///
+/// Everything else is ignored, above all *access* events. inotify reports
+/// files being opened and read, and Arca reads files in response to
+/// changes, so treating reads as changes created an endless loop: change →
+/// refresh → the UI re-reads the tree and notes → "changes" → refresh… It
+/// held the workspace lock almost constantly and made the whole app
+/// sluggish. Metadata-only events (access times, permissions) are skipped
+/// too.
+fn is_change(kind: &EventKind) -> bool {
+    matches!(
+        kind,
+        EventKind::Create(_)
+            | EventKind::Remove(_)
+            | EventKind::Modify(ModifyKind::Data(_) | ModifyKind::Name(_) | ModifyKind::Any | ModifyKind::Other)
+    )
+}
+
 /// Starts watching `root` recursively.
 pub fn start(app: AppHandle, root: &Path) -> notify::Result<VaultWatcher> {
     // The closure needs its own copy of the vault (for path conversion);
@@ -42,9 +62,11 @@ pub fn start(app: AppHandle, root: &Path) -> notify::Result<VaultWatcher> {
         let Ok(events) = result else { return };
         let state = app.state::<AppState>();
 
-        // Unique, visible, vault-relative paths from this batch.
+        // Unique, visible, vault-relative paths from this batch, from events
+        // that are real changes only (see `is_change`).
         let mut changed: Vec<String> = events
             .iter()
+            .filter(|ev| is_change(&ev.kind))
             .flat_map(|ev| ev.paths.iter())
             .filter_map(|p| vault.relativize(p))
             .filter(|rel| !rel.is_empty() && !Vault::is_hidden_rel(rel))
