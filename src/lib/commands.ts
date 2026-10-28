@@ -74,7 +74,7 @@ export function allCommands(): Command[] {
     { id: "pane.split.col", label: "Split pane top / bottom", group: "Pane", shortcut: "Ctrl+Shift+)", run: () => layout.split("col") },
     { id: "pane.close", label: "Close pane", group: "Pane", shortcut: "Ctrl+D", run: () => { const p = focusedPane(); if (p) layout.closePane(p.id); } },
     { id: "pane.mode", label: "Toggle live preview / raw markdown", group: "Pane", shortcut: "Ctrl+E", run: () => { const p = focusedPane(); if (p) layout.toggleMode(p.id); } },
-    { id: "pane.reading", label: "Toggle reading / writing mode", group: "Pane", shortcut: "Ctrl+Shift+E", run: () => { const p = contextPane(); if (p?.path) layout.toggleReading(p.id); } },
+    { id: "reading", label: "Toggle reading / writing mode (all notes)", group: "View", shortcut: "Ctrl+Shift+E", run: () => ui.toggleReading() },
     { id: "pane.find", label: "Find in note", group: "Pane", shortcut: "Ctrl+F", run: () => {
       // Opens CodeMirror's own search panel in the focused editor.
       const p = focusedPane();

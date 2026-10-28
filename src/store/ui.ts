@@ -99,6 +99,11 @@ interface UiState {
   paneChoice: PaneChoice | null;
   prefs: Prefs;
   settingsOpen: boolean;
+  /**
+   * Reading mode, for the whole app: every note in every pane is rendered
+   * read-only, with no markdown revealed. Off = writing mode.
+   */
+  reading: boolean;
 
   /** Text files whose "convert to Markdown?" notice was dismissed this session. */
   dismissedTextNotices: Set<string>;
@@ -119,6 +124,7 @@ interface UiState {
   openPalette: (initial?: string) => void;
   askForPane: (choice: PaneChoice) => void;
   setPrefs: (patch: Partial<Prefs>) => void;
+  toggleReading: () => void;
 
   openSettings: () => void;
   closeSettings: () => void;
@@ -145,6 +151,7 @@ export const useUi = create<UiState>((set, get) => ({
   paneChoice: null,
   prefs: DEFAULT_PREFS,
   settingsOpen: false,
+  reading: false,
 
   templatePicker: null,
   exportDialog: null,
@@ -186,6 +193,7 @@ export const useUi = create<UiState>((set, get) => ({
     if (patch.theme) applyTheme(patch.theme);
     set({ prefs });
   },
+  toggleReading: () => set({ reading: !get().reading }),
   openSettings: () => set({ settingsOpen: true }),
   closeSettings: () => set({ settingsOpen: false }),
   openTemplatePicker: (dir) => set({ templatePicker: { dir } }),

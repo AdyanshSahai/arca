@@ -25,6 +25,8 @@ interface SavedUi {
   drawerSize?: DrawerSize;
   /** User preferences (theme, where things open). Not tied to a vault. */
   prefs?: Partial<Prefs>;
+  /** App-wide reading mode. */
+  reading?: boolean;
   layout?: LayoutSnapshot;
 }
 
@@ -47,6 +49,7 @@ export function useBootstrap(): boolean {
         const saved = (ui ?? {}) as SavedUi;
         // Preferences first, so the right theme is on before anything paints.
         useUi.getState().setPrefs({ ...DEFAULT_PREFS, ...saved.prefs });
+        if (saved.reading) useUi.setState({ reading: true });
         if (saved.drawerSize) useUi.getState().setDrawerSize(saved.drawerSize);
         if (saved.panel !== undefined) {
           if (saved.panel) useUi.getState().showPanel(saved.panel);
@@ -102,7 +105,7 @@ export function useFileDrops() {
       const paneId = paneEl?.dataset.paneId;
       const pane = paneId ? useLayout.getState().panes[paneId] : undefined;
       const view = paneId ? editorRegistry.get(paneId) : undefined;
-      if (pane?.reading) {
+      if (useUi.getState().reading) {
         useUi.getState().toast("Switch to writing mode (Ctrl+Shift+E) to attach files");
         return;
       }
@@ -128,8 +131,8 @@ export function usePersistence() {
       timer = window.setTimeout(() => {
         const info = useVault.getState().info;
         if (!info) return; // nothing worth remembering before a vault is open
-        const { panel, drawerSize, prefs } = useUi.getState();
-        const ui: SavedUi = { vault: info.root, panel, drawerSize, prefs, layout: useLayout.getState().snapshot() };
+        const { panel, drawerSize, prefs, reading } = useUi.getState();
+        const ui: SavedUi = { vault: info.root, panel, drawerSize, prefs, reading, layout: useLayout.getState().snapshot() };
         void ipc.saveUi(ui).catch(() => {
           /* Settings are best-effort; never interrupt the user for them. */
         });
@@ -138,7 +141,7 @@ export function usePersistence() {
     // Zustand's subscribe fires on every state change of that store.
     const offLayout = useLayout.subscribe(schedule);
     const offUi = useUi.subscribe((s, prev) => {
-      if (s.panel !== prev.panel || s.drawerSize !== prev.drawerSize || s.prefs !== prev.prefs) schedule();
+      if (s.panel !== prev.panel || s.drawerSize !== prev.drawerSize || s.prefs !== prev.prefs || s.reading !== prev.reading) schedule();
     });
 
     // Make sure typing from the last 600ms reaches disk before exiting.

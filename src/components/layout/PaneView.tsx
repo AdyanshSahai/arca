@@ -19,6 +19,8 @@ import { ArcaMark } from "../ui/ArcaMark";
 
 export function PaneView({ paneId, focused }: { paneId: string; focused: boolean }) {
   const pane = useLayout((s) => s.panes[paneId]);
+  // Reading / writing is one switch for the whole app.
+  const reading = useUi((s) => s.reading);
   const { focusPane, split, closePane, toggleMode } = useLayout.getState();
   // Dirty = text not yet written to disk.
   const dirty = useBuffers((s) => {
@@ -90,18 +92,18 @@ export function PaneView({ paneId, focused }: { paneId: string; focused: boolean
             title="Unsaved changes (autosaving)"
           />
         </div>
-        {/* Reading-mode badge: shows the pane is read-only; click to write again. */}
-        {pane.path && pane.reading && (
+        {/* Reading-mode badge (the mode is app-wide); click to write again. */}
+        {pane.path && reading && (
           <button
-            onClick={() => useLayout.getState().toggleReading(paneId)}
-            title="Reading mode: click to switch back to writing  (Ctrl+Shift+E)"
+            onClick={() => useUi.getState().toggleReading()}
+            title="Reading mode (all notes): click to switch back to writing  (Ctrl+Shift+E)"
             aria-pressed
             className="btn-soft flex items-center gap-1.5 rounded-md px-2 py-[3px] text-[11px]"
           >
             <BookOpen size={12} /> Reading
           </button>
         )}
-        {pane.path && !pane.reading && <ModeSwitch mode={pane.mode} onToggle={() => toggleMode(paneId)} />}
+        {pane.path && !reading && <ModeSwitch mode={pane.mode} onToggle={() => toggleMode(paneId)} />}
         {pane.view && (
           <button
             onClick={() => {
@@ -147,7 +149,7 @@ export function PaneView({ paneId, focused }: { paneId: string; focused: boolean
           <Panel id={pane.view} />
         ) : pane.path ? (
           // Keyed by path: a different note gets a fresh editor (own history).
-          <Editor key={pane.path} pane={pane} path={pane.path} focused={focused} readOnly={!!pane.reading} />
+          <Editor key={pane.path} pane={pane} path={pane.path} focused={focused} readOnly={reading} />
         ) : (
           <EmptyPane />
         )}

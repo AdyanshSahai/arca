@@ -25,11 +25,6 @@ export interface Pane {
   path: string | null;
   mode: EditorMode;
   /**
-   * Reading mode: the note is fully rendered and can't be edited; markdown
-   * is never revealed, wherever you click. Writing mode is the default.
-   */
-  reading?: boolean;
-  /**
    * A sidebar view shown in this pane instead of a note (graph, search…).
    * When set, `path` is null.
    */
@@ -100,8 +95,6 @@ interface LayoutState {
   focusPane: (paneId: string) => void;
   setRatio: (splitId: string, ratio: number) => void;
   toggleMode: (paneId: string) => void;
-  /** Switches a pane between Reading and Writing mode. */
-  toggleReading: (paneId: string) => void;
   /** Updates every pane after a file or folder rename. */
   remap: (from: string, to: string) => void;
   /** Empties panes showing a deleted file (or anything in a deleted folder). */
@@ -304,8 +297,8 @@ export const useLayout = create<LayoutState>((set, get) => {
     split: (dir) => {
       const tab = active();
       const current = get().panes[tab.focusedPane];
-      // The new pane copies the note, its live/raw mode and reading/writing mode.
-      const fresh = { ...makePane(current.path, current.mode), reading: current.reading };
+      // The new pane copies the note and its live/raw mode.
+      const fresh = makePane(current.path, current.mode);
       const node: LayoutNode = {
         kind: "split",
         id: uid(),
@@ -395,12 +388,6 @@ export const useLayout = create<LayoutState>((set, get) => {
       // Clamp so neither side can be dragged to nothing.
       const r = Math.min(0.9, Math.max(0.1, ratio));
       set({ tabs: get().tabs.map((t) => ({ ...t, root: withRatio(t.root, splitId, r) })) });
-    },
-
-    toggleReading: (paneId) => {
-      const pane = get().panes[paneId];
-      if (!pane) return;
-      set({ panes: { ...get().panes, [paneId]: { ...pane, reading: !pane.reading } } });
     },
 
     toggleMode: (paneId) => {

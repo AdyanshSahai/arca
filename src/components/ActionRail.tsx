@@ -5,7 +5,7 @@
 
 import { open } from "@tauri-apps/plugin-dialog";
 import { BookOpen, FolderOpen, PenLine, Settings } from "lucide-react";
-import { paneIds, useContextPane, useLayout } from "../store/layout";
+import { paneIds, useLayout } from "../store/layout";
 import { type PanelId, useUi } from "../store/ui";
 import { useVault } from "../store/vault";
 import { PANEL_ORDER, PANELS } from "./panels/registry";
@@ -41,8 +41,7 @@ export async function pickVault(): Promise<void> {
 
 export function ActionRail() {
   const panel = useUi((s) => s.panel);
-  // The note being worked on, for the Reading / Writing toggle.
-  const ctx = useContextPane();
+  const reading = useUi((s) => s.reading);
 
   return (
     <nav className="flex w-14 shrink-0 flex-col items-center gap-2 border-r border-line bg-alt py-3">
@@ -59,22 +58,19 @@ export function ActionRail() {
         );
       })}
       <div className="flex-1" />
-      {/* Reading ↔ Writing for the current note. The icon shows the mode
-          you're in; the accent fill means Reading. */}
+      {/* Reading ↔ Writing for the whole app (every pane at once). The icon
+          shows the mode you're in; the accent fill means Reading. */}
       <IconButton
         title={
-          !ctx?.path
-            ? "Reading / writing mode (open a note first)"
-            : ctx.reading
-              ? "Reading mode: click to write  (Ctrl+Shift+E)"
-              : "Writing mode: click to read  (Ctrl+Shift+E)"
+          reading
+            ? "Reading mode (all notes): click to write  (Ctrl+Shift+E)"
+            : "Writing mode (all notes): click to read  (Ctrl+Shift+E)"
         }
-        disabled={!ctx?.path}
-        active={!!ctx?.reading}
-        onClick={() => ctx && useLayout.getState().toggleReading(ctx.id)}
-        className="!h-10 !w-10 !rounded-lg disabled:opacity-30"
+        active={reading}
+        onClick={() => useUi.getState().toggleReading()}
+        className="!h-10 !w-10 !rounded-lg"
       >
-        {ctx?.reading ? <BookOpen size={19} strokeWidth={1.6} /> : <PenLine size={19} strokeWidth={1.6} />}
+        {reading ? <BookOpen size={19} strokeWidth={1.6} /> : <PenLine size={19} strokeWidth={1.6} />}
       </IconButton>
       <div className="my-1 h-px w-6 bg-line" />
       <IconButton title="Settings  (Ctrl+,)" onClick={() => useUi.getState().openSettings()} className="!h-10 !w-10 !rounded-lg">
