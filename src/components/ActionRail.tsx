@@ -13,9 +13,9 @@ import { IconButton } from "./ui/IconButton";
 
 /**
  * Rail click. If the view is already in the drawer, close it; if it's
- * already shown in a pane of this tab, focus that pane. Otherwise, in a
- * split tab, ask which pane it should take over (S keeps it in the
- * sidebar); with a single pane, show it in the sidebar drawer.
+ * already shown in a pane of this tab, focus that pane. Otherwise ask
+ * where it should go: a pane to take over (1–9), a new pane of its own
+ * (N), or the sidebar drawer (S).
  */
 function openView(id: PanelId) {
   const ui = useUi.getState();
@@ -25,8 +25,7 @@ function openView(id: PanelId) {
   const ids = tab ? paneIds(tab.root) : [];
   const existing = ids.find((p) => layout.panes[p]?.view === id);
   if (existing) return layout.focusPane(existing);
-  if (ids.length > 1) ui.askForPane({ kind: "view", view: id });
-  else ui.showPanel(id);
+  ui.askForPane({ kind: "view", view: id });
 }
 
 /** Shows the native folder picker and opens the chosen folder as a vault. */

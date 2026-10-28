@@ -66,6 +66,11 @@ interface LayoutState {
   openNoteIn: (paneId: string, path: string, opts?: OpenOpts) => void;
   /** Shows a sidebar view in a pane, replacing its note. */
   openViewIn: (paneId: string, view: PanelId) => void;
+  /**
+   * Splits the focused pane left/right and shows a view in the new right
+   * half, so the view gets a pane of its own without replacing a note.
+   */
+  openViewInNewPane: (view: PanelId) => void;
   /** Turns a view pane back into an empty pane (the view goes back to the drawer). */
   clearView: (paneId: string) => void;
   newTab: (path?: string | null) => void;
@@ -212,6 +217,12 @@ export const useLayout = create<LayoutState>((set, get) => {
       // The view now lives in a pane; the drawer doesn't need to show it too.
       if (useUi.getState().panel === view) useUi.getState().closeDrawer();
       gcBuffers();
+    },
+
+    openViewInNewPane: (view) => {
+      get().split("row");
+      // split() focuses the new (right-hand) pane.
+      get().openViewIn(active().focusedPane, view);
     },
 
     clearView: (paneId) => {

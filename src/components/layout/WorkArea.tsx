@@ -27,9 +27,19 @@ export function WorkArea({ hidden }: { hidden: boolean }) {
   return (
     // `hidden` is set when the drawer is in full-view mode and covers this area.
     <main className={`relative min-h-0 min-w-0 flex-1 ${hidden ? "hidden" : "flex"}`}>
-      {/* While a sidebar view waits for a pane, offer the sidebar as well. */}
+      {/* While a sidebar view waits for a pane, also offer a new pane of its
+          own (N) or the sidebar (S). */}
       {choice?.kind === "view" && (
-        <div className="absolute inset-x-0 bottom-5 z-40 flex justify-center">
+        <div className="absolute inset-x-0 bottom-5 z-40 flex justify-center gap-2">
+          <button
+            onClick={() => {
+              useUi.getState().cancelPaneChoice();
+              useLayout.getState().openViewInNewPane(choice.view);
+            }}
+            className="btn-soft rounded-full px-4 py-2 text-[13px] shadow-[0_8px_24px_rgb(0_0_0/0.5)]"
+          >
+            {PANELS[choice.view].title} in a new pane <kbd className="ml-1.5">N</kbd>
+          </button>
           <button
             onClick={() => {
               useUi.getState().cancelPaneChoice();
@@ -37,7 +47,7 @@ export function WorkArea({ hidden }: { hidden: boolean }) {
             }}
             className="btn-soft rounded-full px-4 py-2 text-[13px] shadow-[0_8px_24px_rgb(0_0_0/0.5)]"
           >
-            Or keep {PANELS[choice.view].title} in the sidebar <kbd className="ml-1.5">S</kbd>
+            Keep it in the sidebar <kbd className="ml-1.5">S</kbd>
           </button>
         </div>
       )}

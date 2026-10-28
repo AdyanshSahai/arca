@@ -92,6 +92,10 @@ export function useKeybindings() {
           layout.openNoteIn(target, choice.path, { line: choice.line, create: choice.create });
         } else if (target && choice.kind === "view") {
           layout.openViewIn(target, choice.view);
+        } else if (choice.kind === "view" && key === "n") {
+          // N = give the view a new pane of its own (split right).
+          ui.cancelPaneChoice();
+          layout.openViewInNewPane(choice.view);
         } else if (choice.kind === "view" && key === "s") {
           // S = keep the view in the sidebar drawer instead.
           ui.cancelPaneChoice();
