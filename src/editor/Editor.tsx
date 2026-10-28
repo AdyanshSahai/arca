@@ -45,8 +45,9 @@ function modeExtensions(mode: EditorMode) {
 }
 
 /**
- * Read mode: no typing (readOnly) and no caret or IME (editable false).
- * Widgets that write to the doc check `state.readOnly` themselves.
+ * Reader mode: no typing (readOnly) and no caret or IME (editable false).
+ * Widgets that write to the doc check `state.readOnly` themselves, and
+ * live preview never reveals markdown in a read-only document.
  */
 function readOnlyExtensions(readOnly: boolean) {
   return [EditorState.readOnly.of(readOnly), EditorView.editable.of(!readOnly)];
@@ -62,9 +63,13 @@ interface Props {
   pane: Pane;
   path: string;
   focused: boolean;
+  /** Reader mode: rendered, not editable, markdown never revealed. */
+  readOnly?: boolean;
+  /** Overrides what clicking a [[link]] does (the Reader navigates in place). */
+  onFollow?: (target: string) => void;
 }
 
-export function Editor({ pane, path, focused }: Props) {
+export function Editor({ pane, path, focused, readOnly = false, onFollow }: Props) {
   const host = useRef<HTMLDivElement>(null);
   const viewRef = useRef<EditorView | null>(null);
   // One compartment per editor instance, created once.
@@ -81,12 +86,12 @@ export function Editor({ pane, path, focused }: Props) {
     () => ({
       notes: new NoteIndex(notes),
       noteList: notes,
-      follow: (target: string) => void followLink(target, path),
+      follow: (target: string) => (onFollow ? onFollow(target) : void followLink(target, path)),
       searchTag: (tag: string) => useUi.getState().requestSearch("topic", `#${tag}`),
       notePath: path,
       assetUrl: (src: string) => assetUrl(vaultRoot, path, src),
     }),
-    [notes, path, vaultRoot],
+    [notes, path, vaultRoot, onFollow],
   );
 
   // Keep the latest `focused` flag in a ref for the update listener below,
@@ -140,7 +145,7 @@ export function Editor({ pane, path, focused }: Props) {
         richBlocks,
         ctxComp.of(linkContext.of(linkCtx)),
         modeComp.of(modeExtensions(pane.mode)),
-        roComp.of(readOnlyExtensions(!!pane.readOnly)),
+        roComp.of(readOnlyExtensions(readOnly)),
         // Pasting images saves them as attachments (lib/attachments.ts).
         EditorView.domEventHandlers({
           paste: (event, view) => !view.state.readOnly && handlePaste(view, path, event),
@@ -205,8 +210,8 @@ export function Editor({ pane, path, focused }: Props) {
 
   // ---- Edit / read toggle -------------------------------------------------
   useEffect(() => {
-    viewRef.current?.dispatch({ effects: roComp.reconfigure(readOnlyExtensions(!!pane.readOnly)) });
-  }, [pane.readOnly, roComp]);
+    viewRef.current?.dispatch({ effects: roComp.reconfigure(readOnlyExtensions(readOnly)) });
+  }, [readOnly, roComp]);
 
   // ---- Note list changed: refresh chip states and completion ------------
   useEffect(() => {

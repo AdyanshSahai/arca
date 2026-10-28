@@ -190,7 +190,9 @@ const clickHandler = EditorView.domEventHandlers({
       ctx.follow(decodeURI(rendered.dataset.href));
       return true;
     }
-    if (!(event.ctrlKey || event.metaKey)) return false;
+    // Editing needs Ctrl+click so plain clicks place the cursor; in the
+    // read-only Reader there's no cursor, so plain clicks follow.
+    if (!(event.ctrlKey || event.metaKey || view.state.readOnly)) return false;
     const mark = el.closest<HTMLElement>("[data-target]");
     if (mark?.dataset.target) {
       event.preventDefault();

@@ -44,8 +44,9 @@ function inCode(state: EditorState, pos: number): boolean {
   return false;
 }
 
-/** True if any selection range overlaps [from, to]. */
+/** True if any selection range overlaps [from, to] (never in read-only documents). */
 function selectionTouches(state: EditorState, from: number, to: number): boolean {
+  if (state.readOnly) return false;
   return state.selection.ranges.some((r) => r.from <= to && r.to >= from);
 }
 

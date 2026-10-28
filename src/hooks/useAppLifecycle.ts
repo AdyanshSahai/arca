@@ -102,10 +102,6 @@ export function useFileDrops() {
       const paneId = paneEl?.dataset.paneId;
       const pane = paneId ? useLayout.getState().panes[paneId] : undefined;
       const view = paneId ? editorRegistry.get(paneId) : undefined;
-      if (pane?.readOnly) {
-        useUi.getState().toast("This pane is read-only; switch it to Edit to attach files");
-        return;
-      }
       if (!pane?.path || !view) {
         useUi.getState().toast("Drop files onto an open note to attach them");
         return;

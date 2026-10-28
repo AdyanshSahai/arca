@@ -126,7 +126,7 @@ function build(view: EditorView): DecorationSet {
           // touches them, not whenever it's somewhere on the heading line.
           // Otherwise clicking around the note made the title's "#" pop in
           // and out, which looked like a glitch.
-          const touched = state.selection.ranges.some((r) => r.from <= end && r.to >= node.from);
+          const touched = !state.readOnly && state.selection.ranges.some((r) => r.from <= end && r.to >= node.from);
           if (!touched) out.push(hide.range(node.from, end));
           return;
         }

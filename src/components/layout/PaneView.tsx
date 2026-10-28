@@ -1,9 +1,9 @@
-// One viewport: a slim header (breadcrumb, save state, edit/read and
-// live/raw switches, split and close buttons) above an Editor. A pane can
+// One viewport: a slim header (breadcrumb, save state, live/raw switch,
+// split and close buttons) above an Editor. A pane can
 // instead show a sidebar view (graph, search…) that took it over, or a
 // friendly empty state with the essential shortcuts.
 
-import { ChevronRight, Columns2, FilePlus, Lock, PanelLeft, Rows2, Search, X } from "lucide-react";
+import { ChevronRight, Columns2, FilePlus, PanelLeft, Rows2, Search, X } from "lucide-react";
 import { Editor } from "../../editor/Editor";
 import { openFolder } from "../../lib/actions";
 import { isTextPath, stem } from "../../lib/paths";
@@ -90,9 +90,6 @@ export function PaneView({ paneId, focused }: { paneId: string; focused: boolean
             title="Unsaved changes (autosaving)"
           />
         </div>
-        {pane.path && (
-          <ReadSwitch readOnly={!!pane.readOnly} onToggle={() => useLayout.getState().toggleReadOnly(paneId)} />
-        )}
         {pane.path && <ModeSwitch mode={pane.mode} onToggle={() => toggleMode(paneId)} />}
         {pane.view && (
           <button
@@ -229,33 +226,6 @@ function TextFileNotice({ path }: { path: string }) {
         </button>
       </div>
     </div>
-  );
-}
-
-/** "Edit | Read" switch (read-only mode); clicking either toggles. */
-function ReadSwitch({ readOnly, onToggle }: { readOnly: boolean; onToggle: () => void }) {
-  const seg = (on: boolean, label: React.ReactNode) => (
-    <span
-      className={`flex items-center gap-1 rounded-[3px] px-2 py-[2px] transition-colors ${
-        on ? "bg-btn text-fg shadow-[inset_0_0_0_1px_var(--line-strong)]" : "text-muted/70"
-      }`}
-    >
-      {label}
-    </span>
-  );
-  return (
-    <button
-      onClick={onToggle}
-      title="Toggle editing / read-only  (Ctrl+Shift+E)"
-      className="flex items-center rounded-[5px] border border-line p-[2px] text-[11px] hover:border-line-strong"
-    >
-      {seg(!readOnly, "Edit")}
-      {seg(readOnly, (
-        <>
-          <Lock size={10} /> Read
-        </>
-      ))}
-    </button>
   );
 }
 

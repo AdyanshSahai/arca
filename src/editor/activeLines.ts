@@ -4,9 +4,14 @@
 
 import type { EditorState } from "@codemirror/state";
 
-/** Set of 1-based line numbers touched by the selection. */
+/**
+ * Set of 1-based line numbers touched by the selection. Always empty in a
+ * read-only document (the Reader): there's no editing, so markdown is
+ * never revealed, wherever the user clicks.
+ */
 export function activeLines(state: EditorState): Set<number> {
   const lines = new Set<number>();
+  if (state.readOnly) return lines;
   for (const r of state.selection.ranges) {
     const first = state.doc.lineAt(r.from).number;
     const last = state.doc.lineAt(r.to).number;

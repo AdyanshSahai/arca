@@ -19,7 +19,6 @@ export function StatusBar() {
           <span className={`font-medium ${pane.mode === "live" ? "text-accent" : "text-fg/70"}`}>
             {pane.mode === "live" ? "Live preview" : "Raw markdown"}
           </span>
-          {pane.readOnly && <span className="font-medium text-[#f0cf8a]">Read-only</span>}
           <span className="truncate text-fg/60">{pane.path}</span>
           <span className={dirty ? "text-accent" : "text-muted/60"}>{dirty ? "saving…" : "saved"}</span>
           <div className="flex-1" />

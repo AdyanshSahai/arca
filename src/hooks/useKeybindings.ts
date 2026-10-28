@@ -14,7 +14,7 @@
 //   Ctrl+Shift+PageUp/PageDown  move the focused pane to the previous / next tab
 //   Ctrl+Shift+H                move the focused pane into a new tab (Konsole's "detach")
 //   Ctrl+E                      live preview ↔ raw markdown
-//   Ctrl+Shift+E                editable ↔ read-only
+//   Ctrl+Shift+E                read the current note in the Reader (sidebar)
 //   Ctrl+P / Ctrl+O             command palette (notes + actions)
 //   Ctrl+Shift+P                command palette, actions only
 //   Ctrl+Shift+F                full-text search
@@ -178,7 +178,8 @@ export function useKeybindings() {
       // Editor.
       if (mod && e.shiftKey && !e.altKey && key === "e") {
         take();
-        if (pane) layout.toggleReadOnly(pane.id);
+        ui.readNote(null); // follow the current note
+        ui.showPanel("reader");
         return;
       }
       if (mod && !e.altKey && key === "e") {
