@@ -2,6 +2,7 @@
 // requests sent from keyboard shortcuts to the search panel.
 
 import { create } from "zustand";
+import { applyTheme, type ThemeId } from "../lib/themes";
 
 /** The five drawer panels reachable from the left action rail. */
 export type PanelId = "tree" | "graph" | "search" | "backlinks" | "postits";
@@ -10,6 +11,20 @@ export type PanelId = "tree" | "graph" | "search" | "backlinks" | "postits";
 export type DrawerSize = "quarter" | "half" | "full";
 
 export type SearchMode = "files" | "text" | "topic";
+
+/** User preferences, edited in the Settings dialog and saved with the layout. */
+export interface Prefs {
+  theme: ThemeId;
+  /** Where rail views (graph, search…) open: straight into the sidebar, or ask. */
+  viewPlacement: "sidebar" | "ask";
+  /**
+   * Notes opened from the sidebar/palette/pins: ask which pane only when
+   * the tab is split, always ask, or just use the focused pane.
+   */
+  notePlacement: "ask-split" | "ask" | "focused";
+}
+
+export const DEFAULT_PREFS: Prefs = { theme: "twilight", viewPlacement: "sidebar", notePlacement: "ask-split" };
 
 export type PaneChoice =
   | { kind: "note"; path: string; line?: number; create?: boolean }
@@ -82,6 +97,8 @@ interface UiState {
    * from outside the panes, or a sidebar view (graph, search…).
    */
   paneChoice: PaneChoice | null;
+  prefs: Prefs;
+  settingsOpen: boolean;
   /** Text files whose "convert to Markdown?" notice was dismissed this session. */
   dismissedTextNotices: Set<string>;
 
@@ -100,6 +117,9 @@ interface UiState {
   dismissTextNotice: (path: string) => void;
   openPalette: (initial?: string) => void;
   askForPane: (choice: PaneChoice) => void;
+  setPrefs: (patch: Partial<Prefs>) => void;
+  openSettings: () => void;
+  closeSettings: () => void;
   cancelPaneChoice: () => void;
   openTemplatePicker: (dir: string) => void;
   openExport: (scope?: string) => void;
@@ -121,6 +141,8 @@ export const useUi = create<UiState>((set, get) => ({
   dismissedTextNotices: new Set(),
   palette: null,
   paneChoice: null,
+  prefs: DEFAULT_PREFS,
+  settingsOpen: false,
   templatePicker: null,
   exportDialog: null,
 
@@ -156,6 +178,13 @@ export const useUi = create<UiState>((set, get) => ({
     set({ paneChoice });
   },
   cancelPaneChoice: () => set({ paneChoice: null }),
+  setPrefs: (patch) => {
+    const prefs = { ...get().prefs, ...patch };
+    if (patch.theme) applyTheme(patch.theme);
+    set({ prefs });
+  },
+  openSettings: () => set({ settingsOpen: true }),
+  closeSettings: () => set({ settingsOpen: false }),
   openTemplatePicker: (dir) => set({ templatePicker: { dir } }),
   openExport: (scope) => set({ exportDialog: { scope } }),
   closeExport: () => set({ exportDialog: null }),

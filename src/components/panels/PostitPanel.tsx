@@ -8,12 +8,12 @@
 
 import { ArrowUpRight, Plus } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
-import { insertPostitInFocused } from "../../lib/actions";
+import { insertPostitInFocused, openFromSidebar } from "../../lib/actions";
 import { errorMessage, ipc } from "../../lib/ipc";
 import type { PostItEntry } from "../../lib/types";
 import { POSTIT_COLORS, safeColor } from "../../editor/postits";
 import { useBuffers } from "../../store/buffers";
-import { useContextPane, useLayout } from "../../store/layout";
+import { useContextPane } from "../../store/layout";
 import { useUi } from "../../store/ui";
 import { useVault } from "../../store/vault";
 import { Segmented } from "../ui/Segmented";
@@ -154,7 +154,7 @@ function PostitCard({ entry }: { entry: PostItEntry }) {
         <div className="flex-1" />
         <span className="text-[11px] text-muted/50 tabular-nums">line {entry.line}</span>
         <button
-          onClick={() => useLayout.getState().openNote(entry.path, { line: entry.line, pick: true })}
+          onClick={() => openFromSidebar(entry.path, { line: entry.line })}
           title="Show in note"
           className="text-muted hover:text-accent"
         >

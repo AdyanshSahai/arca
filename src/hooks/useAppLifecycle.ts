@@ -14,7 +14,7 @@ import { useEffect, useState } from "react";
 import { ipc } from "../lib/ipc";
 import { useBuffers } from "../store/buffers";
 import { type LayoutSnapshot, useLayout } from "../store/layout";
-import { type DrawerSize, type PanelId, useUi } from "../store/ui";
+import { DEFAULT_PREFS, type DrawerSize, type PanelId, type Prefs, useUi } from "../store/ui";
 import { useVault } from "../store/vault";
 
 /** What we store in the opaque `ui` blob in settings.json. */
@@ -23,6 +23,8 @@ interface SavedUi {
   vault?: string;
   panel?: PanelId | null;
   drawerSize?: DrawerSize;
+  /** User preferences (theme, where things open). Not tied to a vault. */
+  prefs?: Partial<Prefs>;
   layout?: LayoutSnapshot;
 }
 
@@ -43,6 +45,8 @@ export function useBootstrap(): boolean {
       try {
         const { vaultPath, ui } = await ipc.appState();
         const saved = (ui ?? {}) as SavedUi;
+        // Preferences first, so the right theme is on before anything paints.
+        useUi.getState().setPrefs({ ...DEFAULT_PREFS, ...saved.prefs });
         if (saved.drawerSize) useUi.getState().setDrawerSize(saved.drawerSize);
         if (saved.panel !== undefined) {
           if (saved.panel) useUi.getState().showPanel(saved.panel);
@@ -124,8 +128,8 @@ export function usePersistence() {
       timer = window.setTimeout(() => {
         const info = useVault.getState().info;
         if (!info) return; // nothing worth remembering before a vault is open
-        const { panel, drawerSize } = useUi.getState();
-        const ui: SavedUi = { vault: info.root, panel, drawerSize, layout: useLayout.getState().snapshot() };
+        const { panel, drawerSize, prefs } = useUi.getState();
+        const ui: SavedUi = { vault: info.root, panel, drawerSize, prefs, layout: useLayout.getState().snapshot() };
         void ipc.saveUi(ui).catch(() => {
           /* Settings are best-effort; never interrupt the user for them. */
         });
@@ -134,7 +138,7 @@ export function usePersistence() {
     // Zustand's subscribe fires on every state change of that store.
     const offLayout = useLayout.subscribe(schedule);
     const offUi = useUi.subscribe((s, prev) => {
-      if (s.panel !== prev.panel || s.drawerSize !== prev.drawerSize) schedule();
+      if (s.panel !== prev.panel || s.drawerSize !== prev.drawerSize || s.prefs !== prev.prefs) schedule();
     });
 
     // Make sure typing from the last 600ms reaches disk before exiting.

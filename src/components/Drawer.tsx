@@ -5,7 +5,7 @@
 // buttons, or drag the right edge and let go: the width snaps to the nearest
 // size, and dragging nearly shut closes the drawer.
 
-import { Maximize2, X } from "lucide-react";
+import { Maximize2, PanelRight, X } from "lucide-react";
 import { useRef, useState } from "react";
 import { type DrawerSize, type PanelId, useUi } from "../store/ui";
 import { PANELS } from "./panels/registry";
@@ -72,6 +72,15 @@ export function Drawer() {
     <aside ref={root} style={style} className="relative flex min-w-0 shrink-0 flex-col border-r border-line bg-alt">
       <header className="flex h-12 shrink-0 items-center gap-1.5 border-b border-line pr-3 pl-5">
         <span className="flex-1 text-[14px] font-semibold text-fg">{PANELS[panel].title}</span>
+        {/* The mirror of a view pane's "Move to sidebar": choose a pane, a
+            new pane or a new tab for this view. */}
+        <button
+          onClick={() => useUi.getState().askForPane({ kind: "view", view: panel })}
+          title="Move this view into a pane"
+          className="btn-soft mr-1 flex items-center gap-1.5 rounded-md px-2 py-[3px] text-[11px]"
+        >
+          <PanelRight size={12} /> Move to pane
+        </button>
         {/* Snap-size switch, drawn as one segmented control. */}
         <div className="mr-1 flex items-center rounded-md border border-line p-[2px]">
           <SizeButton label="¼" title="Quarter width" active={size === "quarter"} onClick={() => setDrawerSize("quarter")} />

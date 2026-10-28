@@ -8,11 +8,12 @@
 //
 // ↑/↓ move the selection, Enter opens it, Ctrl+Enter opens it in a new tab.
 
+import { openFromSidebar } from "../../lib/actions";
 import { useEffect, useRef, useState } from "react";
 import { errorMessage, ipc } from "../../lib/ipc";
 import { dirName } from "../../lib/paths";
 import type { FileHit, TagCount, TextHit } from "../../lib/types";
-import { useContextPane, useLayout } from "../../store/layout";
+import { useContextPane } from "../../store/layout";
 import { type SearchMode, useUi } from "../../store/ui";
 import { useVault } from "../../store/vault";
 import { Search as SearchIcon } from "lucide-react";
@@ -116,7 +117,7 @@ export function SearchPanel() {
     };
   }, [mode, query, folderOnly, caseSensitive, scopeDir, revision]);
 
-  const openRow = (row: Row, newTab: boolean) => useLayout.getState().openNote(row.path, { newTab, pick: true });
+  const openRow = (row: Row, newTab: boolean) => openFromSidebar(row.path, { newTab });
 
   const onKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === "ArrowDown") {

@@ -64,6 +64,8 @@ interface LayoutState {
   openNote: (path: string, opts?: OpenOpts) => void;
   /** Opens a note in a specific pane (the answer to a pane prompt). */
   openNoteIn: (paneId: string, path: string, opts?: OpenOpts) => void;
+  /** Splits the focused pane and opens the note in the new right-hand half. */
+  openNoteInNewPane: (path: string, opts?: OpenOpts) => void;
   /** Shows a sidebar view in a pane, replacing its note. */
   openViewIn: (paneId: string, view: PanelId) => void;
   /**
@@ -71,6 +73,8 @@ interface LayoutState {
    * half, so the view gets a pane of its own without replacing a note.
    */
   openViewInNewPane: (view: PanelId) => void;
+  /** Opens a new tab showing just this view. */
+  openViewInNewTab: (view: PanelId) => void;
   /** Turns a view pane back into an empty pane (the view goes back to the drawer). */
   clearView: (paneId: string) => void;
   newTab: (path?: string | null) => void;
@@ -184,9 +188,12 @@ export const useLayout = create<LayoutState>((set, get) => {
     contextPane: null,
 
     openNote: (path, opts) => {
-      // Split tab + opened from outside the panes: let the user choose
-      // which pane takes the note instead of silently replacing one.
-      if (opts?.pick && !opts.newTab && paneIds(active().root).length > 1) {
+      // Opened from outside the panes (sidebar, palette, pins): depending on
+      // the "notes from the sidebar" preference, ask which pane should take
+      // the note (or a new pane / new tab) instead of silently replacing one.
+      const placement = useUi.getState().prefs.notePlacement;
+      const ask = placement === "ask" || (placement === "ask-split" && paneIds(active().root).length > 1);
+      if (opts?.pick && !opts.newTab && ask) {
         useUi.getState().askForPane({ kind: "note", path, line: opts.line, create: opts.create });
         return;
       }
@@ -217,6 +224,19 @@ export const useLayout = create<LayoutState>((set, get) => {
       // The view now lives in a pane; the drawer doesn't need to show it too.
       if (useUi.getState().panel === view) useUi.getState().closeDrawer();
       gcBuffers();
+    },
+
+    openNoteInNewPane: (path, opts) => {
+      useUi.getState().cancelPaneChoice();
+      get().split("row");
+      // split() focuses the new (right-hand) pane.
+      get().openNote(path, { ...opts, pick: false, newTab: false });
+    },
+
+    openViewInNewTab: (view) => {
+      useUi.getState().cancelPaneChoice();
+      get().newTab();
+      get().openViewIn(active().focusedPane, view);
     },
 
     openViewInNewPane: (view) => {

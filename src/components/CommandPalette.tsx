@@ -7,6 +7,7 @@
 //
 // ↑/↓ choose, Enter runs (Ctrl+Enter opens a note in a new tab), Esc closes.
 
+import { openFromSidebar } from "../lib/actions";
 import { ArrowRight, FileText, Hash, Search } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { allCommands, type Command } from "../lib/commands";
@@ -15,7 +16,7 @@ import { ipc } from "../lib/ipc";
 import { scrollWithin } from "../lib/scroll";
 import { stem } from "../lib/paths";
 import type { FileHit, TextHit } from "../lib/types";
-import { useLayout } from "../store/layout";
+
 import { useUi } from "../store/ui";
 import { Highlighted, indicesToRanges } from "./ui/Highlighted";
 
@@ -102,7 +103,7 @@ function Palette({ initial }: { initial: string }) {
   const run = (item: Item, newTab: boolean) => {
     close();
     if (item.kind === "command") item.command.run();
-    else useLayout.getState().openNote(item.path, { newTab, pick: true });
+    else openFromSidebar(item.path, { newTab });
   };
 
   const onKeyDown = (e: React.KeyboardEvent) => {

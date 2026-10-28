@@ -97,10 +97,15 @@ export function useKeybindings() {
           layout.openNoteIn(target, choice.path, { line: choice.line, create: choice.create });
         } else if (target && choice.kind === "view") {
           layout.openViewIn(target, choice.view);
-        } else if (choice.kind === "view" && letter === "n") {
-          // N = give the view a new pane of its own (split right).
+        } else if (letter === "n") {
+          // N = a new pane of its own (split right).
+          if (choice.kind === "view") layout.openViewInNewPane(choice.view);
+          else layout.openNoteInNewPane(choice.path, { line: choice.line, create: choice.create });
+        } else if (letter === "t") {
+          // T = a new tab.
           ui.cancelPaneChoice();
-          layout.openViewInNewPane(choice.view);
+          if (choice.kind === "view") layout.openViewInNewTab(choice.view);
+          else layout.openNote(choice.path, { newTab: true, line: choice.line, create: choice.create });
         } else if (choice.kind === "view" && letter === "s") {
           // S = keep the view in the sidebar drawer instead.
           ui.cancelPaneChoice();

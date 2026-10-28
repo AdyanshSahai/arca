@@ -1,6 +1,7 @@
 // The open vault: its tree, note list, pins, and the file operations that
 // must also update tabs and buffers (create, rename, trash).
 
+import { openFromSidebar } from "../lib/actions";
 import { create } from "zustand";
 import { errorMessage, ipc } from "../lib/ipc";
 import { baseName, dirName, isNotePath, joinPath, remapPath, stem } from "../lib/paths";
@@ -197,7 +198,7 @@ export const useVault = create<VaultState>((set, get) => ({
   activatePin: (pin) => {
     switch (pin.kind) {
       case "note":
-        useLayout.getState().openNote(pin.path, { pick: true });
+        openFromSidebar(pin.path);
         break;
       case "folder":
         // Show the tree drawer and ask it to reveal + expand the folder.

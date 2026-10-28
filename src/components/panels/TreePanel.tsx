@@ -19,6 +19,7 @@
 //   Enter      open           Space  toggle folder / open note
 //   Home / End first / last row
 
+import { openFromSidebar } from "../../lib/actions";
 import { ChevronRight, FilePlus, FileText, Folder, FolderMinus, FolderOpen, FolderPlus, Paperclip } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { errorMessage, ipc } from "../../lib/ipc";
@@ -69,10 +70,10 @@ function flatten(nodes: TreeNode[], expanded: Set<string>, depth = 0, parent = "
 function activate(node: TreeNode, newTab: boolean) {
   if (node.isDir) {
     const note = node.notePath ?? defaultFolderNote(node.path);
-    useLayout.getState().openNote(note, { newTab, create: !node.notePath, pick: true });
+    openFromSidebar(note, { newTab, create: !node.notePath });
   } else if (node.isNote || isTextPath(node.path)) {
     // Notes and plain-text files open in the editor; anything else in its own app.
-    useLayout.getState().openNote(node.path, { newTab, pick: true });
+    openFromSidebar(node.path, { newTab });
   } else {
     ipc.openInDefaultApp(node.path).catch((err) => useUi.getState().toast(errorMessage(err), "error"));
   }

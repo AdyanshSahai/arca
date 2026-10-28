@@ -9,13 +9,13 @@
 // you type; backlinks come from the Rust index and refresh on save.
 
 import { useEffect, useMemo, useState } from "react";
-import { followLink } from "../../lib/actions";
+import { followLink, openFromSidebar } from "../../lib/actions";
 import { errorMessage, ipc } from "../../lib/ipc";
 import { classifyLink } from "../../lib/links";
 import { stem } from "../../lib/paths";
 import type { Backlink } from "../../lib/types";
 import { useBuffers } from "../../store/buffers";
-import { useContextPane, useLayout } from "../../store/layout";
+import { useContextPane } from "../../store/layout";
 import { useUi } from "../../store/ui";
 import { useVault } from "../../store/vault";
 import { Highlighted } from "../ui/Highlighted";
@@ -66,7 +66,7 @@ export function BacklinksPanel() {
         {backlinks.map((b, i) => (
           <button
             key={`${b.source}:${b.line}:${i}`}
-            onClick={(e) => useLayout.getState().openNote(b.source, { line: b.line, newTab: e.ctrlKey || e.metaKey, pick: true })}
+            onClick={(e) => openFromSidebar(b.source, { line: b.line, newTab: e.ctrlKey || e.metaKey })}
             className="block w-full rounded-md px-2.5 py-2 text-left transition-colors hover:bg-hover"
           >
             <div className="flex items-baseline gap-2 text-[13px]">

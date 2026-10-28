@@ -18,10 +18,10 @@ import { Maximize, Minus, Plus } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { clusterColor, layoutGraph, nodeRadius, type Positioned, topFolder } from "../../lib/graphLayout";
 import ForceGraph2D, { type ForceGraphMethods, type LinkObject, type NodeObject } from "react-force-graph-2d";
-import { followLink } from "../../lib/actions";
+import { followLink, openFromSidebar } from "../../lib/actions";
 import { errorMessage, ipc } from "../../lib/ipc";
 import type { Graph, GraphNode } from "../../lib/types";
-import { useContextPane, useLayout } from "../../store/layout";
+import { useContextPane } from "../../store/layout";
 import { Segmented } from "../ui/Segmented";
 import { useUi } from "../../store/ui";
 import { useVault } from "../../store/vault";
@@ -57,7 +57,9 @@ export function GraphPanel() {
   const [size, setSize] = useState({ w: 300, h: 300 });
   const box = useRef<HTMLDivElement>(null);
   const fg = useRef<ForceGraphMethods<GNode, GLink>>(undefined);
-  const colors = useMemo(palette, []);
+  // Canvas colours come from CSS variables, so re-read them on theme change.
+  const theme = useUi((s) => s.prefs.theme);
+  const colors = useMemo(palette, [theme]);
 
   // Refetch the graph whenever the vault changes. Most saves don't change
   // any links, so an identical graph is dropped here instead of triggering
@@ -320,7 +322,7 @@ export function GraphPanel() {
             onNodeHover={(n) => setHover(n ? (n.id as string) : null)}
             onNodeClick={(n, ev) => {
               if (n.ghost) void followLink(n.label, active ?? "");
-              else useLayout.getState().openNote(n.id as string, { newTab: ev.ctrlKey || ev.metaKey, pick: true });
+              else openFromSidebar(n.id as string, { newTab: ev.ctrlKey || ev.metaKey });
             }}
             // Layout is precomputed and pinned (see `data`), so the widget's
             // engine runs zero ticks and nothing ever moves on its own.

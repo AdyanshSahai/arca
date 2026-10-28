@@ -38,6 +38,17 @@ export async function followLink(target: string, from: string): Promise<void> {
   }
 }
 
+/**
+ * The one way every place outside the panes opens a note: search, graph,
+ * chapter tree, backlinks, post-its, command palette and pins all call
+ * this, so they behave identically. Depending on Settings → "Notes opened
+ * from the sidebar", it asks which pane should take the note (or a new
+ * pane / new tab), or uses the focused pane. Ctrl+click → new tab.
+ */
+export function openFromSidebar(path: string, opts: { line?: number; newTab?: boolean; create?: boolean } = {}): void {
+  useLayout.getState().openNote(path, { ...opts, pick: true });
+}
+
 /** Finds the tree node for a folder path ("" = vault root), if it exists. */
 function findFolder(node: TreeNode | null, dir: string): TreeNode | null {
   if (!node) return null;
