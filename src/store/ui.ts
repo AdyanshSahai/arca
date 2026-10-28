@@ -148,7 +148,13 @@ export const useUi = create<UiState>((set, get) => ({
   setSearch: (patch) => set({ search: { ...get().search, ...patch } }),
   // A new Set each time so zustand subscribers see the change.
   openPalette: (initial = "") => set({ palette: initial }),
-  askForPane: (paneChoice) => set({ paneChoice }),
+  askForPane: (paneChoice) => {
+    // Take focus out of any editor or text box, so the number/letter keys
+    // that answer the prompt reach the global handler instead of being
+    // typed (or swallowed by an input method).
+    (document.activeElement as HTMLElement | null)?.blur();
+    set({ paneChoice });
+  },
   cancelPaneChoice: () => set({ paneChoice: null }),
   openTemplatePicker: (dir) => set({ templatePicker: { dir } }),
   openExport: (scope) => set({ exportDialog: { scope } }),

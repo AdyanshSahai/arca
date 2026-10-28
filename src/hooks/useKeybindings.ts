@@ -85,18 +85,23 @@ export function useKeybindings() {
         const tab = layout.tabs.find((t) => t.id === layout.activeTab);
         const ids = tab ? paneIds(tab.root) : [];
         const choice = ui.paneChoice;
+        // Match physical keys (Digit1 / Numpad1 / KeyN…), not e.key: with an
+        // input method running (IBus/Fcitx on KDE), keys typed while a text
+        // field had focus can arrive as "Process" / "Unidentified".
+        const digit = /^(Digit|Numpad)([1-9])$/.exec(e.code)?.[2] ?? (/^[1-9]$/.test(e.key) ? e.key : null);
+        const letter = /^Key([A-Z])$/.exec(e.code)?.[1]?.toLowerCase() ?? key;
         let target: string | undefined;
-        if (/^[1-9]$/.test(e.key)) target = ids[Number(e.key) - 1];
-        else if (e.key === "Enter") target = tab?.focusedPane;
+        if (digit) target = ids[Number(digit) - 1];
+        else if (e.key === "Enter" || e.code === "NumpadEnter") target = tab?.focusedPane;
         if (target && choice.kind === "note") {
           layout.openNoteIn(target, choice.path, { line: choice.line, create: choice.create });
         } else if (target && choice.kind === "view") {
           layout.openViewIn(target, choice.view);
-        } else if (choice.kind === "view" && key === "n") {
+        } else if (choice.kind === "view" && letter === "n") {
           // N = give the view a new pane of its own (split right).
           ui.cancelPaneChoice();
           layout.openViewInNewPane(choice.view);
-        } else if (choice.kind === "view" && key === "s") {
+        } else if (choice.kind === "view" && letter === "s") {
           // S = keep the view in the sidebar drawer instead.
           ui.cancelPaneChoice();
           ui.showPanel(choice.view);
