@@ -1,166 +1,246 @@
 # Arca
 
-A local-first markdown notebook for power users. It combines the strict
-folder hierarchy of CherryTree with the linked-notes graph of Obsidian, on a
-Rust + Tauri v2 stack.
+A CherryTree alternative built on plain Markdown files. You get the same deep tree of notes, plus Obsidian-style `[[links]]`, backlinks and a graph, in a dark, keyboard-driven desktop app.
 
-Notes are plain `.md` files in a folder you choose. There is no database
-and no lock-in, so you can open the same folder in any other editor, or
-`git` it.
+![Platform](https://img.shields.io/badge/platform-Linux-6b4f80)
+![Stack](https://img.shields.io/badge/stack-Rust%20%2B%20Tauri%20v2-bc8bca)
+![Search](https://img.shields.io/badge/search-Tantivy-ffbfff)
+![License](https://img.shields.io/badge/license-MIT-9fdcb4)
 
-## Features
+- **A real tree.** Folders are chapters, nested as deep as you like. Click a chapter's name to open its own overview note, or its arrow to expand it.
+- **Plain files.** Every note is a `.md` file in a folder you choose. There's no database and nothing to export your way out of.
+- **Links that work both ways.** `[[WikiLinks]]`, a backlinks panel, and a local or global graph of how your notes connect.
+- **Post-it notes.** Small coloured annotations live inside a note, and all of them are collected in one panel.
+- **Panes like Konsole.** Split any tab left/right or top/bottom, move panes between tabs, and keep different notes side by side.
+- **Instant search.** Fuzzy file names, full text (with match case), and `#tag` / `[[link]]` topics, all from an in-memory Tantivy index.
+- **Rich Markdown.** Live preview with callouts, KaTeX math, tables, code boxes and images. Reading mode hides all the syntax.
 
-- **Chapters:** nested folders on disk become a collapsible chapter tree.
-  It handles deep nesting (10+ levels, with indent guides and child
-  counts) and can be driven entirely from the keyboard.
-  - Clicking a folder's name opens its own overview note
-    (`hardware/hardware.md`, `hardware/index.md` or `hardware.md` beside
-    it); the arrow expands it.
-  - Drag entries to move them; right-click to create, rename, pin,
-    export or trash.
-- **Post-it notes:** small annotations embedded in a note, collapsible in
-  the editor and collected in their own sidebar panel, where you can edit
-  them in place:
-  ```markdown
-  <!-- postit:id=123 color=purple -->
-  > **Post-it:** Check hardware registers before calling CPUID.
-  <!-- /postit -->
-  ```
-- **[[WikiLinks]]:** link to notes (`[[cpu]]`, `[[hardware/cpu|alias]]`),
-  websites (`[[https://…]]`) or local files such as textbooks
-  (`[[~/books/sicp.pdf]]`). Typing `[[` autocompletes note names.
-- **Backlinks, outgoing links and tags** for the current note.
-- **Graph view:** an interactive 2D force graph, global or N hops around
-  the current note. "Ghost" nodes stand for links to notes that don't
-  exist yet.
-- **Search:** an in-memory [Tantivy](https://github.com/quickwit-oss/tantivy)
-  index:
-  - Files: fuzzy, or `/regex/`
-  - Text: full-text, the whole vault or the current folder
-  - Topic: `#tag` or `[[note]]`
-- **Konsole-style split tiling:** every tab can be split into side-by-side
-  or stacked panes, each with its own note.
-- **Editor:** CodeMirror 6, switching between live preview (markdown
-  rendered except on the line you're editing) and raw markdown.
-- **Rich markdown** in live preview:
-  - `> [!NOTE]` / `[!WARNING]` / … callouts
-  - KaTeX math (`$inline$`, `$$display$$`)
-  - code boxes with a language picker and a copy button
-  - rendered tables (Tab / Shift+Tab move between cells and re-align
-    columns)
-  - inline images
-- **Attachments:** paste images or drop files onto a note. They're stored
-  in a hidden `.assets/` folder next to it.
-- **Command palette** (`Ctrl+P`): jump to notes, run any action (`>`),
-  or find notes by tag (`#`).
-- **Templates:** bug report, study log, meeting notes, daily note and
-  chapter overview, with `{{title}}`/`{{date}}`/`{{time}}` placeholders.
-  Kept editable in `<vault>/.arca/templates/`.
-- **Export:** a note, a chapter or the whole vault, as one printable HTML
-  page (with contents; use Print → Save as PDF for a PDF) or as merged
-  Markdown.
-- **Plain-text files** open in the editor, with an offer to convert them
-  to Markdown.
-- **Pinned shortcut bar** for frequent notes, folders and files.
-- **Sidebar drawer** that snaps to ¼, ½ or the full window.
-- **TwilightPixel** dark purple theme.
+Arca is a personal project shared as-is. It reads and writes only the folder you open, but keep backups of anything you care about, as you would with any young app.
 
-## Keyboard shortcuts
+## Coming from CherryTree
+
+| CherryTree | Arca |
+| --- | --- |
+| One `.ctb` / `.ctd` file holding every node | A folder of `.md` files you can open in any editor, sync or `git` |
+| Node | Note (a `.md` file) |
+| Node with children | Folder. Its own text lives in a folder note (`hardware/hardware.md`, `hardware/index.md` or `hardware.md` next to the folder) |
+| Rich text | Markdown with live preview: headings, bold, lists and tasks render in place |
+| Codebox | Fenced code block with syntax highlighting, a language picker and a copy button |
+| Table | Markdown table, rendered as a real table. Tab moves between cells and re-aligns the columns |
+| Internal link / anchor | `[[Note name]]`, `[[folder/note\|label]]` or `[[note#Heading]]` |
+| Node tags | `#tags` anywhere in a note |
+| Find in nodes | Text search over the whole vault or one folder, plus fuzzy file search |
+| Export to HTML / PDF | Export a note, a chapter or the whole vault to one printable HTML page, or to merged Markdown |
+| Read-only node | App-wide reading mode (`Ctrl+Shift+E`) |
+
+There's no importer for `.ctb` / `.ctd` files yet; see [Planned Updates](#planned-updates).
+
+## Quick Start
+
+Linux only, tested on Fedora KDE. You build Arca from source; it takes a few minutes the first time.
+
+**1. Install the dependencies**
+
+These are the system libraries for Tauri (the desktop shell) plus a C toolchain:
+
+| Distro | Command |
+| --- | --- |
+| Fedora | `sudo dnf install webkit2gtk4.1-devel openssl-devel libappindicator-gtk3-devel librsvg2-devel libxdo-devel nodejs npm && sudo dnf group install c-development` |
+| Debian / Ubuntu | `sudo apt install libwebkit2gtk-4.1-dev build-essential libssl-dev libayatana-appindicator3-dev librsvg2-dev libxdo-dev nodejs npm` |
+| Arch | `sudo pacman -S webkit2gtk-4.1 base-devel openssl libappindicator-gtk3 librsvg xdotool nodejs npm` |
+
+You also need Rust, installed with [rustup](https://rustup.rs):
+
+```bash
+curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
+```
+
+Node.js 20 or newer is required. Check with `node --version`.
+
+**2. Get the code**
+
+```bash
+git clone https://github.com/AdyanshSahai/arca
+cd arca
+npm install
+```
+
+**3. Run it**
+
+```bash
+npm run tauri dev
+```
+
+The first build compiles everything and takes a few minutes; after that it starts in seconds. To build a standalone, faster binary instead:
+
+```bash
+npm run tauri build -- --no-bundle
+./target/release/arca
+```
+
+**4. Open a vault**
+
+Click **Open vault folder…** and pick any folder. An empty one is fine. Arca only reads and writes `.md` (and `.txt`) files inside it, plus its own hidden `.arca/` and `.trash/` folders. Next time, Arca reopens the same vault and layout.
+
+## How It Works
+
+A small Rust engine (`crates/arca-core`) reads the vault, keeps an in-memory [Tantivy](https://github.com/quickwit-oss/tantivy) search index, and works out links, backlinks, tags, post-its and the graph. The index is rebuilt from your files every time a vault opens, so the files are always the only source of truth. A file watcher picks up edits made outside Arca.
+
+The window is a [Tauri v2](https://v2.tauri.app) app with a React + TypeScript front end and a [CodeMirror 6](https://codemirror.net) editor. The front end can only reach the vault through Arca's own commands, and every path is checked so nothing outside the vault folder can be touched.
+
+## Using It
+
+**Notes and chapters.** Right-click in the chapter tree to create notes, chapter folders, notes from a template, or to rename, pin, export or trash. Drag entries onto folders to move them. Deleting never destroys anything: it moves the entry to `.trash/` inside the vault.
+
+**Writing.** Live preview renders Markdown as you go and shows the raw syntax only on the line you're editing. `Ctrl+E` switches a pane to raw Markdown, and `Ctrl+Shift+E` puts every note in reading mode. Typing `[[` autocompletes note names. Paste an image, or drop a file from your file manager, and it's saved in a hidden `.assets/` folder next to the note and linked.
+
+**Post-its.** `Ctrl+Alt+P` drops one at the cursor. On disk it's plain Markdown that other tools show as a quote:
+
+```markdown
+<!-- postit:id=k3x9 color=purple -->
+> **Post-it:** Check hardware registers before calling CPUID.
+<!-- /postit -->
+```
+
+The Post-its panel lists every post-it in the vault and lets you edit their text and colour in place.
+
+**Rich blocks.**
+
+```markdown
+> [!WARNING] Callouts
+> Also NOTE, TIP, DANGER, EXAMPLE, QUESTION…
+
+Inline math $E = mc^2$, and display math:
+$$
+\sum_{k=0}^{n} k^2
+$$
+```
+
+**Panes and tabs.** `Ctrl+Shift+(` splits the focused pane left/right and `Ctrl+Shift+)` top/bottom; `Ctrl+D` closes it. Drag a pane's header onto another tab (or onto empty tab-strip space for a new tab). When you open a note from the sidebar into a split tab, Arca asks where it should go: press a pane's number, `N` for a new pane, or `T` for a new tab.
+
+**Sidebar views.** Chapters, Graph, Search, Backlinks and Post-its live in the left rail. They open in the sidebar, which snaps to ¼, ½ or full width. "Move to pane" turns any of them into a pane of its own.
+
+**Graph.** Opens on the current note's neighbourhood (depth 1–3). Switch to Global for the whole vault, coloured by chapter and filterable by folder and tag. The current note is the square.
+
+**Command palette.** `Ctrl+P` jumps to any note. Type `>` for actions, or `#` to find notes by tag.
+
+**Templates.** "New note from template…" (palette or right-click) offers Bug Report, Study Log, Meeting Notes, Daily Note and Chapter Overview. They're plain files in `<vault>/.arca/templates/`, so edit them or add your own. `{{title}}`, `{{date}}`, `{{time}}`, `{{datetime}}` and `{{folder}}` are filled in for you.
+
+**Export.** "Export notes…" compiles a note, a chapter (in reading order: overview first, then notes, then sub-chapters) or the whole vault into one HTML page with a table of contents. Post-its, callouts and images come along. Print it from a browser for a PDF. Markdown export merges everything into one `.md` file.
+
+## Keyboard Shortcuts
 
 | Keys | Action |
 | --- | --- |
-| `Ctrl+P` | Command palette (notes; `>` actions; `#` tags) |
-| `Ctrl+Shift+P` | Command palette, actions only |
-| `Ctrl+Shift+F` | Full-text search |
+| `Ctrl+P` | Command palette (`>` actions, `#` tags) |
+| `Ctrl+Shift+F` | Search text in the vault |
 | `Ctrl+N` | New note |
 | `Ctrl+T` / `Ctrl+W` | New tab / close tab |
-| `Ctrl+Tab`, `Ctrl+1…9` | Cycle / jump to tabs |
-| `Ctrl+Shift+(` | Split pane left / right |
-| `Ctrl+Shift+)` | Split pane top / bottom |
-| `Ctrl+D` (or `Ctrl+Shift+X`) | Close pane |
-| `Ctrl+Alt+Arrows` | Move focus between panes |
-| `Ctrl+Shift+PgUp` / `PgDn` | Move the pane to the previous / next tab (or drag its header onto a tab) |
-| `Ctrl+Shift+H` | Move the pane into a new tab |
-| `Ctrl+E` | Live preview ↔ raw markdown |
-| `Ctrl+Shift+E` | Reading ↔ writing mode for all notes (also the pen/book button on the left rail) |
+| `Ctrl+Tab`, `Ctrl+1…9` | Next tab / jump to a tab |
+| `Ctrl+Shift+(` / `Ctrl+Shift+)` | Split left/right / top/bottom |
+| `Ctrl+D` | Close pane |
+| `Ctrl+Alt+Arrows` | Move between panes |
+| `Ctrl+Shift+PgUp` / `PgDn` | Move pane to the previous / next tab |
+| `Ctrl+Shift+H` | Move pane into a new tab |
+| `Ctrl+E` | Live preview / raw Markdown |
+| `Ctrl+Shift+E` | Reading / writing mode (all notes) |
 | `Ctrl+Alt+P` | Insert a post-it |
-| `Ctrl+B` | Toggle the sidebar drawer |
-| `Alt+1…9` | Open pinned shortcut N |
 | `Tab` / `Shift+Tab` | Next / previous table cell |
-| `↑ ↓ ← →`, `Enter`, `Space` | Navigate the chapter tree (when focused) |
-| `Ctrl+click` | Follow a link / search a tag (raw mode) |
+| `Ctrl+B` | Toggle the sidebar |
+| `Ctrl+,` | Settings |
+| `Alt+1…9` | Open pinned shortcut N |
 
-## Building
+The same list is in Settings → Shortcuts.
 
-Requirements:
+## Configuration
 
-- Rust (via [rustup](https://rustup.rs))
-- Node.js 20+
-- Tauri's [system dependencies](https://v2.tauri.app/start/prerequisites/)
-  (on Fedora: `webkit2gtk4.1-devel openssl-devel libappindicator-gtk3-devel librsvg2-devel libxdo-devel`)
+Open Settings with `Ctrl+,` or the gear at the bottom of the left rail. Changes apply immediately.
 
-```bash
-npm install
-npm run tauri dev      # run in development
-npm run tauri build    # produce an installable bundle
-cargo test -p arca-core  # run the engine's unit tests
-```
+| Setting | Options | Default |
+| --- | --- | --- |
+| Colour scheme | TwilightPixel, Midnight, Rosewood, Forest | TwilightPixel |
+| Views (graph, search…) open | In the sidebar, or ask every time | Sidebar |
+| Notes opened from the sidebar | Ask when the tab is split, always ask, or use the focused pane | Ask when split |
 
-## Layout
-
-```
-crates/arca-core/   Headless Rust engine: vault I/O, post-its, links, Tantivy search
-src-tauri/          Tauri v2 shell: IPC commands, file watcher, settings
-src/                React + TypeScript frontend
-  editor/           CodeMirror extensions (live preview, wiki-links, post-its)
-  components/       Window chrome, drawer panels, split panes
-  store/            zustand stores (layout, buffers, vault, ui)
-```
-
-## Where data lives
+## Where Data Lives
 
 | What | Where |
 | --- | --- |
-| Notes | your vault folder, as plain `.md` files |
-| Pins | `<vault>/.arca/vault.json` (they travel with the vault) |
-| Deleted notes | `<vault>/.trash/` (restore by moving them back) |
+| Notes | Your vault folder, as plain `.md` files |
 | Attachments | `.assets/` next to the note that uses them |
 | Templates | `<vault>/.arca/templates/` |
-| Window layout | the OS config folder (`~/.config/dev.adyansh.arca/` on Linux) |
+| Pinned shortcuts | `<vault>/.arca/vault.json` (they travel with the vault) |
+| Deleted notes | `<vault>/.trash/`. Restore by moving them back |
+| Window layout, settings | `~/.config/dev.adyansh.arca/` |
 
-## Running two versions side by side
-
-`npm run sandbox` starts an isolated development build next to a normal
-one. It runs on port 1421 instead of 1420, uses its own settings
-(identifier `dev.adyansh.arca.sandbox`), and shows a **DEV** badge in the
-title bar. Combined with a git worktree, you can keep using one version
-while another is being worked on:
+## Updating
 
 ```bash
-git worktree add ../arca-dev dev   # second checkout on the dev branch
-cd ../arca-dev && npm install
-npm run sandbox                    # runs alongside `npm run tauri dev` in ../arca
+cd arca
+git pull
+npm install
 ```
 
-Both windows can open the same vault: each one notices the other's saves
-through the file watcher.
+Then run it again. The first build after an update may take a little longer.
 
-## Profiling
+## Uninstalling
 
-Two tools, both inert unless switched on:
+Delete the cloned folder and `~/.config/dev.adyansh.arca/`. Your vaults are not touched. If you want, also delete the hidden `.arca/` (templates, pins) and `.trash/` folders inside them.
 
-- **Backend benchmark:** times the work behind every command on a real or
-  generated vault. Compare a normal (debug) run with `--release`.
-  ```bash
-  cargo run -p arca-core --example bench -- --generate /tmp/big 2000
-  cargo run -p arca-core --example bench --release -- /tmp/big "chapter-00/note-0.md"
-  ```
-- **In-app profiling run:** opens a *scratch* vault, types into a note
-  programmatically for each sidebar state, logs which components
-  re-render, React and CodeMirror time per keystroke, graph recomputes, and
-  how long every Tauri command and watcher refresh took (`[arca-perf]`
-  lines on stderr), then closes itself.
-  ```bash
-  cp -r ~/Documents/vault /tmp/vault-copy
-  VITE_ARCA_PROFILE_VAULT=/tmp/vault-copy npm run profile 2> perf.log
-  ```
+## Known Issues
+
+- Renaming or moving a note doesn't update `[[links]]` that point to it. They show up as ghost nodes in the graph until fixed.
+- There's no importer for CherryTree `.ctb` / `.ctd` files yet.
+- Keyboard shortcuts can't be rebound yet.
+- Math in exported HTML is typeset by KaTeX loaded from a CDN, so it needs an internet connection when the page is opened.
+- Attachments stay in `.assets/` after the link to them is deleted.
+- Dragging nodes in the graph is disabled; that's what keeps the layout perfectly still.
+- Only tested on Linux (Fedora KDE).
+
+## Troubleshooting
+
+| Problem | Fix |
+| --- | --- |
+| Build fails mentioning `webkit2gtk`, `javascriptcore` or `glib` | The system libraries are missing. Run the command for your distro from step 1. |
+| `cargo` or `rustc` not found | Rust isn't on your PATH. Run `source ~/.cargo/env`, or open a new terminal after installing rustup. |
+| `Port 1420 is already in use` | Another `npm run tauri dev` is running. Close it, or run this one with `npm run sandbox`, which uses port 1421 and its own settings. |
+| Edits made in another editor don't show up | Large vaults can hit the Linux file-watch limit. Raise it: `echo fs.inotify.max_user_watches=524288 \| sudo tee /etc/sysctl.d/90-inotify.conf && sudo sysctl --system` |
+| Images don't show in live preview | Image links are relative to the note's folder, e.g. `![](.assets/pic.png)`. Check that the path matches. |
+| Everything looks slow in `tauri dev` | Run the release build from step 3. Profiling notes are under [Development](#development). |
+
+## Development
+
+```
+crates/arca-core/   Rust engine: vault I/O, post-its, links, Tantivy search, export
+src-tauri/          Tauri v2 shell: IPC commands, file watcher, settings
+src/                React + TypeScript front end
+  editor/           CodeMirror extensions (live preview, links, post-its, tables, math)
+  components/       Window chrome, sidebar views, panes, dialogs
+  store/            zustand stores (layout, buffers, vault, ui)
+```
+
+```bash
+cargo test -p arca-core          # engine tests
+npm run typecheck                # front end
+npm run sandbox                  # a second, isolated copy (port 1421, own settings, DEV badge)
+```
+
+**Profiling.** Both tools are inert unless switched on:
+
+- `cargo run -p arca-core --example bench --release -- <vault>` times the work behind every command. Pass `--generate <dir> <n>` to make a test vault of `n` notes.
+- `VITE_ARCA_PROFILE_VAULT=/tmp/vault-copy npm run profile 2> perf.log` opens a **copy** of a vault, types into a note programmatically, and logs re-renders, per-keystroke editor time and every command's duration as `[arca-perf]` lines, then closes itself.
+
+## Planned Updates
+
+- Import CherryTree `.ctb` / `.ctd` files into a folder of notes.
+- Rewrite `[[links]]` automatically when a note is renamed or moved.
+- Rebindable keyboard shortcuts.
+- Bundle KaTeX into exports so math renders offline.
+- Direct PDF export.
+- Packaged builds (AppImage / `.rpm` / `.deb`), and testing on other platforms.
+
+Feel free to contribute via forks and Pull Requests, or open an issue if something breaks.
+
+## Credits
+
+Built on [Tauri](https://v2.tauri.app), [Tantivy](https://github.com/quickwit-oss/tantivy), [CodeMirror](https://codemirror.net), [KaTeX](https://katex.org), [react-force-graph](https://github.com/vasturiano/react-force-graph) and [d3-force](https://github.com/d3/d3-force). Fonts: Inter and JetBrains Mono. Icons: [Lucide](https://lucide.dev).
