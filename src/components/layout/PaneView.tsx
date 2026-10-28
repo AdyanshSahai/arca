@@ -97,7 +97,7 @@ export function PaneView({ paneId, focused }: { paneId: string; focused: boolean
           >
             <Rows2 size={14} />
           </IconButton>
-          <IconButton small title="Close pane  (Ctrl+Shift+X)" onClick={() => closePane(paneId)}>
+          <IconButton small title="Close pane  (Ctrl+D)" onClick={() => closePane(paneId)}>
             <X size={15} />
           </IconButton>
         </div>

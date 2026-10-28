@@ -77,7 +77,7 @@ and no lock-in, so you can open the same folder in any other editor, or
 | `Ctrl+Tab`, `Ctrl+1…9` | Cycle / jump to tabs |
 | `Ctrl+Shift+(` | Split pane left / right |
 | `Ctrl+Shift+)` | Split pane top / bottom |
-| `Ctrl+Shift+X` | Close pane |
+| `Ctrl+D` (or `Ctrl+Shift+X`) | Close pane |
 | `Ctrl+Alt+Arrows` | Move focus between panes |
 | `Ctrl+E` | Live preview ↔ raw markdown |
 | `Ctrl+Alt+P` | Insert a post-it |

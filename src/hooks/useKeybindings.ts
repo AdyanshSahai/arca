@@ -9,7 +9,7 @@
 //   Ctrl+T, Ctrl+W              new tab, close tab
 //   Ctrl+Shift+(                split focused pane left/right   (Konsole)
 //   Ctrl+Shift+)                split focused pane top/bottom   (Konsole)
-//   Ctrl+Shift+X                close focused pane
+//   Ctrl+D / Ctrl+Shift+X       close focused pane (Ctrl+D as in Konsole)
 //   Ctrl+Alt+Arrow              focus the pane in that direction
 //   Ctrl+E                      live preview ↔ raw markdown
 //   Ctrl+P / Ctrl+O             command palette (notes + actions)
@@ -105,7 +105,9 @@ export function useKeybindings() {
         take();
         return layout.split("col");
       }
-      if (mod && e.shiftKey && key === "x") {
+      // Ctrl+D overrides CodeMirror's "select next occurrence" on purpose:
+      // it's Konsole's close-the-terminal key.
+      if (mod && !e.altKey && ((e.shiftKey && key === "x") || (!e.shiftKey && key === "d"))) {
         take();
         if (pane) layout.closePane(pane.id);
         return;
