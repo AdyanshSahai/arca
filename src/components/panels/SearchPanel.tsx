@@ -99,8 +99,6 @@ export function SearchPanel() {
             title: h.title,
             detail: <Highlighted text={h.snippet.text} ranges={h.snippet.highlights} />,
           }));
-        } else if (mode === "topic") {
-          setTags(await ipc.listTags());
         }
         if (!cancelled) {
           setRows(next);
@@ -144,7 +142,28 @@ export function SearchPanel() {
     if (row) scrollWithin(list.current, row);
   }, [selected]);
 
-  const showTagCloud = mode === "topic" && !query.trim();
+  // Topic mode keeps a tag strip on screen at all times (filtered by what's
+  // typed) instead of swapping a tag cloud for the results list, which
+  // made the whole panel jump while typing.
+  useEffect(() => {
+    if (mode !== "topic") return;
+    let cancelled = false;
+    void ipc.listTags().then((t) => !cancelled && setTags(t));
+    return () => {
+      cancelled = true;
+    };
+  }, [mode, revision]);
+  const tagPrefix = query.trim().replace(/^#/, "").toLowerCase();
+  const shownTags = mode === "topic" ? tags.filter((t) => t.tag.startsWith(tagPrefix)) : [];
+
+  // Results from another mode are meaningless here; clear them in the same
+  // render the mode changes (React's "adjust state on prop change"
+  // pattern) rather than showing them until the new search returns.
+  const [rowsMode, setRowsMode] = useState(mode);
+  if (rowsMode !== mode) {
+    setRowsMode(mode);
+    setRows([]);
+  }
 
   return (
     <div className="flex h-full flex-col">
@@ -197,25 +216,36 @@ export function SearchPanel() {
         )}
       </div>
 
-      <div ref={list} className="min-h-0 flex-1 overflow-y-auto p-2">
-        {error && <p className="px-4 py-3 text-[12px] text-[#ff9ab8]">{error}</p>}
-
-        {showTagCloud && (
-          <div className="flex flex-wrap gap-1.5 p-3">
+      {mode === "topic" && (
+        // Fixed-height strip: its size never depends on the results below.
+        <div className="h-[84px] shrink-0 overflow-y-auto border-b border-line px-3 py-2">
+          <div className="flex flex-wrap gap-1.5">
             {tags.length === 0 && <span className="text-[12px] text-muted/50">No #tags in this vault yet.</span>}
-            {tags.map((t) => (
+            {tags.length > 0 && shownTags.length === 0 && (
+              <span className="text-[12px] text-muted/50">No tags start with “{tagPrefix}”.</span>
+            )}
+            {shownTags.map((t) => (
               <button
                 key={t.tag}
                 onClick={() => setQuery(`#${t.tag}`)}
-                className="rounded-full bg-accent-soft px-2.5 py-[3px] text-[12px] text-muted transition-colors hover:text-accent"
+                aria-pressed={tagPrefix === t.tag}
+                className="btn-soft rounded-full px-2.5 py-[2px] text-[12px]"
               >
-                #{t.tag} <span className="ml-0.5 text-muted/50">{t.count}</span>
+                #{t.tag} <span className="ml-0.5 opacity-50">{t.count}</span>
               </button>
             ))}
           </div>
-        )}
+        </div>
+      )}
+      <div ref={list} className="min-h-0 flex-1 overflow-y-auto p-2">
+        {error && <p className="px-4 py-3 text-[12px] text-[#ff9ab8]">{error}</p>}
 
-        {!showTagCloud && rows.length === 0 && query.trim() && !error && (
+
+
+        {mode === "topic" && !query.trim() && (
+          <p className="px-4 py-3 text-[12px] text-muted/50">Pick a tag above, or type #tag or [[note]].</p>
+        )}
+        {rows.length === 0 && query.trim() && !error && (
           <p className="px-4 py-3 text-[12px] text-muted/50">No matches.</p>
         )}
 
@@ -235,7 +265,7 @@ export function SearchPanel() {
             {row.detail && (
               <>
                 <div className="truncate text-[11px] text-muted/60">{row.path}</div>
-                <div className="mt-1 line-clamp-2 text-[12px] leading-snug text-fg/60">{row.detail}</div>
+                <div className="mt-1 line-clamp-2 h-[2.75em] text-[12px] leading-snug text-fg/60">{row.detail}</div>
               </>
             )}
           </button>
