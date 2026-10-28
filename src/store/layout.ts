@@ -24,6 +24,8 @@ export interface Pane {
   /** Note shown in this pane, or null for an empty pane. */
   path: string | null;
   mode: EditorMode;
+  /** Read mode: the note can be viewed and navigated but not changed. */
+  readOnly?: boolean;
   /** One-shot request to scroll to a 1-based line once the note is shown. */
   reveal?: { line: number; nonce: number };
 }
@@ -72,6 +74,8 @@ interface LayoutState {
   focusPane: (paneId: string) => void;
   setRatio: (splitId: string, ratio: number) => void;
   toggleMode: (paneId: string) => void;
+  /** Switches a pane between editing and read-only. */
+  toggleReadOnly: (paneId: string) => void;
   /** Updates every pane after a file or folder rename. */
   remap: (from: string, to: string) => void;
   /** Empties panes showing a deleted file (or anything in a deleted folder). */
@@ -233,7 +237,8 @@ export const useLayout = create<LayoutState>((set, get) => {
     split: (dir) => {
       const tab = active();
       const current = get().panes[tab.focusedPane];
-      const fresh = makePane(current.path, current.mode);
+      // The new pane copies the note, live/raw mode and edit/read setting.
+      const fresh = { ...makePane(current.path, current.mode), readOnly: current.readOnly };
       const node: LayoutNode = {
         kind: "split",
         id: uid(),
@@ -321,6 +326,12 @@ export const useLayout = create<LayoutState>((set, get) => {
       // Clamp so neither side can be dragged to nothing.
       const r = Math.min(0.9, Math.max(0.1, ratio));
       set({ tabs: get().tabs.map((t) => ({ ...t, root: withRatio(t.root, splitId, r) })) });
+    },
+
+    toggleReadOnly: (paneId) => {
+      const pane = get().panes[paneId];
+      if (!pane) return;
+      set({ panes: { ...get().panes, [paneId]: { ...pane, readOnly: !pane.readOnly } } });
     },
 
     toggleMode: (paneId) => {

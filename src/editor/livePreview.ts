@@ -59,6 +59,7 @@ class TaskWidget extends WidgetType {
     box.addEventListener("mousedown", (e) => {
       // Stop CodeMirror from moving the cursor (which would reveal the raw marker).
       e.preventDefault();
+      if (view.state.readOnly) return; // read mode: look, don't touch
       view.dispatch({
         changes: { from: this.pos, to: this.pos + 3, insert: this.checked ? "[ ]" : "[x]" },
       });

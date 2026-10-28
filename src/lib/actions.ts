@@ -70,5 +70,9 @@ export function insertPostitInFocused(): void {
     useUi.getState().toast("Open a note first to add a post-it");
     return;
   }
+  if (pane?.readOnly) {
+    useUi.getState().toast("This pane is read-only; switch it to Edit (Ctrl+Shift+E) to add a post-it");
+    return;
+  }
   void insertPostit(view);
 }

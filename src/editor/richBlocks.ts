@@ -320,7 +320,10 @@ class CodeHeader extends WidgetType {
       opt.selected = l === this.lang;
       select.appendChild(opt);
     }
+    // In read mode the picker is shown but can't change anything.
+    select.disabled = view.state.readOnly;
     select.addEventListener("change", () => {
+      if (view.state.readOnly) return;
       view.dispatch({ changes: { from: this.infoFrom, to: this.infoTo, insert: select.value } });
     });
 

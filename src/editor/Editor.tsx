@@ -44,6 +44,14 @@ function modeExtensions(mode: EditorMode) {
     : [highlightActiveLine(), EditorView.editorAttributes.of({ class: "arca-raw" })];
 }
 
+/**
+ * Read mode: no typing (readOnly) and no caret or IME (editable false).
+ * Widgets that write to the doc check `state.readOnly` themselves.
+ */
+function readOnlyExtensions(readOnly: boolean) {
+  return [EditorState.readOnly.of(readOnly), EditorView.editable.of(!readOnly)];
+}
+
 /** Counts words for the status bar (whitespace-separated runs). */
 function countWords(text: string): number {
   const m = text.match(/\S+/g);
@@ -62,6 +70,7 @@ export function Editor({ pane, path, focused }: Props) {
   // One compartment per editor instance, created once.
   const modeComp = useMemo(() => new Compartment(), []);
   const ctxComp = useMemo(() => new Compartment(), []);
+  const roComp = useMemo(() => new Compartment(), []);
 
   const buffer = useBuffers((s) => s.buffers[path]);
   const notes = useVault((s) => s.notes);
@@ -131,9 +140,10 @@ export function Editor({ pane, path, focused }: Props) {
         richBlocks,
         ctxComp.of(linkContext.of(linkCtx)),
         modeComp.of(modeExtensions(pane.mode)),
+        roComp.of(readOnlyExtensions(!!pane.readOnly)),
         // Pasting images saves them as attachments (lib/attachments.ts).
         EditorView.domEventHandlers({
-          paste: (event, view) => handlePaste(view, path, event),
+          paste: (event, view) => !view.state.readOnly && handlePaste(view, path, event),
         }),
         // Push edits into the shared buffer and report cursor info.
         EditorView.updateListener.of((u) => {
@@ -192,6 +202,11 @@ export function Editor({ pane, path, focused }: Props) {
   useEffect(() => {
     viewRef.current?.dispatch({ effects: modeComp.reconfigure(modeExtensions(pane.mode)) });
   }, [pane.mode, modeComp]);
+
+  // ---- Edit / read toggle -------------------------------------------------
+  useEffect(() => {
+    viewRef.current?.dispatch({ effects: roComp.reconfigure(readOnlyExtensions(!!pane.readOnly)) });
+  }, [pane.readOnly, roComp]);
 
   // ---- Note list changed: refresh chip states and completion ------------
   useEffect(() => {
