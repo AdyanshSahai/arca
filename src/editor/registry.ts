@@ -19,7 +19,8 @@ interface StatusState {
   line: number;
   col: number;
   words: number;
-  set: (s: { line: number; col: number; words: number }) => void;
+  /** Updates any subset of the fields. */
+  set: (s: Partial<{ line: number; col: number; words: number }>) => void;
 }
 
 export const useStatus = create<StatusState>((set) => ({

@@ -12,4 +12,6 @@ interface ImportMetaEnv {
   readonly VITE_ARCA_PROFILE_VAULT?: string;
   /** Note (vault-relative) the profiling run types into. */
   readonly VITE_ARCA_PROFILE_NOTE?: string;
+  /** Small note (vault-relative) for the profiling run's baseline. */
+  readonly VITE_ARCA_PROFILE_SMALL?: string;
 }

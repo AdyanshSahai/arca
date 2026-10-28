@@ -46,14 +46,38 @@ export async function runProfile(): Promise<void> {
   await useVault.getState().open(vault);
   useLayout.getState().openNote(notePath);
   const paneId = focusedPane()!.id;
-  const view = await waitFor(() => editorRegistry.get(paneId));
+  await waitFor(() => editorRegistry.get(paneId));
   await sleep(1500); // let the background parser and initial renders settle
 
-  const scenarios: (PanelId | null)[] = [null, "tree", "graph", "backlinks", "search", "postits"];
-  for (const panel of scenarios) {
+  // Sidebar states, then two baselines with the drawer closed: the same
+  // note in raw mode (no live-preview decorations), and a small note.
+  type Scenario = { name: string; panel: PanelId | null; setup?: () => Promise<void> };
+  const scenarios: Scenario[] = [
+    ...([null, "tree", "graph", "backlinks", "search", "postits"] as (PanelId | null)[]).map((panel) => ({
+      name: panel ?? "drawer closed",
+      panel,
+    })),
+    {
+      name: "raw mode (big note)",
+      panel: null,
+      setup: async () => useLayout.getState().toggleMode(paneId),
+    },
+    {
+      name: "small note (live)",
+      panel: null,
+      setup: async () => {
+        useLayout.getState().toggleMode(paneId); // back to live
+        useLayout.getState().openNote(import.meta.env.VITE_ARCA_PROFILE_SMALL ?? "Feature Showcase.md");
+      },
+    },
+  ];
+  for (const { name, panel, setup } of scenarios) {
     if (panel) useUi.getState().showPanel(panel);
     else useUi.getState().closeDrawer();
+    if (setup) await setup();
     await sleep(1500);
+    // The pane may now hold a different editor (small-note scenario).
+    const view = await waitFor(() => editorRegistry.get(paneId));
 
     // --- typing ---
     resetPerf();
@@ -78,7 +102,7 @@ export async function runProfile(): Promise<void> {
     const autosave = snapshotPerf();
 
     await perfLog({
-      scenario: panel ?? "drawer closed",
+      scenario: name,
       perKeystroke: {
         cmDispatchMs: +(dispatchMs / KEYS).toFixed(2),
         toNextFrameMs: +(frameMs / KEYS).toFixed(2),

@@ -10,6 +10,11 @@
 //   | a | b | …                → rendered <table>; click a cell to edit it
 //   ![alt](.assets/pic.png)    → the image itself
 //
+// Widgets never store document positions: typing shifts every position
+// below the cursor, and position-based eq() made CodeMirror rebuild every
+// widget's DOM (tables, KaTeX…) on each keystroke. They compare by content
+// and look up their position at click time with view.posAtDOM().
+//
 // Inline things (callouts, inline math, code headers) are ViewPlugins.
 // Things that replace whole lines (display math, tables) must come from a
 // StateField; CodeMirror doesn't allow block replacements from plugins.
@@ -27,7 +32,7 @@ import {
 } from "@codemirror/view";
 import katex from "katex";
 import { activeLines } from "./activeLines";
-import { parseTable, type ParsedTable } from "./tables";
+import { parseTable, type ParsedTable, tableAt } from "./tables";
 import { linkContext, livePreviewOn } from "./wikilinks";
 
 // ---------------------------------------------------------------------------
@@ -149,13 +154,11 @@ class MathWidget extends WidgetType {
   constructor(
     readonly tex: string,
     readonly display: boolean,
-    /** Where clicking should put the cursor (start of the source). */
-    readonly pos: number,
   ) {
     super();
   }
   eq(o: MathWidget) {
-    return o.tex === this.tex && o.display === this.display && o.pos === this.pos;
+    return o.tex === this.tex && o.display === this.display;
   }
   toDOM(view: EditorView) {
     const el = document.createElement(this.display ? "div" : "span");
@@ -164,7 +167,9 @@ class MathWidget extends WidgetType {
     el.title = "Click to edit";
     el.addEventListener("mousedown", (e) => {
       e.preventDefault();
-      view.dispatch({ selection: EditorSelection.cursor(this.pos + (this.display ? 2 : 1)) });
+      // Where the formula's source starts *now*, then step past "$" / "$$".
+      const pos = view.posAtDOM(el);
+      view.dispatch({ selection: EditorSelection.cursor(pos + (this.display ? 2 : 1)) });
       view.focus();
     });
     return el;
@@ -187,7 +192,7 @@ function buildInlineMath(view: EditorView): DecorationSet {
           const start = line.from + m.index!;
           if (inCode(state, start)) continue;
           out.push(
-            Decoration.replace({ widget: new MathWidget(m[1], false, start) }).range(start, start + m[0].length),
+            Decoration.replace({ widget: new MathWidget(m[1], false) }).range(start, start + m[0].length),
           );
         }
       }
@@ -205,12 +210,11 @@ class ImageWidget extends WidgetType {
   constructor(
     readonly url: string,
     readonly alt: string,
-    readonly pos: number,
   ) {
     super();
   }
   eq(o: ImageWidget) {
-    return o.url === this.url && o.alt === this.alt && o.pos === this.pos;
+    return o.url === this.url && o.alt === this.alt;
   }
   toDOM(view: EditorView) {
     const img = document.createElement("img");
@@ -220,7 +224,7 @@ class ImageWidget extends WidgetType {
     img.title = "Click to edit the link";
     img.addEventListener("mousedown", (e) => {
       e.preventDefault();
-      view.dispatch({ selection: EditorSelection.cursor(this.pos) });
+      view.dispatch({ selection: EditorSelection.cursor(view.posAtDOM(img)) });
       view.focus();
     });
     // A broken link shows its alt text instead of a broken-image icon.
@@ -253,7 +257,7 @@ function buildImages(view: EditorView): DecorationSet {
         // Alt text sits between "![" and "]".
         const alt = marks.length >= 2 ? state.sliceDoc(marks[0].to, marks[1].from) : "";
         const src = ctx.assetUrl(state.sliceDoc(url.from, url.to));
-        out.push(Decoration.replace({ widget: new ImageWidget(src, alt, node.from) }).range(node.from, node.to));
+        out.push(Decoration.replace({ widget: new ImageWidget(src, alt) }).range(node.from, node.to));
         return false;
       },
     });
@@ -286,30 +290,38 @@ async function copyText(text: string): Promise<void> {
   }
 }
 
+/** Info-string and body ranges of the fenced code block starting near `pos`. */
+function fenceParts(state: EditorState, pos: number) {
+  for (let n: ReturnType<ReturnType<typeof syntaxTree>["resolveInner"]> | null = syntaxTree(state).resolveInner(pos, 1); n; n = n.parent) {
+    if (n.name !== "FencedCode") continue;
+    const open = state.doc.lineAt(n.from);
+    const close = state.doc.lineAt(n.to);
+    const info = n.getChild("CodeInfo");
+    const marks = n.getChildren("CodeMark");
+    const hasClose = marks.length > 1 && close.number > open.number;
+    const bodyFrom = Math.min(open.to + 1, state.doc.length);
+    return {
+      infoFrom: info ? info.from : marks[0].to,
+      infoTo: info ? info.to : marks[0].to,
+      bodyFrom,
+      bodyTo: hasClose ? Math.max(bodyFrom, close.from - 1) : n.to,
+    };
+  }
+  return null;
+}
+
 class CodeHeader extends WidgetType {
-  constructor(
-    readonly lang: string,
-    /** Doc range of the info string (empty range right after ``` if none). */
-    readonly infoFrom: number,
-    readonly infoTo: number,
-    /** Doc range of the code body, for the copy button. */
-    readonly bodyFrom: number,
-    readonly bodyTo: number,
-  ) {
+  constructor(readonly lang: string) {
     super();
   }
   eq(o: CodeHeader) {
-    return (
-      o.lang === this.lang &&
-      o.infoFrom === this.infoFrom &&
-      o.infoTo === this.infoTo &&
-      o.bodyFrom === this.bodyFrom &&
-      o.bodyTo === this.bodyTo
-    );
+    return o.lang === this.lang;
   }
   toDOM(view: EditorView) {
     const bar = document.createElement("span");
     bar.className = "cm-code-header";
+    /** The block's current ranges (looked up when needed; positions shift). */
+    const parts = () => fenceParts(view.state, view.posAtDOM(bar));
 
     // Language picker: rewrites the fence's info string.
     const select = document.createElement("select");
@@ -325,15 +337,18 @@ class CodeHeader extends WidgetType {
     // In read mode the picker is shown but can't change anything.
     select.disabled = view.state.readOnly;
     select.addEventListener("change", () => {
-      if (view.state.readOnly) return;
-      view.dispatch({ changes: { from: this.infoFrom, to: this.infoTo, insert: select.value } });
+      const p = parts();
+      if (view.state.readOnly || !p) return;
+      view.dispatch({ changes: { from: p.infoFrom, to: p.infoTo, insert: select.value } });
     });
 
     const copy = document.createElement("button");
     copy.className = "cm-code-copy";
     copy.textContent = "Copy";
     copy.addEventListener("click", async () => {
-      await copyText(view.state.sliceDoc(this.bodyFrom, this.bodyTo));
+      const p = parts();
+      if (!p) return;
+      await copyText(view.state.sliceDoc(p.bodyFrom, p.bodyTo));
       copy.textContent = "Copied";
       setTimeout(() => (copy.textContent = "Copy"), 1200);
     });
@@ -366,20 +381,13 @@ function buildCodeHeaders(view: EditorView): DecorationSet {
         const info = node.node.getChild("CodeInfo");
         const marks = node.node.getChildren("CodeMark");
         const hasClose = marks.length > 1 && close.number > open.number;
-        const bodyFrom = Math.min(open.to + 1, state.doc.length);
-        const bodyTo = hasClose ? Math.max(bodyFrom, close.from - 1) : node.to;
         out.push(Decoration.line({ class: "cm-code-open" }).range(open.from));
         if (hasClose) out.push(Decoration.line({ class: "cm-code-close" }).range(close.from));
         if (!active.has(open.number)) {
           const infoFrom = info ? info.from : marks[0].to;
           const infoTo = info ? info.to : marks[0].to;
           const lang = state.sliceDoc(infoFrom, infoTo).trim();
-          out.push(
-            Decoration.replace({ widget: new CodeHeader(lang, infoFrom, infoTo, bodyFrom, bodyTo) }).range(
-              open.from,
-              open.to,
-            ),
-          );
+          out.push(Decoration.replace({ widget: new CodeHeader(lang) }).range(open.from, open.to));
         }
         if (hasClose && !active.has(close.number) && close.to > close.from) {
           out.push(Decoration.replace({}).range(close.from, close.to));
@@ -396,12 +404,19 @@ function buildCodeHeaders(view: EditorView): DecorationSet {
 // ---------------------------------------------------------------------------
 
 class TableWidget extends WidgetType {
-  constructor(readonly table: ParsedTable) {
+  constructor(
+    readonly table: ParsedTable,
+    /**
+     * The table's source text. Equal text means an identical rendering, so
+     * CodeMirror keeps the existing DOM; positions deliberately aren't part
+     * of it (they shift on every keystroke above the table).
+     */
+    readonly key: string,
+  ) {
     super();
   }
   eq(o: TableWidget) {
-    // Same source text = same rendering; comparing JSON is cheap for tables.
-    return JSON.stringify(o.table) === JSON.stringify(this.table);
+    return o.key === this.key;
   }
   toDOM(view: EditorView) {
     const wrap = document.createElement("div");
@@ -417,11 +432,15 @@ class TableWidget extends WidgetType {
         td.textContent = cell?.text ?? "";
         const align = this.table.aligns[c];
         if (align) td.style.textAlign = align;
-        // Click a cell → cursor into that cell's markdown (reveals the source).
+        // Click a cell → cursor into that cell's markdown (reveals the
+        // source). The table is re-parsed at its *current* position.
         td.addEventListener("mousedown", (e) => {
           e.preventDefault();
-          const pos = cell ? cell.from : this.table.from;
-          view.dispatch({ selection: EditorSelection.cursor(pos) });
+          const start = view.posAtDOM(wrap);
+          const line = view.state.doc.lineAt(start);
+          const range = tableAt(view.state, line.from + 1) ?? { from: line.from, to: line.to };
+          const now = parseTable(view.state, range.from, range.to);
+          view.dispatch({ selection: EditorSelection.cursor(now.rows[r]?.[c]?.from ?? now.from) });
           view.focus();
         });
         tr.appendChild(td);
@@ -436,9 +455,17 @@ class TableWidget extends WidgetType {
   }
 }
 
-function buildBlocks(state: EditorState): DecorationSet {
-  if (!state.facet(livePreviewOn)) return Decoration.none;
+/** The field's value: the decorations plus every block's range. */
+interface Blocks {
+  deco: DecorationSet;
+  /** [from, to] of every table / display-math block, rendered or not. */
+  ranges: [number, number][];
+}
+
+function buildBlocks(state: EditorState): Blocks {
+  if (!state.facet(livePreviewOn)) return { deco: Decoration.none, ranges: [] };
   const out: Range<Decoration>[] = [];
+  const ranges: [number, number][] = [];
 
   // Tables from the syntax tree.
   syntaxTree(state).iterate({
@@ -446,8 +473,10 @@ function buildBlocks(state: EditorState): DecorationSet {
       if (node.name !== "Table") return;
       const from = state.doc.lineAt(node.from).from;
       const to = state.doc.lineAt(node.to).to;
+      ranges.push([from, to]);
       if (!selectionTouches(state, from, to)) {
-        out.push(Decoration.replace({ widget: new TableWidget(parseTable(state, from, to)), block: true }).range(from, to));
+        const key = state.sliceDoc(from, to);
+        out.push(Decoration.replace({ widget: new TableWidget(parseTable(state, from, to), key), block: true }).range(from, to));
       }
       return false;
     },
@@ -472,31 +501,55 @@ function buildBlocks(state: EditorState): DecorationSet {
       tex = body.slice(2, -2);
       n = m;
     }
+    ranges.push([line.from, endLine.to]);
     if (!selectionTouches(state, line.from, endLine.to)) {
       out.push(
-        Decoration.replace({ widget: new MathWidget(tex.trim(), true, line.from), block: true }).range(line.from, endLine.to),
+        Decoration.replace({ widget: new MathWidget(tex.trim(), true), block: true }).range(line.from, endLine.to),
       );
     }
   }
-  return Decoration.set(out, true);
+  return { deco: Decoration.set(out, true), ranges };
 }
 
-const blockField = StateField.define<DecorationSet>({
+/** True if the selection overlaps any of the block ranges. */
+function selectionInBlock(state: EditorState, ranges: [number, number][]): boolean {
+  return ranges.some(([from, to]) => selectionTouches(state, from, to));
+}
+
+const blockField = StateField.define<Blocks>({
   create: buildBlocks,
-  update(deco, tr) {
-    // Rebuild on edits, cursor moves (reveal), mode switches, and when the
-    // background parser extends the syntax tree.
-    if (
-      tr.docChanged ||
-      tr.selection ||
-      tr.startState.facet(livePreviewOn) !== tr.state.facet(livePreviewOn) ||
-      syntaxTree(tr.startState) !== syntaxTree(tr.state)
-    ) {
+  update(value, tr) {
+    const modeChanged = tr.startState.facet(livePreviewOn) !== tr.state.facet(livePreviewOn);
+    if (modeChanged) return timeIt("cm:blockField", () => buildBlocks(tr.state));
+    if (tr.docChanged) {
+      // Ordinary typing outside any table/math block can't create, remove
+      // or change a block, so just shift the existing decorations instead of
+      // re-scanning the whole document. Edits that touch a block, or add
+      // or remove "|", "$" or a line break anywhere, still rebuild.
+      let affectsBlocks = false;
+      tr.changes.iterChanges((fromA, toA, _fromB, _toB, inserted) => {
+        const text = tr.startState.sliceDoc(fromA, toA) + inserted.toString();
+        if (/[|$\n]/.test(text) || value.ranges.some(([a, b]) => fromA <= b && toA >= a)) affectsBlocks = true;
+      });
+      if (affectsBlocks) return timeIt("cm:blockField", () => buildBlocks(tr.state));
+      return {
+        deco: value.deco.map(tr.changes),
+        ranges: value.ranges.map(([a, b]) => [tr.changes.mapPos(a, 1), tr.changes.mapPos(b, -1)]),
+      };
+    }
+    // The background parser got further: tables may have been found.
+    if (syntaxTree(tr.startState) !== syntaxTree(tr.state)) {
       return timeIt("cm:blockField", () => buildBlocks(tr.state));
     }
-    return deco;
+    // A cursor move only matters if it enters or leaves a block (which
+    // switches that block between rendered and raw). Otherwise keep the
+    // same value, so CodeMirror has nothing to diff or redraw.
+    if (tr.selection && (selectionInBlock(tr.startState, value.ranges) || selectionInBlock(tr.state, value.ranges))) {
+      return timeIt("cm:blockField", () => buildBlocks(tr.state));
+    }
+    return value;
   },
-  provide: (f) => EditorView.decorations.from(f),
+  provide: (f) => EditorView.decorations.from(f, (v) => v.deco),
 });
 
 // ---------------------------------------------------------------------------

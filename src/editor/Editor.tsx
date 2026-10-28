@@ -54,6 +54,15 @@ function readOnlyExtensions(readOnly: boolean) {
   return [EditorState.readOnly.of(readOnly), EditorView.editable.of(!readOnly)];
 }
 
+/** Pending status-bar word count (one timer for all editors). */
+let wordTimer = 0;
+
+/** Recounts the focused note's words 300 ms after typing pauses. */
+function scheduleWordCount(view: EditorView): void {
+  window.clearTimeout(wordTimer);
+  wordTimer = window.setTimeout(() => useStatus.getState().set({ words: countWords(view.state.doc.toString()) }), 300);
+}
+
 /** Counts words for the status bar (whitespace-separated runs). */
 function countWords(text: string): number {
   const m = text.match(/\S+/g);
@@ -93,6 +102,9 @@ export function Editor({ pane, path, focused, readOnly = false }: Props) {
     }),
     [notes, path, vaultRoot],
   );
+
+  /** The text this editor last pushed into the buffer (see the listener). */
+  const lastPushed = useRef<string | null>(null);
 
   // Keep the latest `focused` flag in a ref for the update listener below,
   // which is created once and would otherwise see a stale value.
@@ -153,16 +165,19 @@ export function Editor({ pane, path, focused, readOnly = false }: Props) {
         // Push edits into the shared buffer and report cursor info.
         EditorView.updateListener.of((u) => timeIt("cm:updateListener", () => {
           if (u.docChanged && !u.transactions.some((tr) => tr.annotation(External))) {
-            useBuffers.getState().edit(path, u.state.doc.toString());
+            // The one full-text copy per keystroke; remembered so the
+            // buffer-sync effect below can recognise its own echo cheaply.
+            const text = u.state.doc.toString();
+            lastPushed.current = text;
+            useBuffers.getState().edit(path, text);
           }
           if (focusedRef.current && (u.docChanged || u.selectionSet)) {
             const head = u.state.selection.main.head;
             const line = u.state.doc.lineAt(head);
-            useStatus.getState().set({
-              line: line.number,
-              col: head - line.from + 1,
-              words: countWords(u.state.doc.toString()),
-            });
+            useStatus.getState().set({ line: line.number, col: head - line.from + 1 });
+            // Counting every word of a long note on each keystroke is
+            // wasted work; count once typing pauses.
+            if (u.docChanged) scheduleWordCount(u.view);
           }
         })),
       ],
@@ -174,6 +189,7 @@ export function Editor({ pane, path, focused, readOnly = false }: Props) {
     if (focusedRef.current) {
       view.focus();
       useStatus.getState().set({ line: 1, col: 1, words: countWords(initial) });
+      lastPushed.current = initial;
     }
     return () => {
       editorRegistry.delete(pane.id);
@@ -192,6 +208,9 @@ export function Editor({ pane, path, focused, readOnly = false }: Props) {
   useEffect(() => {
     const view = viewRef.current;
     if (!view || content === undefined) return;
+    // Our own keystroke coming back through the buffer: nothing to do, and
+    // no need to stringify the whole document to find that out.
+    if (content === lastPushed.current) return;
     const current = view.state.doc.toString();
     if (current === content) return; // our own keystroke, already in the doc
     // Keep the cursor roughly where it was, clamped to the new length.

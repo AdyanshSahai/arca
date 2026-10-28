@@ -42,15 +42,13 @@ class BulletWidget extends WidgetType {
 
 /** Clickable checkbox replacing a task marker (`[ ]` / `[x]`). */
 class TaskWidget extends WidgetType {
-  constructor(
-    readonly checked: boolean,
-    /** Document offset of the marker; the click handler rewrites it. */
-    readonly pos: number,
-  ) {
+  // No stored position: it would change on every keystroke above the task
+  // and force a redraw. The click handler asks the view where it is.
+  constructor(readonly checked: boolean) {
     super();
   }
   eq(other: TaskWidget) {
-    return other.checked === this.checked && other.pos === this.pos;
+    return other.checked === this.checked;
   }
   toDOM(view: EditorView) {
     const box = document.createElement("input");
@@ -61,8 +59,9 @@ class TaskWidget extends WidgetType {
       // Stop CodeMirror from moving the cursor (which would reveal the raw marker).
       e.preventDefault();
       if (view.state.readOnly) return; // read mode: look, don't touch
+      const pos = view.posAtDOM(box); // the "[ ]" marker's current offset
       view.dispatch({
-        changes: { from: this.pos, to: this.pos + 3, insert: this.checked ? "[ ]" : "[x]" },
+        changes: { from: pos, to: pos + 3, insert: this.checked ? "[ ]" : "[x]" },
       });
     });
     return box;
@@ -204,7 +203,7 @@ function build(view: EditorView): DecorationSet {
         if (name === "TaskMarker") {
           if (!isActive(node)) {
             const checked = /x/i.test(state.sliceDoc(node.from, node.to));
-            out.push(Decoration.replace({ widget: new TaskWidget(checked, node.from) }).range(node.from, node.to));
+            out.push(Decoration.replace({ widget: new TaskWidget(checked) }).range(node.from, node.to));
           }
           return;
         }

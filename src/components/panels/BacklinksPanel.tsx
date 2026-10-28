@@ -5,8 +5,8 @@
 //   OUTGOING   [[links]] this note makes (click to follow).
 //   TAGS       #tags in this note (click for a vault-wide topic search).
 //
-// Outgoing links and tags are read from the live buffer, so they update as
-// you type; backlinks come from the Rust index and refresh on save.
+// Outgoing links and tags are read from the note's saved text (they update
+// right after the autosave); backlinks come from the Rust index.
 
 import { useRenderCount } from "../../lib/perf";
 import { useEffect, useMemo, useState } from "react";
@@ -34,7 +34,10 @@ export function BacklinksPanel() {
   useRenderCount("BacklinksPanel");
   const path = useContextPane()?.path ?? null;
   const revision = useVault((s) => s.revision);
-  const content = useBuffers((s) => (path ? s.buffers[path]?.content : undefined));
+  // The *saved* text, not the live buffer: re-scanning a whole note for
+  // links and tags on every keystroke was wasted work, and saved text
+  // catches up within a second of typing pausing.
+  const content = useBuffers((s) => (path ? s.buffers[path]?.saved : undefined));
   const [backlinks, setBacklinks] = useState<Backlink[]>([]);
 
   useEffect(() => {

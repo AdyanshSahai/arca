@@ -103,8 +103,9 @@ class HeaderWidget extends WidgetType {
   ) {
     super();
   }
+  // Compared without positions (they shift while typing above the block).
   eq(o: HeaderWidget) {
-    return o.block.openFrom === this.block.openFrom && o.block.color === this.block.color && o.folded === this.folded;
+    return o.block.id === this.block.id && o.block.color === this.block.color && o.folded === this.folded;
   }
   toDOM(view: EditorView) {
     const el = document.createElement("span");
@@ -113,8 +114,9 @@ class HeaderWidget extends WidgetType {
     el.title = "Click to collapse / expand";
     el.addEventListener("mousedown", (e) => {
       e.preventDefault(); // keep the cursor where it is
-      // Re-read the block from current state; offsets may have shifted.
-      const fresh = view.state.field(blockField).find((b) => b.openFrom === this.block.openFrom);
+      // Find the block at the header's *current* position.
+      const at = view.posAtDOM(el);
+      const fresh = view.state.field(blockField).find((b) => b.openFrom === at);
       if (fresh) toggleBlock(view, fresh);
     });
     return el;
