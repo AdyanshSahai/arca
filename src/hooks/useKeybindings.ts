@@ -11,6 +11,8 @@
 //   Ctrl+Shift+)                split focused pane top/bottom   (Konsole)
 //   Ctrl+D / Ctrl+Shift+X       close focused pane (Ctrl+D as in Konsole)
 //   Ctrl+Alt+Arrow              focus the pane in that direction
+//   Ctrl+Shift+PageUp/PageDown  move the focused pane to the previous / next tab
+//   Ctrl+Shift+H                move the focused pane into a new tab (Konsole's "detach")
 //   Ctrl+E                      live preview ↔ raw markdown
 //   Ctrl+P / Ctrl+O             command palette (notes + actions)
 //   Ctrl+Shift+P                command palette, actions only
@@ -126,6 +128,15 @@ export function useKeybindings() {
       if (mod && !e.altKey && ((e.shiftKey && key === "x") || (!e.shiftKey && key === "d"))) {
         take();
         if (pane) layout.closePane(pane.id);
+        return;
+      }
+      if (mod && e.shiftKey && (e.key === "PageUp" || e.key === "PageDown")) {
+        take();
+        return layout.movePaneBy(e.key === "PageDown" ? 1 : -1);
+      }
+      if (mod && e.shiftKey && !e.altKey && key === "h") {
+        take();
+        if (pane) layout.movePane(pane.id, "new");
         return;
       }
       if (mod && e.altKey && e.key.startsWith("Arrow")) {

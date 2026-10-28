@@ -59,6 +59,14 @@ interface LayoutState {
   activateTab: (tabId: string) => void;
   /** Splits the focused pane of the active tab. */
   split: (dir: SplitDir) => void;
+  /**
+   * Moves a pane (with its note and mode) into another tab, docking it on
+   * the right of that tab's layout, or into a brand-new tab ("new"). The
+   * source tab closes if it was the pane's only home. Focus follows the pane.
+   */
+  movePane: (paneId: string, target: string | "new") => void;
+  /** Moves the focused pane to the previous / next tab (a new tab past the end). */
+  movePaneBy: (delta: 1 | -1) => void;
   /** Closes a pane; the sibling takes its place. Closing the last pane closes the tab. */
   closePane: (paneId: string) => void;
   focusPane: (paneId: string) => void;
@@ -237,6 +245,55 @@ export const useLayout = create<LayoutState>((set, get) => {
       set({ panes: { ...get().panes, [fresh.id]: fresh } });
       // Focus moves to the new pane, as in Konsole.
       putTab({ ...tab, root: replaceLeaf(tab.root, current.id, node), focusedPane: fresh.id });
+    },
+
+    movePane: (paneId, target) => {
+      const { tabs } = get();
+      const srcIdx = tabs.findIndex((t) => paneIds(t.root).includes(paneId));
+      if (srcIdx === -1) return;
+      const src = tabs[srcIdx];
+      if (target === src.id) return;
+      const rest = removeLeaf(src.root, paneId);
+      // A lone pane "moved" to a new tab would just be the same tab again.
+      if (rest === null && target === "new") return;
+
+      const leaf: LayoutNode = { kind: "pane", paneId };
+      let next = [...tabs];
+      let activeTab: string;
+      if (target === "new") {
+        const tab: Tab = { id: uid(), root: leaf, focusedPane: paneId };
+        next.splice(srcIdx + 1, 0, tab);
+        activeTab = tab.id;
+      } else {
+        // Dock on the right of the target tab's whole layout.
+        next = next.map((t) =>
+          t.id === target
+            ? { ...t, root: { kind: "split", id: uid(), dir: "row", ratio: 0.5, a: t.root, b: leaf }, focusedPane: paneId }
+            : t,
+        );
+        activeTab = target;
+      }
+      // Shrink (or drop) the source tab.
+      next =
+        rest === null
+          ? next.filter((t) => t.id !== src.id)
+          : next.map((t) =>
+              t.id === src.id
+                ? { ...t, root: rest, focusedPane: t.focusedPane === paneId ? paneIds(rest)[0] : t.focusedPane }
+                : t,
+            );
+      set({ tabs: next, activeTab });
+    },
+
+    movePaneBy: (delta) => {
+      const { tabs, activeTab } = get();
+      const idx = tabs.findIndex((t) => t.id === activeTab);
+      const paneId = tabs[idx]?.focusedPane;
+      if (!paneId) return;
+      const dest = tabs[idx + delta];
+      // Past the last tab = a new tab; before the first does nothing.
+      if (dest) get().movePane(paneId, dest.id);
+      else if (delta === 1) get().movePane(paneId, "new");
     },
 
     closePane: (paneId) => {

@@ -77,6 +77,9 @@ export function allCommands(): Command[] {
       const view = p && editorRegistry.get(p.id);
       if (view) void import("@codemirror/search").then(({ openSearchPanel }) => openSearchPanel(view));
     } },
+    { id: "pane.toNewTab", label: "Move pane to a new tab", group: "Pane", shortcut: "Ctrl+Shift+H", run: () => { const p = focusedPane(); if (p) layout.movePane(p.id, "new"); } },
+    { id: "pane.toNextTab", label: "Move pane to next tab", group: "Pane", shortcut: "Ctrl+Shift+PgDn", run: () => layout.movePaneBy(1) },
+    { id: "pane.toPrevTab", label: "Move pane to previous tab", group: "Pane", shortcut: "Ctrl+Shift+PgUp", run: () => layout.movePaneBy(-1) },
     { id: "tab.new", label: "New tab", group: "Tab", shortcut: "Ctrl+T", run: () => layout.newTab() },
     { id: "tab.close", label: "Close tab", group: "Tab", shortcut: "Ctrl+W", run: () => layout.closeTab(layout.activeTab) },
     { id: "tab.next", label: "Next tab", group: "Tab", shortcut: "Ctrl+Tab", run: () => layout.cycleTab(1) },

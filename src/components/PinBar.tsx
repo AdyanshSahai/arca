@@ -1,5 +1,5 @@
 // Pinned shortcut bar, styled like Brave's bookmarks bar: icon + label
-// items with comfortable gaps, directly under the toolbar.
+// items with comfortable gaps, directly under the title bar.
 //
 // Pins point at notes, chapter folders, or any other vault file (scripts,
 // PDFs). Click to open; right-click to unpin; Alt+1…9 opens the Nth pin.
@@ -21,23 +21,13 @@ export function PinBar() {
 
   return (
     <div className="flex h-10 shrink-0 items-center gap-1 border-b border-line bg-void px-3">
-      <button
-        disabled={!canPin}
-        onClick={() => pane?.path && void addPin(pane.path, "note")}
-        title={canPin ? "Pin the current note" : "Open an unpinned note to pin it"}
-        className="flex h-7 shrink-0 items-center gap-1.5 rounded-md px-2 text-[12px] text-muted transition-colors hover:bg-hover hover:text-accent disabled:opacity-35 disabled:hover:bg-transparent disabled:hover:text-muted"
-      >
-        <Plus size={14} />
-        Pin
-      </button>
-      <div className="mx-1 h-4 w-px bg-line-strong" />
       {pins.length === 0 && (
         <span className="flex items-center gap-2 px-2 text-[12px] text-muted/45">
           <PinIcon size={13} />
           Pinned notes and folders show up here
         </span>
       )}
-      <div className="flex min-w-0 items-center gap-1 overflow-x-auto [scrollbar-width:none]">
+      <div className="flex min-w-0 flex-1 items-center gap-1 overflow-x-auto [scrollbar-width:none]">
         {pins.map((pin, i) => (
           <PinButton
             key={pin.id}
@@ -48,6 +38,16 @@ export function PinBar() {
           />
         ))}
       </div>
+      {/* Adding a pin lives at the end of the bar, like a bookmarks bar's overflow. */}
+      <button
+        disabled={!canPin}
+        onClick={() => pane?.path && void addPin(pane.path, "note")}
+        title={canPin ? "Pin the current note" : "Open an unpinned note to pin it"}
+        className="flex h-7 shrink-0 items-center gap-1.5 rounded-md px-2 text-[12px] text-muted transition-colors hover:bg-hover hover:text-accent disabled:opacity-35 disabled:hover:bg-transparent disabled:hover:text-muted"
+      >
+        <Plus size={14} />
+        Pin
+      </button>
     </div>
   );
 }

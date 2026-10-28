@@ -11,6 +11,7 @@ import { type EditorMode, paneIds, useLayout } from "../../store/layout";
 import { useUi } from "../../store/ui";
 import { useVault } from "../../store/vault";
 import { IconButton } from "../ui/IconButton";
+import { PANE_DND_TYPE } from "./TabStrip";
 import { ArcaMark } from "../ui/ArcaMark";
 
 export function PaneView({ paneId, focused }: { paneId: string; focused: boolean }) {
@@ -44,7 +45,16 @@ export function PaneView({ paneId, focused }: { paneId: string; focused: boolean
       <PaneChoiceOverlay paneId={paneId} focused={focused} />
       {/* Focused pane: a thin accent line along the top edge. */}
       <div className={`absolute inset-x-0 top-0 h-[2px] ${focused ? "bg-accent/70" : "bg-transparent"}`} />
-      <div className="flex h-11 shrink-0 items-center gap-1.5 border-b border-line px-4">
+      {/* The header doubles as a drag handle: drop it on a tab to move the pane there. */}
+      <div
+        draggable
+        onDragStart={(e) => {
+          e.dataTransfer.setData(PANE_DND_TYPE, paneId);
+          e.dataTransfer.effectAllowed = "move";
+        }}
+        title="Drag onto a tab to move this pane"
+        className="flex h-11 shrink-0 cursor-grab items-center gap-1.5 border-b border-line px-4 active:cursor-grabbing"
+      >
         {/* Breadcrumb: folders muted, note name bright. */}
         <div className="flex min-w-0 flex-1 items-center gap-1.5 truncate text-[13px]">
           {segments.length === 0 && <span className="text-muted/50">No note</span>}

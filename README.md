@@ -79,6 +79,8 @@ and no lock-in, so you can open the same folder in any other editor, or
 | `Ctrl+Shift+)` | Split pane top / bottom |
 | `Ctrl+D` (or `Ctrl+Shift+X`) | Close pane |
 | `Ctrl+Alt+Arrows` | Move focus between panes |
+| `Ctrl+Shift+PgUp` / `PgDn` | Move the pane to the previous / next tab (or drag its header onto a tab) |
+| `Ctrl+Shift+H` | Move the pane into a new tab |
 | `Ctrl+E` | Live preview ↔ raw markdown |
 | `Ctrl+Alt+P` | Insert a post-it |
 | `Ctrl+B` | Toggle the sidebar drawer |

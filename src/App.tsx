@@ -1,10 +1,12 @@
 // Root component: arranges the window chrome around the work area.
 //
-//   ┌ TitleBar (brand, tabs, window buttons) ─────────────────────┐
-//   ├ Toolbar (vault switcher, search bar) ───────────────────────┤
+//   ┌ TitleBar (brand, vault, search bar, window buttons) ────────┐
 //   ├ PinBar (pinned shortcuts) ──────────────────────────────────┤
-//   │ Rail │ Drawer (¼ / ½ / full) │ WorkArea (split panes)       │
+//   │ Rail │ Drawer (¼ / ½ / full) │ TabStrip (tabs)              │
+//   │      │                       │ WorkArea (split panes)       │
 //   ├ StatusBar ──────────────────────────────────────────────────┤
+//
+// Global things sit at the top; tabs sit right on the panes they own.
 //
 // The command palette, dialogs and toasts float above everything.
 
@@ -17,9 +19,9 @@ import { Drawer } from "./components/Drawer";
 import { PinBar } from "./components/PinBar";
 import { StatusBar } from "./components/StatusBar";
 import { TitleBar } from "./components/TitleBar";
-import { Toolbar } from "./components/Toolbar";
 import { Toasts } from "./components/Toasts";
 import { Welcome } from "./components/Welcome";
+import { TabStrip } from "./components/layout/TabStrip";
 import { WorkArea } from "./components/layout/WorkArea";
 import { useBootstrap, useFileDrops, usePersistence, useVaultEvents } from "./hooks/useAppLifecycle";
 import { useKeybindings } from "./hooks/useKeybindings";
@@ -45,12 +47,15 @@ export function App() {
         <div className="flex-1" />
       ) : info ? (
         <>
-          <Toolbar />
           <PinBar />
           <div className="flex min-h-0 flex-1">
             <ActionRail />
             <Drawer />
-            <WorkArea hidden={drawerFull} />
+            {/* Tabs + panes; hidden while the drawer is in full view. */}
+            <div className={`min-h-0 min-w-0 flex-1 flex-col ${drawerFull ? "hidden" : "flex"}`}>
+              <TabStrip />
+              <WorkArea hidden={drawerFull} />
+            </div>
           </div>
           <StatusBar />
         </>
