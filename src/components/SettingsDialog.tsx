@@ -52,7 +52,7 @@ const SHORTCUTS: [string, [string, string][]][] = [
     "Editing",
     [
       ["Ctrl+E", "Live preview ↔ raw markdown"],
-      ["Ctrl+Shift+E", "Read the current note in the Reader"],
+      ["Ctrl+Shift+E", "Reading ↔ writing mode"],
       ["Ctrl+Alt+P", "Insert a post-it"],
       ["Tab / Shift+Tab", "Next / previous table cell"],
       ["Ctrl+F", "Find in note"],

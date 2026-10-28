@@ -45,7 +45,7 @@ function modeExtensions(mode: EditorMode) {
 }
 
 /**
- * Reader mode: no typing (readOnly) and no caret or IME (editable false).
+ * Reading mode: no typing (readOnly) and no caret or IME (editable false).
  * Widgets that write to the doc check `state.readOnly` themselves, and
  * live preview never reveals markdown in a read-only document.
  */
@@ -63,13 +63,11 @@ interface Props {
   pane: Pane;
   path: string;
   focused: boolean;
-  /** Reader mode: rendered, not editable, markdown never revealed. */
+  /** Reading mode: rendered, not editable, markdown never revealed. */
   readOnly?: boolean;
-  /** Overrides what clicking a [[link]] does (the Reader navigates in place). */
-  onFollow?: (target: string) => void;
 }
 
-export function Editor({ pane, path, focused, readOnly = false, onFollow }: Props) {
+export function Editor({ pane, path, focused, readOnly = false }: Props) {
   const host = useRef<HTMLDivElement>(null);
   const viewRef = useRef<EditorView | null>(null);
   // One compartment per editor instance, created once.
@@ -86,12 +84,12 @@ export function Editor({ pane, path, focused, readOnly = false, onFollow }: Prop
     () => ({
       notes: new NoteIndex(notes),
       noteList: notes,
-      follow: (target: string) => (onFollow ? onFollow(target) : void followLink(target, path)),
+      follow: (target: string) => void followLink(target, path),
       searchTag: (tag: string) => useUi.getState().requestSearch("topic", `#${tag}`),
       notePath: path,
       assetUrl: (src: string) => assetUrl(vaultRoot, path, src),
     }),
-    [notes, path, vaultRoot, onFollow],
+    [notes, path, vaultRoot],
   );
 
   // Keep the latest `focused` flag in a ref for the update listener below,

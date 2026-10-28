@@ -3,7 +3,7 @@
 // instead show a sidebar view (graph, search…) that took it over, or a
 // friendly empty state with the essential shortcuts.
 
-import { ChevronRight, Columns2, FilePlus, PanelLeft, Rows2, Search, X } from "lucide-react";
+import { BookOpen, ChevronRight, Columns2, FilePlus, PanelLeft, Rows2, Search, X } from "lucide-react";
 import { Editor } from "../../editor/Editor";
 import { openFolder } from "../../lib/actions";
 import { isTextPath, stem } from "../../lib/paths";
@@ -90,7 +90,18 @@ export function PaneView({ paneId, focused }: { paneId: string; focused: boolean
             title="Unsaved changes (autosaving)"
           />
         </div>
-        {pane.path && <ModeSwitch mode={pane.mode} onToggle={() => toggleMode(paneId)} />}
+        {/* Reading-mode badge: shows the pane is read-only; click to write again. */}
+        {pane.path && pane.reading && (
+          <button
+            onClick={() => useLayout.getState().toggleReading(paneId)}
+            title="Reading mode: click to switch back to writing  (Ctrl+Shift+E)"
+            aria-pressed
+            className="btn-soft flex items-center gap-1.5 rounded-md px-2 py-[3px] text-[11px]"
+          >
+            <BookOpen size={12} /> Reading
+          </button>
+        )}
+        {pane.path && !pane.reading && <ModeSwitch mode={pane.mode} onToggle={() => toggleMode(paneId)} />}
         {pane.view && (
           <button
             onClick={() => {
@@ -136,7 +147,7 @@ export function PaneView({ paneId, focused }: { paneId: string; focused: boolean
           <Panel id={pane.view} />
         ) : pane.path ? (
           // Keyed by path: a different note gets a fresh editor (own history).
-          <Editor key={pane.path} pane={pane} path={pane.path} focused={focused} />
+          <Editor key={pane.path} pane={pane} path={pane.path} focused={focused} readOnly={!!pane.reading} />
         ) : (
           <EmptyPane />
         )}

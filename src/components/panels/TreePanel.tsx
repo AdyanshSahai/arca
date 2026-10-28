@@ -199,13 +199,7 @@ export function TreePanel() {
       items.push(null);
       if (node.isNote) {
         items.push({ label: "Open in new tab", onSelect: () => useLayout.getState().openNote(node.path, { newTab: true }) });
-        items.push({
-          label: "Read in Reader",
-          onSelect: () => {
-            useUi.getState().readNote(node.path);
-            useUi.getState().showPanel("reader");
-          },
-        });
+
       }
       items.push({
         label: "Pin to shortcut bar",

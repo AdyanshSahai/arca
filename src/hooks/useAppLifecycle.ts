@@ -102,6 +102,10 @@ export function useFileDrops() {
       const paneId = paneEl?.dataset.paneId;
       const pane = paneId ? useLayout.getState().panes[paneId] : undefined;
       const view = paneId ? editorRegistry.get(paneId) : undefined;
+      if (pane?.reading) {
+        useUi.getState().toast("Switch to writing mode (Ctrl+Shift+E) to attach files");
+        return;
+      }
       if (!pane?.path || !view) {
         useUi.getState().toast("Drop files onto an open note to attach them");
         return;

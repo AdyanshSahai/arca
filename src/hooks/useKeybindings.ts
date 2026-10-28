@@ -14,7 +14,7 @@
 //   Ctrl+Shift+PageUp/PageDown  move the focused pane to the previous / next tab
 //   Ctrl+Shift+H                move the focused pane into a new tab (Konsole's "detach")
 //   Ctrl+E                      live preview ↔ raw markdown
-//   Ctrl+Shift+E                read the current note in the Reader (sidebar)
+//   Ctrl+Shift+E                reading ↔ writing mode for the current note
 //   Ctrl+P / Ctrl+O             command palette (notes + actions)
 //   Ctrl+Shift+P                command palette, actions only
 //   Ctrl+Shift+F                full-text search
@@ -29,7 +29,7 @@ import { useEffect } from "react";
 import { insertPostitInFocused } from "../lib/actions";
 import { dirName } from "../lib/paths";
 import { useBuffers } from "../store/buffers";
-import { focusedPane, paneIds, useLayout } from "../store/layout";
+import { contextPane, focusedPane, paneIds, useLayout } from "../store/layout";
 import { type PanelId, useUi } from "../store/ui";
 import { useVault } from "../store/vault";
 
@@ -178,8 +178,8 @@ export function useKeybindings() {
       // Editor.
       if (mod && e.shiftKey && !e.altKey && key === "e") {
         take();
-        ui.readNote(null); // follow the current note
-        ui.showPanel("reader");
+        const ctx = contextPane();
+        if (ctx?.path) layout.toggleReading(ctx.id);
         return;
       }
       if (mod && !e.altKey && key === "e") {

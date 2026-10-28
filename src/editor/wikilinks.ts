@@ -191,7 +191,7 @@ const clickHandler = EditorView.domEventHandlers({
       return true;
     }
     // Editing needs Ctrl+click so plain clicks place the cursor; in the
-    // read-only Reader there's no cursor, so plain clicks follow.
+    // read-only reading mode there's no cursor, so plain clicks follow.
     if (!(event.ctrlKey || event.metaKey || view.state.readOnly)) return false;
     const mark = el.closest<HTMLElement>("[data-target]");
     if (mark?.dataset.target) {

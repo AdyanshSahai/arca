@@ -6,7 +6,7 @@ import type { EditorState } from "@codemirror/state";
 
 /**
  * Set of 1-based line numbers touched by the selection. Always empty in a
- * read-only document (the Reader): there's no editing, so markdown is
+ * read-only document (reading mode): there's no editing, so markdown is
  * never revealed, wherever the user clicks.
  */
 export function activeLines(state: EditorState): Set<number> {

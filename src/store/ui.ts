@@ -5,7 +5,7 @@ import { create } from "zustand";
 import { applyTheme, type ThemeId } from "../lib/themes";
 
 /** The five drawer panels reachable from the left action rail. */
-export type PanelId = "tree" | "graph" | "search" | "backlinks" | "postits" | "reader";
+export type PanelId = "tree" | "graph" | "search" | "backlinks" | "postits";
 
 /** Drawer snap points: ¼ of the window, ½, or the whole work area. */
 export type DrawerSize = "quarter" | "half" | "full";
@@ -99,12 +99,7 @@ interface UiState {
   paneChoice: PaneChoice | null;
   prefs: Prefs;
   settingsOpen: boolean;
-  /**
-   * The Reader view: `path` null means "follow the note being worked on";
-   * otherwise it's a note the user navigated to inside the Reader, with
-   * `history` for its Back button.
-   */
-  reader: { path: string | null; history: string[] };
+
   /** Text files whose "convert to Markdown?" notice was dismissed this session. */
   dismissedTextNotices: Set<string>;
 
@@ -124,9 +119,7 @@ interface UiState {
   openPalette: (initial?: string) => void;
   askForPane: (choice: PaneChoice) => void;
   setPrefs: (patch: Partial<Prefs>) => void;
-  /** Shows a note in the Reader (null = follow the current note). */
-  readNote: (path: string | null) => void;
-  readerBack: () => void;
+
   openSettings: () => void;
   closeSettings: () => void;
   cancelPaneChoice: () => void;
@@ -152,7 +145,7 @@ export const useUi = create<UiState>((set, get) => ({
   paneChoice: null,
   prefs: DEFAULT_PREFS,
   settingsOpen: false,
-  reader: { path: null, history: [] },
+
   templatePicker: null,
   exportDialog: null,
 
@@ -192,17 +185,6 @@ export const useUi = create<UiState>((set, get) => ({
     const prefs = { ...get().prefs, ...patch };
     if (patch.theme) applyTheme(patch.theme);
     set({ prefs });
-  },
-  readNote: (path) => {
-    const { reader } = get();
-    if (path === reader.path) return;
-    // Remember where we were (only explicit notes; "following" isn't a place).
-    const history = reader.path ? [...reader.history, reader.path].slice(-50) : reader.history;
-    set({ reader: { path, history: path ? history : [] } });
-  },
-  readerBack: () => {
-    const { history } = get().reader;
-    set({ reader: { path: history[history.length - 1] ?? null, history: history.slice(0, -1) } });
   },
   openSettings: () => set({ settingsOpen: true }),
   closeSettings: () => set({ settingsOpen: false }),

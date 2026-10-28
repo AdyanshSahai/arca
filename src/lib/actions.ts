@@ -82,5 +82,9 @@ export function insertPostitInFocused(): void {
     useUi.getState().toast("Open a note first to add a post-it");
     return;
   }
+  if (pane?.reading) {
+    useUi.getState().toast("Switch to writing mode (Ctrl+Shift+E) to add a post-it");
+    return;
+  }
   void insertPostit(view);
 }
