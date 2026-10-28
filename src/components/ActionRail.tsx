@@ -3,6 +3,7 @@
 // in a split tab, in a pane the user picks. The bottom button switches
 // vaults.
 
+import { useRenderCount } from "../lib/perf";
 import { open } from "@tauri-apps/plugin-dialog";
 import { BookOpen, FolderOpen, PenLine, Settings } from "lucide-react";
 import { paneIds, useLayout } from "../store/layout";
@@ -40,6 +41,7 @@ export async function pickVault(): Promise<void> {
 }
 
 export function ActionRail() {
+  useRenderCount("ActionRail");
   const panel = useUi((s) => s.panel);
   const reading = useUi((s) => s.reading);
 

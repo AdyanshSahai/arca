@@ -10,6 +10,7 @@
 //
 // [[WikiLinks]], tags and post-its are handled by their own extensions.
 
+import { timeIt } from "../lib/perf";
 import { syntaxTree } from "@codemirror/language";
 import { type EditorState, type Range } from "@codemirror/state";
 import {
@@ -223,13 +224,13 @@ export const livePreview = ViewPlugin.fromClass(
   class {
     decorations: DecorationSet;
     constructor(view: EditorView) {
-      this.decorations = build(view);
+      this.decorations = timeIt("cm:livePreview", () => build(view));
     }
     update(u: ViewUpdate) {
       // Rebuild on edits, scrolling, cursor moves (reveal rule), and when the
       // background parser has extended the syntax tree.
       if (u.docChanged || u.viewportChanged || u.selectionSet || syntaxTree(u.startState) !== syntaxTree(u.state)) {
-        this.decorations = build(u.view);
+        this.decorations = timeIt("cm:livePreview", () => build(u.view));
       }
     }
   },

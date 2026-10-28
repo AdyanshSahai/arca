@@ -78,6 +78,7 @@ pub fn run() {
             commands::list_templates,
             commands::create_from_template,
             commands::get_pins,
+            commands::perf_log,
             commands::set_pins,
         ])
         .run(tauri::generate_context!())

@@ -59,12 +59,21 @@ pub fn start(app: AppHandle, root: &Path) -> notify::Result<VaultWatcher> {
 
         // Errors here (e.g. a file deleted again mid-batch) are non-fatal;
         // the next event or a manual reopen will reconcile.
+        let started = std::time::Instant::now();
         let _ = state.with_ws_mut(|ws| {
             for rel in &changed {
                 let _ = ws.refresh(rel);
             }
             Ok(())
         });
+        // Profiling: how long outside-change handling held the workspace lock.
+        if std::env::var_os("ARCA_PROFILE").is_some() {
+            eprintln!(
+                "[arca-perf] watcher refresh {:?} {:.3}ms",
+                changed,
+                started.elapsed().as_secs_f64() * 1000.0
+            );
+        }
         let _ = app.emit(CHANGED_EVENT, ChangedPayload { paths: changed });
     })?;
     debouncer.watch(root, RecursiveMode::Recursive)?;

@@ -8,6 +8,7 @@
 // Outgoing links and tags are read from the live buffer, so they update as
 // you type; backlinks come from the Rust index and refresh on save.
 
+import { useRenderCount } from "../../lib/perf";
 import { useEffect, useMemo, useState } from "react";
 import { followLink, openFromSidebar } from "../../lib/actions";
 import { errorMessage, ipc } from "../../lib/ipc";
@@ -30,6 +31,7 @@ function linkRanges(text: string): [number, number][] {
 }
 
 export function BacklinksPanel() {
+  useRenderCount("BacklinksPanel");
   const path = useContextPane()?.path ?? null;
   const revision = useVault((s) => s.revision);
   const content = useBuffers((s) => (path ? s.buffers[path]?.content : undefined));

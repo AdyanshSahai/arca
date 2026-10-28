@@ -5,6 +5,7 @@
 // buttons, or drag the right edge and let go: the width snaps to the nearest
 // size, and dragging nearly shut closes the drawer.
 
+import { useRenderCount } from "../lib/perf";
 import { Maximize2, PanelRight, X } from "lucide-react";
 import { useRef, useState } from "react";
 import { type DrawerSize, type PanelId, useUi } from "../store/ui";
@@ -18,6 +19,7 @@ const SNAP: Record<DrawerSize, number> = { quarter: 0.25, half: 0.5, full: 1 };
 const CLOSE_BELOW = 0.12;
 
 export function Drawer() {
+  useRenderCount("Drawer");
   const panel = useUi((s) => s.panel);
   const size = useUi((s) => s.drawerSize);
   const { setDrawerSize, closeDrawer } = useUi.getState();

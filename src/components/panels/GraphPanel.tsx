@@ -14,6 +14,7 @@
 // Node dragging is disabled; pan with the mouse, and zoom with the wheel,
 // the +/−/fit buttons, or + − 0 when the graph has focus.
 
+import { bump, useRenderCount } from "../../lib/perf";
 import { Maximize, Minus, Plus } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { clusterColor, layoutGraph, nodeRadius, type Positioned, topFolder } from "../../lib/graphLayout";
@@ -47,6 +48,7 @@ function palette() {
 const endId = (end: unknown): string => (typeof end === "object" && end ? (end as GNode).id : (end as string));
 
 export function GraphPanel() {
+  useRenderCount("GraphPanel");
   const revision = useVault((s) => s.revision);
   const active = useContextPane()?.path ?? null;
   const [graph, setGraph] = useState<Graph>({ nodes: [], edges: [] });
@@ -155,6 +157,7 @@ export function GraphPanel() {
     // physics has nothing to move. Global view clusters by chapter.
     const viewKey = localRoot ? `local:${localRoot}:${depth}` : "global";
     const memory = positions.current.get(viewKey) ?? new Map<string, Positioned>();
+    bump("graph:layout"); // profiling: how often the (costly) layout runs
     const placed = layoutGraph(shown, edges, memory, !localRoot);
     positions.current.set(viewKey, placed);
     const nodes: GNode[] = shown.map((n) => {
@@ -169,6 +172,7 @@ export function GraphPanel() {
   const fitPending = useRef(true);
   useEffect(() => {
     fitPending.current = true;
+    bump("graph:data-changed"); // profiling: graphData identity changes
   }, [data]);
 
   const hoverSet = hover ? neighbours.get(hover) : undefined;

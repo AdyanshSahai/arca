@@ -8,6 +8,7 @@
 //
 // ↑/↓ move the selection, Enter opens it, Ctrl+Enter opens it in a new tab.
 
+import { useRenderCount } from "../../lib/perf";
 import { openFromSidebar } from "../../lib/actions";
 import { useEffect, useRef, useState } from "react";
 import { errorMessage, ipc } from "../../lib/ipc";
@@ -34,6 +35,7 @@ const MODES: { id: SearchMode; label: string; hint: string }[] = [
 type Row = { path: string; title: string; detail?: React.ReactNode; titleNode?: React.ReactNode };
 
 export function SearchPanel() {
+  useRenderCount("SearchPanel");
   // Mode, query and options live in the ui store so they persist.
   const { mode, query, folderOnly, caseSensitive } = useUi((s) => s.search);
   const setSearch = useUi((s) => s.setSearch);

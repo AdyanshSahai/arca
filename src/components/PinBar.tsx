@@ -6,6 +6,7 @@
 // The "+" button pins the note in the focused pane. Folders are pinned from
 // the tree's context menu.
 
+import { useRenderCount } from "../lib/perf";
 import { FileText, Folder, Paperclip, Pin as PinIcon, Plus } from "lucide-react";
 import type { Pin } from "../lib/types";
 import { useContextPane } from "../store/layout";
@@ -14,6 +15,7 @@ import { useVault } from "../store/vault";
 const ICONS = { note: FileText, folder: Folder, file: Paperclip } as const;
 
 export function PinBar() {
+  useRenderCount("PinBar");
   const pins = useVault((s) => s.pins);
   const pane = useContextPane();
   const { addPin, removePin, activatePin } = useVault.getState();

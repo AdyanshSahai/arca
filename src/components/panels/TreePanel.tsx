@@ -19,6 +19,7 @@
 //   Enter      open           Space  toggle folder / open note
 //   Home / End first / last row
 
+import { useRenderCount } from "../../lib/perf";
 import { openFromSidebar } from "../../lib/actions";
 import { ChevronRight, FilePlus, FileText, Folder, FolderMinus, FolderOpen, FolderPlus, Paperclip } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -80,6 +81,7 @@ function activate(node: TreeNode, newTab: boolean) {
 }
 
 export function TreePanel() {
+  useRenderCount("TreePanel");
   const tree = useVault((s) => s.tree);
   const activePath = useContextPane()?.path ?? null;
   const [expanded, setExpanded] = useState<Set<string>>(() => new Set());

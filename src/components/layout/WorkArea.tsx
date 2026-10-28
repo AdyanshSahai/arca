@@ -2,6 +2,7 @@
 // active one is displayed. Keeping inactive tabs mounted preserves each
 // editor's undo history, cursor and scroll position across tab switches.
 
+import { useRenderCount } from "../../lib/perf";
 import { useEffect } from "react";
 import { editorRegistry } from "../../editor/registry";
 import { paneIds, useLayout } from "../../store/layout";
@@ -11,6 +12,7 @@ import { PANELS } from "../panels/registry";
 import { SplitView } from "./SplitView";
 
 export function WorkArea({ hidden }: { hidden: boolean }) {
+  useRenderCount("WorkArea");
   const tabs = useLayout((s) => s.tabs);
   const activeTab = useLayout((s) => s.activeTab);
   const choice = useUi((s) => s.paneChoice);

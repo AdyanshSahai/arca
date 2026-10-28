@@ -10,6 +10,7 @@
 //   - Live/raw mode is a Compartment, so toggling keeps undo history and
 //     scroll position.
 
+import { timeIt, useRenderCount } from "../lib/perf";
 import { autocompletion, completionKeymap } from "@codemirror/autocomplete";
 import { defaultKeymap, history, historyKeymap, indentWithTab } from "@codemirror/commands";
 import { markdown, markdownLanguage } from "@codemirror/lang-markdown";
@@ -68,6 +69,7 @@ interface Props {
 }
 
 export function Editor({ pane, path, focused, readOnly = false }: Props) {
+  useRenderCount("Editor");
   const host = useRef<HTMLDivElement>(null);
   const viewRef = useRef<EditorView | null>(null);
   // One compartment per editor instance, created once.
@@ -149,7 +151,7 @@ export function Editor({ pane, path, focused, readOnly = false }: Props) {
           paste: (event, view) => !view.state.readOnly && handlePaste(view, path, event),
         }),
         // Push edits into the shared buffer and report cursor info.
-        EditorView.updateListener.of((u) => {
+        EditorView.updateListener.of((u) => timeIt("cm:updateListener", () => {
           if (u.docChanged && !u.transactions.some((tr) => tr.annotation(External))) {
             useBuffers.getState().edit(path, u.state.doc.toString());
           }
@@ -162,7 +164,7 @@ export function Editor({ pane, path, focused, readOnly = false }: Props) {
               words: countWords(u.state.doc.toString()),
             });
           }
-        }),
+        })),
       ],
     });
 

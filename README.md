@@ -144,3 +144,23 @@ npm run sandbox                    # runs alongside `npm run tauri dev` in ../ar
 
 Both windows can open the same vault: each one notices the other's saves
 through the file watcher.
+
+## Profiling
+
+Two tools, both inert unless switched on:
+
+- **Backend benchmark:** times the work behind every command on a real or
+  generated vault. Compare a normal (debug) run with `--release`.
+  ```bash
+  cargo run -p arca-core --example bench -- --generate /tmp/big 2000
+  cargo run -p arca-core --example bench --release -- /tmp/big "chapter-00/note-0.md"
+  ```
+- **In-app profiling run:** opens a *scratch* vault, types into a note
+  programmatically for each sidebar state, logs which components
+  re-render, React and CodeMirror time per keystroke, graph recomputes, and
+  how long every Tauri command and watcher refresh took (`[arca-perf]`
+  lines on stderr), then closes itself.
+  ```bash
+  cp -r ~/Documents/vault /tmp/vault-copy
+  VITE_ARCA_PROFILE_VAULT=/tmp/vault-copy npm run profile 2> perf.log
+  ```

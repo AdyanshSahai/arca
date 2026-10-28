@@ -11,6 +11,7 @@
 // The extension doesn't import any app stores. Everything it needs comes
 // through the `linkContext` facet, which the Editor component provides.
 
+import { timeIt } from "../lib/perf";
 import type { Completion, CompletionContext, CompletionResult } from "@codemirror/autocomplete";
 import { syntaxTree } from "@codemirror/language";
 import { Facet, StateEffect, type Range } from "@codemirror/state";
@@ -156,14 +157,14 @@ const linkPlugin = ViewPlugin.fromClass(
   class {
     decorations: DecorationSet;
     constructor(view: EditorView) {
-      this.decorations = build(view);
+      this.decorations = timeIt("cm:wikilinks", () => build(view));
     }
     update(u: ViewUpdate) {
       const refreshed = u.transactions.some((tr) => tr.effects.some((e) => e.is(refreshLinks)));
       // Facet changes (mode switch) show up as a different facet value.
       const modeChanged = u.startState.facet(livePreviewOn) !== u.state.facet(livePreviewOn);
       if (u.docChanged || u.viewportChanged || u.selectionSet || refreshed || modeChanged) {
-        this.decorations = build(u.view);
+        this.decorations = timeIt("cm:wikilinks", () => build(u.view));
       }
     }
   },

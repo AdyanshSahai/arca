@@ -7,6 +7,7 @@
 // title-bar space (and double-click it to maximize). Interactive children
 // (buttons) don't carry the attribute, so they stay clickable.
 
+import { useRenderCount } from "../lib/perf";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { ChevronDown, FolderClosed, Minus, Search, Square, X } from "lucide-react";
 import { useUi } from "../store/ui";
@@ -18,6 +19,7 @@ import { ArcaMark } from "./ui/ArcaMark";
 const IS_SANDBOX = import.meta.env.VITE_ARCA_CHANNEL === "sandbox";
 
 export function TitleBar() {
+  useRenderCount("TitleBar");
   const vault = useVault((s) => s.info);
   const openPalette = useUi((s) => s.openPalette);
   const win = getCurrentWindow();

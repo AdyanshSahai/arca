@@ -28,6 +28,45 @@ use crate::watcher;
 const DEFAULT_LIMIT: usize = 50;
 
 // ----------------------------------------------------------------------
+// Profiling (only active when the ARCA_PROFILE environment variable is set)
+// ----------------------------------------------------------------------
+
+/// True when Arca was started with ARCA_PROFILE set; checked once.
+fn profiling() -> bool {
+    static ON: std::sync::OnceLock<bool> = std::sync::OnceLock::new();
+    *ON.get_or_init(|| std::env::var_os("ARCA_PROFILE").is_some())
+}
+
+/// Prints how long a command took when it goes out of scope (profiling
+/// only). Each command starts with `let _t = timed("name");`.
+struct Timed {
+    name: &'static str,
+    start: std::time::Instant,
+}
+
+impl Drop for Timed {
+    fn drop(&mut self) {
+        if profiling() {
+            eprintln!("[arca-perf] cmd {} {:.3}ms", self.name, self.start.elapsed().as_secs_f64() * 1000.0);
+        }
+    }
+}
+
+fn timed(name: &'static str) -> Timed {
+    Timed { name, start: std::time::Instant::now() }
+}
+
+/// Lets the frontend's profiling run write its results to the same log
+/// (stderr). Does nothing unless profiling.
+#[tauri::command]
+pub async fn perf_log(line: String) -> CmdResult<()> {
+    if profiling() {
+        eprintln!("[arca-perf] {line}");
+    }
+    Ok(())
+}
+
+// ----------------------------------------------------------------------
 // App / vault lifecycle
 // ----------------------------------------------------------------------
 
@@ -42,6 +81,7 @@ pub struct AppStateDto {
 
 #[tauri::command]
 pub async fn app_state(state: State<'_, AppState>) -> CmdResult<AppStateDto> {
+    let _t = timed("app_state");
     let s = state.settings.lock().unwrap_or_else(|e| e.into_inner());
     Ok(AppStateDto {
         vault_path: s.vault_path.clone(),
@@ -52,6 +92,7 @@ pub async fn app_state(state: State<'_, AppState>) -> CmdResult<AppStateDto> {
 /// Stores the frontend's layout blob (called debounced on layout changes).
 #[tauri::command]
 pub async fn save_ui(state: State<'_, AppState>, ui: serde_json::Value) -> CmdResult<()> {
+    let _t = timed("save_ui");
     state.settings.lock().unwrap_or_else(|e| e.into_inner()).ui = ui;
     state.save_settings()
 }
@@ -68,6 +109,7 @@ pub struct VaultInfo {
 /// Opens (indexes + watches) a vault folder and remembers it for next time.
 #[tauri::command]
 pub async fn open_vault(app: AppHandle, state: State<'_, AppState>, path: String) -> CmdResult<VaultInfo> {
+    let _t = timed("open_vault");
     // Index first, without holding any lock, so a slow scan never blocks
     // other commands touching the previous vault.
     let ws = Workspace::open(&path)?;
@@ -106,21 +148,25 @@ pub async fn open_vault(app: AppHandle, state: State<'_, AppState>, path: String
 
 #[tauri::command]
 pub async fn vault_tree(state: State<'_, AppState>) -> CmdResult<TreeNode> {
+    let _t = timed("vault_tree");
     state.with_ws(|ws| Ok(ws.tree()?))
 }
 
 #[tauri::command]
 pub async fn list_notes(state: State<'_, AppState>) -> CmdResult<Vec<NoteInfo>> {
+    let _t = timed("list_notes");
     state.with_ws(|ws| Ok(ws.notes()))
 }
 
 #[tauri::command]
 pub async fn read_note(state: State<'_, AppState>, path: String) -> CmdResult<String> {
+    let _t = timed("read_note");
     state.with_ws(|ws| Ok(ws.read_note(&path)?))
 }
 
 #[tauri::command]
 pub async fn write_note(state: State<'_, AppState>, path: String, content: String) -> CmdResult<()> {
+    let _t = timed("write_note");
     // Marked *before* writing: the watcher may fire before we return.
     state.mark_written(&path);
     state.with_ws_mut(|ws| Ok(ws.write_note(&path, &content)?))
@@ -129,22 +175,26 @@ pub async fn write_note(state: State<'_, AppState>, path: String, content: Strin
 /// Creates a note; returns its final path (".md" appended if missing).
 #[tauri::command]
 pub async fn create_note(state: State<'_, AppState>, path: String) -> CmdResult<String> {
+    let _t = timed("create_note");
     state.with_ws_mut(|ws| Ok(ws.create_note(&path)?))
 }
 
 #[tauri::command]
 pub async fn create_folder(state: State<'_, AppState>, path: String) -> CmdResult<()> {
+    let _t = timed("create_folder");
     state.with_ws_mut(|ws| Ok(ws.create_folder(&path)?))
 }
 
 #[tauri::command]
 pub async fn rename_entry(state: State<'_, AppState>, from: String, to: String) -> CmdResult<()> {
+    let _t = timed("rename_entry");
     state.with_ws_mut(|ws| Ok(ws.rename(&from, &to)?))
 }
 
 /// Moves a note/folder to `.trash/`; returns where it went.
 #[tauri::command]
 pub async fn trash_entry(state: State<'_, AppState>, path: String) -> CmdResult<String> {
+    let _t = timed("trash_entry");
     state.with_ws_mut(|ws| Ok(ws.trash(&path)?))
 }
 
@@ -159,6 +209,7 @@ pub async fn search_files(
     limit: Option<usize>,
     case_sensitive: Option<bool>,
 ) -> CmdResult<Vec<FileHit>> {
+    let _t = timed("search_files");
     state.with_ws(|ws| Ok(ws.search_files(&query, limit.unwrap_or(DEFAULT_LIMIT), case_sensitive.unwrap_or(false))?))
 }
 
@@ -171,6 +222,7 @@ pub async fn search_text(
     limit: Option<usize>,
     case_sensitive: Option<bool>,
 ) -> CmdResult<Vec<TextHit>> {
+    let _t = timed("search_text");
     let cs = case_sensitive.unwrap_or(false);
     state.with_ws(|ws| Ok(ws.search_text(&query, scope.as_deref(), limit.unwrap_or(DEFAULT_LIMIT), cs)?))
 }
@@ -183,6 +235,7 @@ pub async fn search_topic(
     term: String,
     limit: Option<usize>,
 ) -> CmdResult<Vec<TextHit>> {
+    let _t = timed("search_topic");
     let kind = match kind.as_str() {
         "tag" => TopicKind::Tag,
         "link" => TopicKind::Link,
@@ -193,6 +246,7 @@ pub async fn search_topic(
 
 #[tauri::command]
 pub async fn list_tags(state: State<'_, AppState>) -> CmdResult<Vec<TagCount>> {
+    let _t = timed("list_tags");
     state.with_ws(|ws| Ok(ws.tags()))
 }
 
@@ -202,16 +256,19 @@ pub async fn list_tags(state: State<'_, AppState>) -> CmdResult<Vec<TagCount>> {
 
 #[tauri::command]
 pub async fn backlinks(state: State<'_, AppState>, path: String) -> CmdResult<Vec<Backlink>> {
+    let _t = timed("backlinks");
     state.with_ws(|ws| Ok(ws.backlinks(&path)))
 }
 
 #[tauri::command]
 pub async fn graph(state: State<'_, AppState>) -> CmdResult<Graph> {
+    let _t = timed("graph");
     state.with_ws(|ws| Ok(ws.graph()))
 }
 
 #[tauri::command]
 pub async fn list_postits(state: State<'_, AppState>) -> CmdResult<Vec<PostItEntry>> {
+    let _t = timed("list_postits");
     state.with_ws(|ws| Ok(ws.postits()))
 }
 
@@ -224,6 +281,7 @@ pub async fn update_postit(
     text: String,
     color: Option<String>,
 ) -> CmdResult<String> {
+    let _t = timed("update_postit");
     state.mark_written(&path);
     state.with_ws_mut(|ws| Ok(ws.update_postit(&path, &id, &text, color.as_deref())?))
 }
@@ -231,6 +289,7 @@ pub async fn update_postit(
 /// Returns a fresh post-it block (with a new id) for the editor to insert.
 #[tauri::command]
 pub async fn new_postit(color: Option<String>, text: Option<String>) -> CmdResult<String> {
+    let _t = timed("new_postit");
     Ok(postit::render_block(
         &postit::new_id(),
         color.as_deref().unwrap_or(postit::DEFAULT_COLOR),
@@ -243,6 +302,7 @@ pub async fn new_postit(color: Option<String>, text: Option<String>) -> CmdResul
 /// so the frontend can open or offer to create them.
 #[tauri::command]
 pub async fn follow_link(app: AppHandle, state: State<'_, AppState>, target: String, from: String) -> CmdResult<LinkTarget> {
+    let _t = timed("follow_link");
     let resolved = state.with_ws(|ws| Ok(ws.resolve_link(&target, &from)))?;
     match &resolved {
         LinkTarget::Url { url } => app.opener().open_url(url, None::<&str>)?,
@@ -255,6 +315,7 @@ pub async fn follow_link(app: AppHandle, state: State<'_, AppState>, target: Str
 /// Opens a non-note vault file (e.g. a pinned PDF) with the default app.
 #[tauri::command]
 pub async fn open_in_default_app(app: AppHandle, state: State<'_, AppState>, path: String) -> CmdResult<()> {
+    let _t = timed("open_in_default_app");
     let abs = state.with_ws(|ws| Ok(ws.vault().resolve(&path)?))?;
     app.opener()
         .open_path(abs.to_string_lossy(), None::<&str>)?;
@@ -293,6 +354,7 @@ fn percent_decode(s: &str) -> String {
 /// vault-relative path.
 #[tauri::command]
 pub async fn save_attachment(state: State<'_, AppState>, request: tauri::ipc::Request<'_>) -> CmdResult<String> {
+    let _t = timed("save_attachment");
     let tauri::ipc::InvokeBody::Raw(bytes) = request.body() else {
         return Err(CmdError("expected raw bytes".into()));
     };
@@ -313,6 +375,7 @@ pub async fn save_attachment(state: State<'_, AppState>, request: tauri::ipc::Re
 /// note's `.assets/` folder. The source is only read, never moved.
 #[tauri::command]
 pub async fn import_attachment(state: State<'_, AppState>, note: String, source: String) -> CmdResult<String> {
+    let _t = timed("import_attachment");
     let src = PathBuf::from(&source);
     let name = src
         .file_name()
@@ -342,6 +405,7 @@ pub async fn export_notes(
     dest: String,
     open: bool,
 ) -> CmdResult<usize> {
+    let _t = timed("export_notes");
     let exported = state.with_ws(|ws| Ok(arca_core::export::export(ws.vault(), &scope, format)?))?;
     std::fs::write(&dest, exported.content)?;
     if open {
@@ -381,6 +445,7 @@ pub struct TemplateInfo {
 /// purpose is left empty.
 #[tauri::command]
 pub async fn list_templates(state: State<'_, AppState>) -> CmdResult<Vec<TemplateInfo>> {
+    let _t = timed("list_templates");
     state.with_ws_mut(|ws| {
         let dir = ws.vault().resolve(TEMPLATE_DIR)?;
         if !dir.exists() {
@@ -408,6 +473,7 @@ pub async fn list_templates(state: State<'_, AppState>) -> CmdResult<Vec<Templat
 /// user's local time zone is known. Fails rather than overwriting.
 #[tauri::command]
 pub async fn create_from_template(state: State<'_, AppState>, path: String, content: String) -> CmdResult<String> {
+    let _t = timed("create_from_template");
     state.with_ws_mut(|ws| {
         let created = ws.create_note(&path)?;
         state.mark_written(&created);
@@ -427,12 +493,14 @@ fn vault_settings_path(state: &AppState) -> CmdResult<PathBuf> {
 
 #[tauri::command]
 pub async fn get_pins(state: State<'_, AppState>) -> CmdResult<Vec<Pin>> {
+    let _t = timed("get_pins");
     let vs: VaultSettings = settings::load(&vault_settings_path(&state)?)?;
     Ok(vs.pins)
 }
 
 #[tauri::command]
 pub async fn set_pins(state: State<'_, AppState>, pins: Vec<Pin>) -> CmdResult<()> {
+    let _t = timed("set_pins");
     let path = vault_settings_path(&state)?;
     // Load-modify-save keeps any other fields a future version adds.
     let mut vs: VaultSettings = settings::load(&path)?;

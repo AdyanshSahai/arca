@@ -14,6 +14,7 @@
 // Things that replace whole lines (display math, tables) must come from a
 // StateField; CodeMirror doesn't allow block replacements from plugins.
 
+import { timeIt } from "../lib/perf";
 import { syntaxTree } from "@codemirror/language";
 import { EditorSelection, type EditorState, type Range, StateField } from "@codemirror/state";
 import {
@@ -491,7 +492,7 @@ const blockField = StateField.define<DecorationSet>({
       tr.startState.facet(livePreviewOn) !== tr.state.facet(livePreviewOn) ||
       syntaxTree(tr.startState) !== syntaxTree(tr.state)
     ) {
-      return buildBlocks(tr.state);
+      return timeIt("cm:blockField", () => buildBlocks(tr.state));
     }
     return deco;
   },
@@ -504,15 +505,16 @@ const blockField = StateField.define<DecorationSet>({
 
 /** Wraps a builder in a ViewPlugin that rebuilds on the usual triggers. */
 function inlinePlugin(build: (view: EditorView) => DecorationSet) {
+  const label = `cm:${build.name}`;
   return ViewPlugin.fromClass(
     class {
       decorations: DecorationSet;
       constructor(view: EditorView) {
-        this.decorations = build(view);
+        this.decorations = timeIt(label, () => build(view));
       }
       update(u: ViewUpdate) {
         if (u.docChanged || u.viewportChanged || u.selectionSet || syntaxTree(u.startState) !== syntaxTree(u.state)) {
-          this.decorations = build(u.view);
+          this.decorations = timeIt(label, () => build(u.view));
         }
       }
     },

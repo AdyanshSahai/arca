@@ -2,11 +2,13 @@
 // (row = side-by-side, col = stacked) with a draggable 1px divider between
 // its two children. Leaves render a PaneView.
 
+import { useRenderCount } from "../../lib/perf";
 import { useRef } from "react";
 import { type LayoutNode, useLayout } from "../../store/layout";
 import { PaneView } from "./PaneView";
 
 export function SplitView({ node, focusedPane }: { node: LayoutNode; focusedPane: string }) {
+  useRenderCount("SplitView");
   if (node.kind === "pane") return <PaneView paneId={node.paneId} focused={node.paneId === focusedPane} />;
   return <Split node={node} focusedPane={focusedPane} />;
 }

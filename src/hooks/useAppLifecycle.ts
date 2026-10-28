@@ -12,6 +12,7 @@ import { editorRegistry } from "../editor/registry";
 import { attachDroppedFiles } from "../lib/attachments";
 import { useEffect, useState } from "react";
 import { ipc } from "../lib/ipc";
+import { PROFILING } from "../lib/perf";
 import { useBuffers } from "../store/buffers";
 import { type LayoutSnapshot, useLayout } from "../store/layout";
 import { DEFAULT_PREFS, type DrawerSize, type PanelId, type Prefs, useUi } from "../store/ui";
@@ -55,7 +56,8 @@ export function useBootstrap(): boolean {
           if (saved.panel) useUi.getState().showPanel(saved.panel);
           else useUi.getState().closeDrawer();
         }
-        if (vaultPath && (await useVault.getState().open(vaultPath))) {
+        // A profiling run opens its own scratch vault (lib/profileRun.ts).
+        if (vaultPath && !PROFILING && (await useVault.getState().open(vaultPath))) {
           const root = useVault.getState().info?.root;
           if (saved.layout && saved.vault === root) useLayout.getState().restore(saved.layout);
         }
@@ -125,6 +127,8 @@ export function useFileDrops() {
 /** Persists layout + drawer state and flushes notes on window close. */
 export function usePersistence() {
   useEffect(() => {
+    // Profiling runs must never overwrite the real settings / layout.
+    if (PROFILING) return;
     let timer = 0;
     const schedule = () => {
       window.clearTimeout(timer);

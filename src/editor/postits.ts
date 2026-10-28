@@ -15,6 +15,7 @@
 //   - provides `insertPostit` to drop a new block at the cursor (bound to
 //     Ctrl+Alt+P globally in useKeybindings).
 
+import { timeIt } from "../lib/perf";
 import { codeFolding, foldEffect, foldService, foldedRanges, unfoldEffect } from "@codemirror/language";
 import { EditorSelection, type EditorState, type Range, StateField } from "@codemirror/state";
 import {
@@ -158,14 +159,14 @@ const postitPlugin = ViewPlugin.fromClass(
   class {
     decorations: DecorationSet;
     constructor(view: EditorView) {
-      this.decorations = build(view);
+      this.decorations = timeIt("cm:postits", () => build(view));
     }
     update(u: ViewUpdate) {
       // Fold/unfold changes the header arrow, so any transaction with
       // effects is worth a rebuild too (cheap: blocks are pre-parsed).
       const hasEffects = u.transactions.some((tr) => tr.effects.length > 0);
       const modeChanged = u.startState.facet(livePreviewOn) !== u.state.facet(livePreviewOn);
-      if (u.docChanged || u.selectionSet || hasEffects || modeChanged) this.decorations = build(u.view);
+      if (u.docChanged || u.selectionSet || hasEffects || modeChanged) this.decorations = timeIt("cm:postits", () => build(u.view));
     }
   },
   { decorations: (v) => v.decorations },

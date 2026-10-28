@@ -1,12 +1,14 @@
 // One-line status bar for the focused pane: mode, path, save state,
 // cursor position and word count.
 
+import { useRenderCount } from "../lib/perf";
 import { useStatus } from "../editor/registry";
 import { useBuffers } from "../store/buffers";
 import { useContextPane, useLayout } from "../store/layout";
 import { useUi } from "../store/ui";
 
 export function StatusBar() {
+  useRenderCount("StatusBar");
   const pane = useContextPane();
   const reading = useUi((s) => s.reading);
   const status = useStatus();

@@ -6,6 +6,7 @@
 // or onto any empty part of the strip (or "+") for a new tab. From the
 // keyboard: Ctrl+Shift+PageUp / PageDown / Ctrl+Shift+H (see useKeybindings).
 
+import { useRenderCount } from "../../lib/perf";
 import { FileText, Plus, X } from "lucide-react";
 import { useState } from "react";
 import { stem } from "../../lib/paths";
@@ -15,6 +16,7 @@ import { paneIds, type Tab, useLayout } from "../../store/layout";
 export const PANE_DND_TYPE = "application/x-arca-pane";
 
 export function TabStrip() {
+  useRenderCount("TabStrip");
   const tabs = useLayout((s) => s.tabs);
   const activeTab = useLayout((s) => s.activeTab);
   const { newTab, movePane } = useLayout.getState();

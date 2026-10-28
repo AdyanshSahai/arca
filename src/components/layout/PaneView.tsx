@@ -3,6 +3,7 @@
 // instead show a sidebar view (graph, search…) that took it over, or a
 // friendly empty state with the essential shortcuts.
 
+import { useRenderCount } from "../../lib/perf";
 import { BookOpen, ChevronRight, Columns2, FilePlus, PanelLeft, Rows2, Search, X } from "lucide-react";
 import { Editor } from "../../editor/Editor";
 import { openFolder } from "../../lib/actions";
@@ -18,6 +19,7 @@ import { PANE_DND_TYPE } from "./TabStrip";
 import { ArcaMark } from "../ui/ArcaMark";
 
 export function PaneView({ paneId, focused }: { paneId: string; focused: boolean }) {
+  useRenderCount("PaneView");
   const pane = useLayout((s) => s.panes[paneId]);
   // Reading / writing is one switch for the whole app.
   const reading = useUi((s) => s.reading);

@@ -6,6 +6,7 @@
 // pushes the new file text into any open editor. "↗" jumps to the post-it
 // inside its note. A filter switches between all notes and the focused one.
 
+import { useRenderCount } from "../../lib/perf";
 import { ArrowUpRight, Plus } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { insertPostitInFocused, openFromSidebar } from "../../lib/actions";
@@ -19,6 +20,7 @@ import { useVault } from "../../store/vault";
 import { Segmented } from "../ui/Segmented";
 
 export function PostitPanel() {
+  useRenderCount("PostitPanel");
   const revision = useVault((s) => s.revision);
   const focusedPath = useContextPane()?.path ?? null;
   // Refetch when the focused buffer changes too, so post-its typed in the

@@ -10,6 +10,9 @@
 //
 // The command palette, dialogs and toasts float above everything.
 
+import { Profiler, useEffect } from "react";
+import { onRenderCommit, perfLog, PROFILING } from "./lib/perf";
+import { runProfile } from "./lib/profileRun";
 import { ActionRail } from "./components/ActionRail";
 import { CommandPalette } from "./components/CommandPalette";
 import { TemplatePicker } from "./components/TemplatePicker";
@@ -30,6 +33,10 @@ import { useUi } from "./store/ui";
 import { useVault } from "./store/vault";
 
 export function App() {
+  // Profiling run (dev only): start once the app has mounted.
+  useEffect(() => {
+    if (PROFILING) void runProfile().catch((err) => void perfLog({ error: String(err) }));
+  }, []);
   const booting = useBootstrap();
   useKeybindings();
   useVaultEvents();
@@ -41,36 +48,39 @@ export function App() {
   const drawerFull = useUi((s) => s.panel !== null && s.drawerSize === "full");
 
   return (
-    <div className="flex h-full flex-col bg-void">
-      <TitleBar />
-      {booting ? (
-        // Blank (not a spinner) while the last vault reopens: usually only a few ms.
-        <div className="flex-1" />
-      ) : info ? (
-        <>
-          <PinBar />
-          <div className="flex min-h-0 flex-1">
-            <ActionRail />
-            <Drawer />
-            {/* Tabs + panes; hidden while the drawer is in full view. */}
-            <div className={`min-h-0 min-w-0 flex-1 flex-col ${drawerFull ? "hidden" : "flex"}`}>
-              <TabStrip />
-              <WorkArea hidden={drawerFull} />
+    // <Profiler> only reports when profiling; otherwise its callback is a no-op sum.
+    <Profiler id="app" onRender={onRenderCommit}>
+      <div className="flex h-full flex-col bg-void">
+        <TitleBar />
+        {booting ? (
+          // Blank (not a spinner) while the last vault reopens: usually only a few ms.
+          <div className="flex-1" />
+        ) : info ? (
+          <>
+            <PinBar />
+            <div className="flex min-h-0 flex-1">
+              <ActionRail />
+              <Drawer />
+              {/* Tabs + panes; hidden while the drawer is in full view. */}
+              <div className={`min-h-0 min-w-0 flex-1 flex-col ${drawerFull ? "hidden" : "flex"}`}>
+                <TabStrip />
+                <WorkArea hidden={drawerFull} />
+              </div>
             </div>
+            <StatusBar />
+          </>
+        ) : (
+          <div className="min-h-0 flex-1">
+            <Welcome />
           </div>
-          <StatusBar />
-        </>
-      ) : (
-        <div className="min-h-0 flex-1">
-          <Welcome />
-        </div>
-      )}
-      <CommandPalette />
-      <TemplatePicker />
-      <ExportDialog />
-      <SettingsDialog />
-      <Dialogs />
-      <Toasts />
-    </div>
+        )}
+        <CommandPalette />
+        <TemplatePicker />
+        <ExportDialog />
+        <SettingsDialog />
+        <Dialogs />
+        <Toasts />
+      </div>
+    </Profiler>
   );
 }
