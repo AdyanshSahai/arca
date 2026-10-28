@@ -14,6 +14,19 @@ edition = "2021"
 license = "MIT"
 authors = ["Adyansh Sahai"]
 
+# Dev builds (`tauri dev`, `npm run sandbox`) optimise every *dependency*
+# (Tantivy, regex, serde, Tauri…) while Arca's own crates stay unoptimised
+# for fast rebuilds. Unoptimised Tantivy made backend work 5-17x slower than
+# in release builds; dependencies only recompile when they change, so this
+# costs one slower first build.
+[profile.dev.package."*"]
+opt-level = 3
+
+# The engine itself is small and hot (graph, backlinks, tree, fuzzy search),
+# so it's optimised in dev too; only the thin Tauri shell stays unoptimised.
+[profile.dev.package.arca-core]
+opt-level = 2
+
 [profile.release]
 # Smaller, faster release binaries; the app is distributed as a single exe.
 lto = true
