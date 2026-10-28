@@ -11,6 +11,10 @@ export type DrawerSize = "quarter" | "half" | "full";
 
 export type SearchMode = "files" | "text" | "topic";
 
+export type PaneChoice =
+  | { kind: "note"; path: string; line?: number; create?: boolean }
+  | { kind: "view"; view: PanelId };
+
 export interface SearchState {
   mode: SearchMode;
   query: string;
@@ -73,10 +77,11 @@ interface UiState {
   /** Template picker: null when closed, else the folder to create the note in. */
   templatePicker: { dir: string } | null;
   /**
-   * A note waiting for the user to pick which pane it should take over
-   * (shown as numbered overlays on the panes; see PaneView).
+   * Something waiting for the user to pick which pane it should take over
+   * (shown as numbered overlays on the panes; see PaneView): a note opened
+   * from outside the panes, or a sidebar view (graph, search…).
    */
-  paneChoice: { path: string; line?: number; create?: boolean } | null;
+  paneChoice: PaneChoice | null;
   /** Text files whose "convert to Markdown?" notice was dismissed this session. */
   dismissedTextNotices: Set<string>;
 
@@ -94,7 +99,7 @@ interface UiState {
   setSearch: (patch: Partial<SearchState>) => void;
   dismissTextNotice: (path: string) => void;
   openPalette: (initial?: string) => void;
-  askForPane: (choice: { path: string; line?: number; create?: boolean }) => void;
+  askForPane: (choice: PaneChoice) => void;
   cancelPaneChoice: () => void;
   openTemplatePicker: (dir: string) => void;
   openExport: (scope?: string) => void;

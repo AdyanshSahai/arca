@@ -11,7 +11,7 @@ import { FileDown } from "lucide-react";
 import { useState } from "react";
 import { errorMessage, ipc } from "../lib/ipc";
 import { baseName, dirName, isNotePath, stem } from "../lib/paths";
-import { focusedPane } from "../store/layout";
+import { contextPane } from "../store/layout";
 import { useUi } from "../store/ui";
 import { useVault } from "../store/vault";
 import { Segmented } from "./ui/Segmented";
@@ -27,7 +27,7 @@ export function ExportDialog() {
 function ExportBox({ preset }: { preset?: string }) {
   const close = useUi((s) => s.closeExport);
   const vaultName = useVault((s) => s.info?.name ?? "vault");
-  const notePath = focusedPane()?.path ?? null;
+  const notePath = contextPane()?.path ?? null;
 
   // Scope choices: an explicit preset from the tree, else the focused
   // note, its chapter, and the whole vault.

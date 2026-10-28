@@ -5,7 +5,7 @@
 import { open } from "@tauri-apps/plugin-dialog";
 import { editorRegistry } from "../editor/registry";
 import { useBuffers } from "../store/buffers";
-import { focusedPane, useLayout } from "../store/layout";
+import { contextPane, focusedPane, useLayout } from "../store/layout";
 import { type PanelId, useUi } from "../store/ui";
 import { useVault } from "../store/vault";
 import { insertPostitInFocused } from "./actions";
@@ -20,10 +20,13 @@ export interface Command {
   run: () => void;
 }
 
-/** Runs `fn` with the focused pane's note path, or toasts if there isn't one. */
+/**
+ * Runs `fn` with the current note's path (the context pane, so it works
+ * even while a view pane has focus), or toasts if there isn't one.
+ */
 function withNote(fn: (path: string) => void) {
   return () => {
-    const path = focusedPane()?.path;
+    const path = contextPane()?.path;
     if (path) fn(path);
     else useUi.getState().toast("Open a note first");
   };
@@ -45,14 +48,14 @@ export function allCommands(): Command[] {
   const ui = useUi.getState();
   const vault = useVault.getState();
   return [
-    { id: "note.new", label: "New note", group: "Note", shortcut: "Ctrl+N", run: () => vault.promptNewNote(dirName(focusedPane()?.path ?? "")) },
+    { id: "note.new", label: "New note", group: "Note", shortcut: "Ctrl+N", run: () => vault.promptNewNote(dirName(contextPane()?.path ?? "")) },
     {
       id: "note.template",
       label: "New note from template…",
       group: "Note",
-      run: () => ui.openTemplatePicker(dirName(focusedPane()?.path ?? "")),
+      run: () => ui.openTemplatePicker(dirName(contextPane()?.path ?? "")),
     },
-    { id: "folder.new", label: "New chapter folder", group: "Note", run: () => vault.promptNewFolder(dirName(focusedPane()?.path ?? "")) },
+    { id: "folder.new", label: "New chapter folder", group: "Note", run: () => vault.promptNewFolder(dirName(contextPane()?.path ?? "")) },
     { id: "note.rename", label: "Rename current note", group: "Note", run: withNote((p) => vault.promptRename(p)) },
     { id: "note.trash", label: "Move current note to trash", group: "Note", run: withNote((p) => vault.confirmTrash(p)) },
     { id: "note.pin", label: "Pin current note", group: "Note", run: withNote((p) => void vault.addPin(p, "note")) },

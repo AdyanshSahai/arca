@@ -15,7 +15,7 @@ import { classifyLink } from "../../lib/links";
 import { stem } from "../../lib/paths";
 import type { Backlink } from "../../lib/types";
 import { useBuffers } from "../../store/buffers";
-import { useFocusedPane, useLayout } from "../../store/layout";
+import { useContextPane, useLayout } from "../../store/layout";
 import { useUi } from "../../store/ui";
 import { useVault } from "../../store/vault";
 import { Highlighted } from "../ui/Highlighted";
@@ -30,7 +30,7 @@ function linkRanges(text: string): [number, number][] {
 }
 
 export function BacklinksPanel() {
-  const path = useFocusedPane()?.path ?? null;
+  const path = useContextPane()?.path ?? null;
   const revision = useVault((s) => s.revision);
   const content = useBuffers((s) => (path ? s.buffers[path]?.content : undefined));
   const [backlinks, setBacklinks] = useState<Backlink[]>([]);

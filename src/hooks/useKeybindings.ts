@@ -84,12 +84,19 @@ export function useKeybindings() {
       if (ui.paneChoice) {
         const tab = layout.tabs.find((t) => t.id === layout.activeTab);
         const ids = tab ? paneIds(tab.root) : [];
-        const { path, line, create } = ui.paneChoice;
+        const choice = ui.paneChoice;
         let target: string | undefined;
         if (/^[1-9]$/.test(e.key)) target = ids[Number(e.key) - 1];
         else if (e.key === "Enter") target = tab?.focusedPane;
-        if (target) layout.openNoteIn(target, path, { line, create });
-        else if (e.key === "Escape") ui.cancelPaneChoice();
+        if (target && choice.kind === "note") {
+          layout.openNoteIn(target, choice.path, { line: choice.line, create: choice.create });
+        } else if (target && choice.kind === "view") {
+          layout.openViewIn(target, choice.view);
+        } else if (choice.kind === "view" && key === "s") {
+          // S = keep the view in the sidebar drawer instead.
+          ui.cancelPaneChoice();
+          ui.showPanel(choice.view);
+        } else if (e.key === "Escape") ui.cancelPaneChoice();
         e.preventDefault();
         e.stopPropagation();
         return;

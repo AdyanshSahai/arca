@@ -3,7 +3,7 @@
 
 import { insertPostit } from "../editor/postits";
 import { editorRegistry } from "../editor/registry";
-import { focusedPane, useLayout } from "../store/layout";
+import { contextPane, useLayout } from "../store/layout";
 import { useUi } from "../store/ui";
 import { useVault } from "../store/vault";
 import { errorMessage, ipc } from "./ipc";
@@ -64,7 +64,8 @@ export function openFolder(dir: string): void {
 
 /** Inserts a post-it into the focused editor, if there is one. */
 export function insertPostitInFocused(): void {
-  const pane = focusedPane();
+  // The note being worked on, even if a view pane has focus right now.
+  const pane = contextPane();
   const view = pane && editorRegistry.get(pane.id);
   if (!view) {
     useUi.getState().toast("Open a note first to add a post-it");

@@ -21,7 +21,7 @@ import ForceGraph2D, { type ForceGraphMethods, type LinkObject, type NodeObject 
 import { followLink } from "../../lib/actions";
 import { errorMessage, ipc } from "../../lib/ipc";
 import type { Graph, GraphNode } from "../../lib/types";
-import { useFocusedPane, useLayout } from "../../store/layout";
+import { useContextPane, useLayout } from "../../store/layout";
 import { Segmented } from "../ui/Segmented";
 import { useUi } from "../../store/ui";
 import { useVault } from "../../store/vault";
@@ -48,7 +48,7 @@ const endId = (end: unknown): string => (typeof end === "object" && end ? (end a
 
 export function GraphPanel() {
   const revision = useVault((s) => s.revision);
-  const active = useFocusedPane()?.path ?? null;
+  const active = useContextPane()?.path ?? null;
   const [graph, setGraph] = useState<Graph>({ nodes: [], edges: [] });
   const [local, setLocal] = useState(false);
   const [depth, setDepth] = useState(1);

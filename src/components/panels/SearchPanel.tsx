@@ -12,7 +12,7 @@ import { useEffect, useRef, useState } from "react";
 import { errorMessage, ipc } from "../../lib/ipc";
 import { dirName } from "../../lib/paths";
 import type { FileHit, TagCount, TextHit } from "../../lib/types";
-import { useFocusedPane, useLayout } from "../../store/layout";
+import { useContextPane, useLayout } from "../../store/layout";
 import { type SearchMode, useUi } from "../../store/ui";
 import { useVault } from "../../store/vault";
 import { Search as SearchIcon } from "lucide-react";
@@ -41,7 +41,7 @@ export function SearchPanel() {
   const setQuery = (q: string) => setSearch({ query: q });
   const setFolderOnly = (v: boolean) => setSearch({ folderOnly: v });
   const revision = useVault((s) => s.revision);
-  const pane = useFocusedPane();
+  const pane = useContextPane();
   const [rows, setRows] = useState<Row[]>([]);
   const [tags, setTags] = useState<TagCount[]>([]);
   const [selected, setSelected] = useState(0);

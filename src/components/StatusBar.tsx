@@ -3,10 +3,10 @@
 
 import { useStatus } from "../editor/registry";
 import { useBuffers } from "../store/buffers";
-import { useFocusedPane, useLayout } from "../store/layout";
+import { useContextPane, useLayout } from "../store/layout";
 
 export function StatusBar() {
-  const pane = useFocusedPane();
+  const pane = useContextPane();
   const status = useStatus();
   const tabs = useLayout((s) => s.tabs.length);
   const buffer = useBuffers((s) => (pane?.path ? s.buffers[pane.path] : undefined));

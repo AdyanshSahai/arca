@@ -13,14 +13,14 @@ import { errorMessage, ipc } from "../../lib/ipc";
 import type { PostItEntry } from "../../lib/types";
 import { POSTIT_COLORS, safeColor } from "../../editor/postits";
 import { useBuffers } from "../../store/buffers";
-import { useFocusedPane, useLayout } from "../../store/layout";
+import { useContextPane, useLayout } from "../../store/layout";
 import { useUi } from "../../store/ui";
 import { useVault } from "../../store/vault";
 import { Segmented } from "../ui/Segmented";
 
 export function PostitPanel() {
   const revision = useVault((s) => s.revision);
-  const focusedPath = useFocusedPane()?.path ?? null;
+  const focusedPath = useContextPane()?.path ?? null;
   // Refetch when the focused buffer changes too, so post-its typed in the
   // editor appear after the autosave.
   const savedText = useBuffers((s) => (focusedPath ? s.buffers[focusedPath]?.saved : undefined));

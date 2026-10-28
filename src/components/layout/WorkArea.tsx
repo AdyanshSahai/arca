@@ -5,11 +5,14 @@
 import { useEffect } from "react";
 import { editorRegistry } from "../../editor/registry";
 import { paneIds, useLayout } from "../../store/layout";
+import { useUi } from "../../store/ui";
+import { PANELS } from "../panels/registry";
 import { SplitView } from "./SplitView";
 
 export function WorkArea({ hidden }: { hidden: boolean }) {
   const tabs = useLayout((s) => s.tabs);
   const activeTab = useLayout((s) => s.activeTab);
+  const choice = useUi((s) => s.paneChoice);
 
   // Editors in a `display:none` tab can't measure themselves; ask them to
   // re-measure once their tab becomes visible again.
@@ -23,7 +26,21 @@ export function WorkArea({ hidden }: { hidden: boolean }) {
 
   return (
     // `hidden` is set when the drawer is in full-view mode and covers this area.
-    <main className={`min-h-0 min-w-0 flex-1 ${hidden ? "hidden" : "flex"}`}>
+    <main className={`relative min-h-0 min-w-0 flex-1 ${hidden ? "hidden" : "flex"}`}>
+      {/* While a sidebar view waits for a pane, offer the sidebar as well. */}
+      {choice?.kind === "view" && (
+        <div className="absolute inset-x-0 bottom-5 z-40 flex justify-center">
+          <button
+            onClick={() => {
+              useUi.getState().cancelPaneChoice();
+              useUi.getState().showPanel(choice.view);
+            }}
+            className="btn-soft rounded-full px-4 py-2 text-[13px] shadow-[0_8px_24px_rgb(0_0_0/0.5)]"
+          >
+            Or keep {PANELS[choice.view].title} in the sidebar <kbd className="ml-1.5">S</kbd>
+          </button>
+        </div>
+      )}
       {tabs.map((tab) => (
         <div key={tab.id} className={`min-h-0 min-w-0 flex-1 ${tab.id === activeTab ? "flex" : "hidden"}`}>
           <SplitView node={tab.root} focusedPane={tab.focusedPane} />

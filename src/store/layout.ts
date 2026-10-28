@@ -14,7 +14,7 @@
 import { create } from "zustand";
 import { remapPath, isWithin } from "../lib/paths";
 import { useBuffers } from "./buffers";
-import { useUi } from "./ui";
+import { type PanelId, useUi } from "./ui";
 
 export type EditorMode = "live" | "raw";
 export type SplitDir = "row" | "col";
@@ -26,6 +26,11 @@ export interface Pane {
   mode: EditorMode;
   /** Read mode: the note can be viewed and navigated but not changed. */
   readOnly?: boolean;
+  /**
+   * A sidebar view shown in this pane instead of a note (graph, search…).
+   * When set, `path` is null.
+   */
+  view?: PanelId | null;
   /** One-shot request to scroll to a 1-based line once the note is shown. */
   reveal?: { line: number; nonce: number };
 }
@@ -44,6 +49,11 @@ interface LayoutState {
   tabs: Tab[];
   activeTab: string;
   panes: Record<string, Pane>;
+  /**
+   * The pane the user last worked on a note in. Views (backlinks, local
+   * graph…) follow this note even while a view pane itself has focus.
+   */
+  contextPane: string | null;
 
   /**
    * Opens a note in the focused pane, or in a new tab with `newTab`.
@@ -54,6 +64,10 @@ interface LayoutState {
   openNote: (path: string, opts?: OpenOpts) => void;
   /** Opens a note in a specific pane (the answer to a pane prompt). */
   openNoteIn: (paneId: string, path: string, opts?: OpenOpts) => void;
+  /** Shows a sidebar view in a pane, replacing its note. */
+  openViewIn: (paneId: string, view: PanelId) => void;
+  /** Turns a view pane back into an empty pane (the view goes back to the drawer). */
+  clearView: (paneId: string) => void;
   newTab: (path?: string | null) => void;
   closeTab: (tabId: string) => void;
   /** Ctrl+Tab / Ctrl+Shift+Tab. */
@@ -162,12 +176,13 @@ export const useLayout = create<LayoutState>((set, get) => {
     tabs: [firstTab],
     activeTab: firstTab.id,
     panes: { [first.id]: first },
+    contextPane: null,
 
     openNote: (path, opts) => {
       // Split tab + opened from outside the panes: let the user choose
       // which pane takes the note instead of silently replacing one.
       if (opts?.pick && !opts.newTab && paneIds(active().root).length > 1) {
-        useUi.getState().askForPane({ path, line: opts.line, create: opts.create });
+        useUi.getState().askForPane({ kind: "note", path, line: opts.line, create: opts.create });
         return;
       }
       if (opts?.newTab) {
@@ -175,7 +190,8 @@ export const useLayout = create<LayoutState>((set, get) => {
       } else {
         const paneId = active().focusedPane;
         const pane = get().panes[paneId];
-        set({ panes: { ...get().panes, [paneId]: { ...pane, path } } });
+        // A note always replaces a view shown in the pane.
+        set({ panes: { ...get().panes, [paneId]: { ...pane, path, view: null } }, contextPane: paneId });
       }
       void useBuffers.getState().ensure(path, { allowMissing: opts?.create });
       if (opts?.line) {
@@ -185,6 +201,23 @@ export const useLayout = create<LayoutState>((set, get) => {
         set({ panes: { ...get().panes, [paneId]: { ...pane, reveal: { line: opts.line, nonce: Date.now() } } } });
       }
       gcBuffers();
+    },
+
+    openViewIn: (paneId, view) => {
+      useUi.getState().cancelPaneChoice();
+      const pane = get().panes[paneId];
+      if (!pane) return;
+      set({ panes: { ...get().panes, [paneId]: { ...pane, view, path: null } } });
+      get().focusPane(paneId);
+      // The view now lives in a pane; the drawer doesn't need to show it too.
+      if (useUi.getState().panel === view) useUi.getState().closeDrawer();
+      gcBuffers();
+    },
+
+    clearView: (paneId) => {
+      const pane = get().panes[paneId];
+      if (!pane) return;
+      set({ panes: { ...get().panes, [paneId]: { ...pane, view: null } } });
     },
 
     openNoteIn: (paneId, path, opts) => {
@@ -320,6 +353,8 @@ export const useLayout = create<LayoutState>((set, get) => {
     focusPane: (paneId) => {
       const tab = get().tabs.find((t) => paneIds(t.root).includes(paneId));
       if (tab && tab.focusedPane !== paneId) putTab({ ...tab, focusedPane: paneId });
+      // Focusing a note pane makes it the context for views.
+      if (get().panes[paneId]?.path && get().contextPane !== paneId) set({ contextPane: paneId });
     },
 
     setRatio: (splitId, ratio) => {
@@ -386,6 +421,29 @@ export function useFocusedPane(): Pane | undefined {
     const tab = s.tabs.find((t) => t.id === s.activeTab);
     return tab ? s.panes[tab.focusedPane] : undefined;
   });
+}
+
+/**
+ * The pane holding the note the user is working on: the focused pane if it
+ * shows a note, otherwise the last note pane they used. Views (backlinks,
+ * local graph, "this folder" search…) follow this, so clicking into a view
+ * pane doesn't make them lose track of the note.
+ */
+function pickContext(s: LayoutState): Pane | undefined {
+  const tab = s.tabs.find((t) => t.id === s.activeTab);
+  const focused = tab ? s.panes[tab.focusedPane] : undefined;
+  if (focused?.path) return focused;
+  const ctx = s.contextPane ? s.panes[s.contextPane] : undefined;
+  return ctx?.path ? ctx : focused;
+}
+
+export function useContextPane(): Pane | undefined {
+  return useLayout(pickContext);
+}
+
+/** Non-hook variant of useContextPane. */
+export function contextPane(): Pane | undefined {
+  return pickContext(useLayout.getState());
 }
 
 /** Non-hook variant for event handlers. */

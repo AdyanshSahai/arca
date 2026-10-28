@@ -25,7 +25,7 @@ import { errorMessage, ipc } from "../../lib/ipc";
 import { scrollWithin } from "../../lib/scroll";
 import { baseName, defaultFolderNote, dirName, isTextPath, isWithin, joinPath } from "../../lib/paths";
 import type { TreeNode } from "../../lib/types";
-import { useFocusedPane, useLayout } from "../../store/layout";
+import { useContextPane, useLayout } from "../../store/layout";
 import { useUi } from "../../store/ui";
 import { useVault } from "../../store/vault";
 import { ContextMenu, type MenuSpec } from "../ui/ContextMenu";
@@ -80,7 +80,7 @@ function activate(node: TreeNode, newTab: boolean) {
 
 export function TreePanel() {
   const tree = useVault((s) => s.tree);
-  const activePath = useFocusedPane()?.path ?? null;
+  const activePath = useContextPane()?.path ?? null;
   const [expanded, setExpanded] = useState<Set<string>>(() => new Set());
   const [menu, setMenu] = useState<MenuSpec | null>(null);
   /** Folder currently highlighted as a drop target. */

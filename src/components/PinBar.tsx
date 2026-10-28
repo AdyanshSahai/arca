@@ -8,14 +8,14 @@
 
 import { FileText, Folder, Paperclip, Pin as PinIcon, Plus } from "lucide-react";
 import type { Pin } from "../lib/types";
-import { useFocusedPane } from "../store/layout";
+import { useContextPane } from "../store/layout";
 import { useVault } from "../store/vault";
 
 const ICONS = { note: FileText, folder: Folder, file: Paperclip } as const;
 
 export function PinBar() {
   const pins = useVault((s) => s.pins);
-  const pane = useFocusedPane();
+  const pane = useContextPane();
   const { addPin, removePin, activatePin } = useVault.getState();
   const canPin = !!pane?.path && !pins.some((p) => p.path === pane.path);
 

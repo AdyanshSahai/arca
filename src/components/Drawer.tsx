@@ -8,19 +8,8 @@
 import { Maximize2, X } from "lucide-react";
 import { useRef, useState } from "react";
 import { type DrawerSize, type PanelId, useUi } from "../store/ui";
-import { BacklinksPanel } from "./panels/BacklinksPanel";
-import { GraphPanel } from "./panels/GraphPanel";
-import { PostitPanel } from "./panels/PostitPanel";
-import { SearchPanel } from "./panels/SearchPanel";
-import { TreePanel } from "./panels/TreePanel";
+import { PANELS } from "./panels/registry";
 
-const TITLES: Record<PanelId, string> = {
-  tree: "Chapters",
-  graph: "Graph",
-  search: "Search",
-  backlinks: "Backlinks",
-  postits: "Post-its",
-};
 
 /** Fraction of the window width for each snap point. */
 const SNAP: Record<DrawerSize, number> = { quarter: 0.25, half: 0.5, full: 1 };
@@ -82,7 +71,7 @@ export function Drawer() {
   return (
     <aside ref={root} style={style} className="relative flex min-w-0 shrink-0 flex-col border-r border-line bg-alt">
       <header className="flex h-12 shrink-0 items-center gap-1.5 border-b border-line pr-3 pl-5">
-        <span className="flex-1 text-[14px] font-semibold text-fg">{TITLES[panel]}</span>
+        <span className="flex-1 text-[14px] font-semibold text-fg">{PANELS[panel].title}</span>
         {/* Snap-size switch, drawn as one segmented control. */}
         <div className="mr-1 flex items-center rounded-md border border-line p-[2px]">
           <SizeButton label="¼" title="Quarter width" active={size === "quarter"} onClick={() => setDrawerSize("quarter")} />
@@ -103,11 +92,7 @@ export function Drawer() {
         </button>
       </header>
       <div className="min-h-0 flex-1">
-        {panel === "tree" && <TreePanel />}
-        {panel === "graph" && <GraphPanel />}
-        {panel === "search" && <SearchPanel />}
-        {panel === "backlinks" && <BacklinksPanel />}
-        {panel === "postits" && <PostitPanel />}
+        <Panel id={panel} />
       </div>
       {/* Resize handle along the right edge (hidden in full mode). */}
       {!full && (
@@ -142,4 +127,10 @@ function SizeButton({
       {label}
     </button>
   );
+}
+
+/** Renders one view by id (shared by the drawer and view panes). */
+export function Panel({ id }: { id: PanelId }) {
+  const { Component } = PANELS[id];
+  return <Component />;
 }
