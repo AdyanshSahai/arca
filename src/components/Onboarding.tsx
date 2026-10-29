@@ -13,11 +13,12 @@
 
 import { ArrowLeft, ArrowRight, Check, FolderOpen, History, Save } from "lucide-react";
 import { useEffect, useState } from "react";
-import { THEMES } from "../lib/themes";
+import { paletteFor, THEMES } from "../lib/themes";
 import { useUi } from "../store/ui";
 import { useVault } from "../store/vault";
 import { pickVault } from "./ActionRail";
 import { ArcaMark } from "./ui/ArcaMark";
+import { CustomColors } from "./ui/CustomColors";
 import { ThemeCard } from "./ui/ThemeCard";
 
 const STEPS = ["welcome", "colours", "saving", "history", "vault"] as const;
@@ -39,6 +40,8 @@ function Walkthrough() {
   /** Bumped on every step change to restart the enter animation. */
   const [anim, setAnim] = useState(0);
   const step: Step = STEPS[index];
+  // The custom scheme's colours (or the current preset's, to start from).
+  const custom = paletteFor("custom", prefs.customColors ?? paletteFor(prefs.theme === "custom" ? "twilight" : prefs.theme));
 
   const go = (delta: 1 | -1) => {
     const next = index + delta;
@@ -73,7 +76,7 @@ function Walkthrough() {
         className="pointer-events-none absolute inset-0 opacity-60"
         style={{ background: "radial-gradient(60% 50% at 50% 35%, var(--accent-soft), transparent 70%)" }}
       />
-      <div className="relative flex min-h-0 flex-1 items-center justify-center p-8">
+      <div className="relative flex min-h-0 flex-1 items-center justify-center overflow-y-auto p-8">
         {/* Keyed on `anim` so each step plays its enter animation. */}
         <div key={anim} className={`w-[640px] max-w-full ${dir === 1 ? "onb-enter-right" : "onb-enter-left"}`}>
           {step === "welcome" && (
@@ -92,8 +95,8 @@ function Walkthrough() {
 
           {step === "colours" && (
             <div>
-              <StepTitle title="Pick your colours" subtitle="You can change this any time, or mix your own, in Settings." />
-              <div className="grid grid-cols-3 gap-3">
+              <StepTitle title="Pick your colours" subtitle="A preset, or Custom to choose all 8 colours yourself. Change it any time in Settings." />
+              <div className="grid grid-cols-4 gap-3">
                 {THEMES.map((t) => (
                   <ThemeCard
                     key={t.id}
@@ -103,7 +106,19 @@ function Walkthrough() {
                     onClick={() => setPrefs({ theme: t.id })}
                   />
                 ))}
+                <ThemeCard
+                  name="Custom"
+                  palette={custom}
+                  selected={prefs.theme === "custom"}
+                  // Starting a custom scheme copies the current preset's colours.
+                  onClick={() => setPrefs({ theme: "custom", customColors: custom })}
+                />
               </div>
+              {prefs.theme === "custom" && (
+                <div className="mt-5 rounded-xl border border-line-strong bg-btn/50 p-4">
+                  <CustomColors palette={custom} onChange={(p) => setPrefs({ customColors: p })} />
+                </div>
+              )}
             </div>
           )}
 

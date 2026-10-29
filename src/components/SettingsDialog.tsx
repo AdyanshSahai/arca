@@ -9,7 +9,8 @@
 import { Keyboard, LayoutPanelLeft, Palette, Save, X } from "lucide-react";
 import { useEffect, useState } from "react";
 import { errorMessage, ipc } from "../lib/ipc";
-import { PALETTE_KEYS, PALETTE_LABELS, paletteFor, THEMES } from "../lib/themes";
+import { paletteFor, THEMES } from "../lib/themes";
+import { CustomColors } from "./ui/CustomColors";
 import { ThemeCard } from "./ui/ThemeCard";
 import { useBuffers } from "../store/buffers";
 import { type Prefs, useUi } from "../store/ui";
@@ -174,41 +175,7 @@ function Appearance({ prefs, setPrefs }: SectionProps) {
 
       {prefs.theme === "custom" && (
         <div className="mt-6">
-          <div className="mb-3 flex items-center gap-3">
-            <span className="text-[13px] font-medium text-fg">Your colours</span>
-            <select
-              defaultValue=""
-              onChange={(e) => {
-                const t = THEMES.find((x) => x.id === e.target.value);
-                if (t) setPrefs({ customColors: { ...t.palette } });
-                e.target.value = "";
-              }}
-              className="btn-soft rounded-md px-2 py-1 text-[12px] outline-none"
-            >
-              <option value="">Start from a preset…</option>
-              {THEMES.map((t) => (
-                <option key={t.id} value={t.id}>
-                  {t.name}
-                </option>
-              ))}
-            </select>
-          </div>
-          <div className="grid grid-cols-2 gap-x-6 gap-y-2.5">
-            {PALETTE_KEYS.map((k) => (
-              <label key={k} className="flex items-center justify-between gap-3 text-[13px] text-fg/85">
-                {PALETTE_LABELS[k]}
-                <span className="flex items-center gap-2">
-                  <span className="font-mono text-[11px] text-muted">{custom[k]}</span>
-                  <input
-                    type="color"
-                    value={custom[k]}
-                    onChange={(e) => setPrefs({ customColors: { ...custom, [k]: e.target.value } })}
-                    className="h-7 w-9 cursor-pointer rounded border border-line-strong bg-transparent"
-                  />
-                </span>
-              </label>
-            ))}
-          </div>
+          <CustomColors palette={custom} onChange={(p) => setPrefs({ customColors: p })} />
         </div>
       )}
     </>
