@@ -11,12 +11,14 @@
 //!   targets to note paths.
 //! * [`search`]: the in-memory Tantivy index (full-text and topic search)
 //!   plus the fuzzy/regex filename matcher.
+//! * [`history`]: git-backed version history (the Time Machine).
 //! * [`export`]: compiles notes into one HTML or Markdown document.
 //! * [`workspace`]: ties the above together into one object that the Tauri
 //!   shell keeps in memory for the open vault.
 
 pub mod error;
 pub mod export;
+pub mod history;
 pub mod links;
 pub mod postit;
 pub mod search;

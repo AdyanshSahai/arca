@@ -13,7 +13,8 @@ use std::path::PathBuf;
 use arca_core::postit;
 use arca_core::search::{FileHit, TextHit, TopicKind};
 use arca_core::vault::{TrashEntry, TreeNode};
-use arca_core::workspace::{Backlink, Graph, LinkTarget, NoteInfo, PostItEntry, RenameReport, TagCount};
+use arca_core::history::{History, Snapshot};
+use arca_core::workspace::{Backlink, Graph, LinkTarget, NoteInfo, PostItEntry, RenameReport, RestoreReport, TagCount};
 use arca_core::Workspace;
 use serde::Serialize;
 use tauri::{AppHandle, Manager, State};
@@ -118,6 +119,8 @@ pub async fn open_vault(app: AppHandle, state: State<'_, AppState>, path: String
     // Stop the old watcher before swapping vaults so its callback can't
     // refresh the new workspace with paths from the old one.
     *state.watcher.lock().unwrap_or_else(|e| e.into_inner()) = None;
+    // History belongs to the old vault; the frontend restarts it if enabled.
+    *state.history.lock().unwrap_or_else(|e| e.into_inner()) = None;
     *state.lock_ws() = Some(ws);
     // Let the webview load images from this vault (and only this vault)
     // through the asset protocol; nothing is allowed statically.
@@ -407,6 +410,97 @@ pub async fn import_attachment(state: State<'_, AppState>, note: String, source:
     }
     let bytes = std::fs::read(&src)?;
     state.with_ws(|ws| Ok(ws.vault().save_asset(&note, &name, &bytes)?))
+}
+
+// ----------------------------------------------------------------------
+// Version history (Time Machine)
+// ----------------------------------------------------------------------
+
+/// Runs `f` with the open vault's history, or explains that it's off.
+fn with_history<T>(state: &AppState, f: impl FnOnce(&History) -> CmdResult<T>) -> CmdResult<T> {
+    let guard = state.history.lock().unwrap_or_else(|e| e.into_inner());
+    let h = guard.as_ref().ok_or_else(|| CmdError("version history is off for this vault".into()))?;
+    f(h)
+}
+
+/// Switches history on for the open vault (creating it on first use) and
+/// takes a first snapshot. Returns that snapshot's id, if anything changed.
+#[tauri::command]
+pub async fn history_start(state: State<'_, AppState>) -> CmdResult<Option<String>> {
+    let _t = timed("history_start");
+    let root = state.with_ws(|ws| Ok(ws.root().to_path_buf()))?;
+    let h = History::open_or_init(&root)?;
+    let first = h.snapshot()?;
+    *state.history.lock().unwrap_or_else(|e| e.into_inner()) = Some(h);
+    Ok(first)
+}
+
+/// Switches history off (existing history stays on disk).
+#[tauri::command]
+pub async fn history_stop(state: State<'_, AppState>) -> CmdResult<()> {
+    *state.history.lock().unwrap_or_else(|e| e.into_inner()) = None;
+    Ok(())
+}
+
+/// Records a snapshot if anything changed (called every few minutes).
+#[tauri::command]
+pub async fn history_snapshot(state: State<'_, AppState>) -> CmdResult<Option<String>> {
+    let _t = timed("history_snapshot");
+    // Snapshot what autosave has written; hold the workspace lock so no
+    // write lands half-way through.
+    state.with_ws(|_ws| with_history(&state, |h| Ok(h.snapshot()?)))
+}
+
+/// The newest snapshots, optionally only those that changed one note.
+#[tauri::command]
+pub async fn history_timeline(state: State<'_, AppState>, limit: Option<usize>, path: Option<String>) -> CmdResult<Vec<Snapshot>> {
+    let _t = timed("history_timeline");
+    with_history(&state, |h| Ok(h.timeline(limit.unwrap_or(500), path.as_deref())?))
+}
+
+/// Every note in a snapshot.
+#[tauri::command]
+pub async fn history_files(state: State<'_, AppState>, id: String) -> CmdResult<Vec<String>> {
+    with_history(&state, |h| Ok(h.files_at(&id)?))
+}
+
+/// A note's text in a snapshot (None if it didn't exist then).
+#[tauri::command]
+pub async fn history_read(state: State<'_, AppState>, id: String, path: String) -> CmdResult<Option<String>> {
+    with_history(&state, |h| Ok(h.read_at(&id, &path)?))
+}
+
+/// Restores a note, a chapter or ("") the whole vault from a snapshot.
+/// A snapshot of the current state is taken first, so the restore itself
+/// can be undone from the Time Machine.
+#[tauri::command]
+pub async fn history_restore(state: State<'_, AppState>, id: String, prefix: String) -> CmdResult<RestoreReport> {
+    let _t = timed("history_restore");
+    let guard = state.history.lock().unwrap_or_else(|e| e.into_inner());
+    let h = guard.as_ref().ok_or_else(|| CmdError("version history is off for this vault".into()))?;
+    h.snapshot()?;
+    let report = state.with_ws_mut(|ws| Ok(ws.restore_from_history(h, &id, &prefix)?))?;
+    h.snapshot()?;
+    Ok(report)
+}
+
+/// The backup remote's URL, if one is set.
+#[tauri::command]
+pub async fn history_remote(state: State<'_, AppState>) -> CmdResult<Option<String>> {
+    with_history(&state, |h| Ok(h.remote()))
+}
+
+/// Sets (or, with "", removes) the remote history is pushed to.
+#[tauri::command]
+pub async fn history_set_remote(state: State<'_, AppState>, url: String) -> CmdResult<()> {
+    with_history(&state, |h| Ok(h.set_remote(&url)?))
+}
+
+/// Pushes history to the backup remote using the system `git`.
+#[tauri::command]
+pub async fn history_push(state: State<'_, AppState>) -> CmdResult<String> {
+    let _t = timed("history_push");
+    with_history(&state, |h| Ok(h.push()?))
 }
 
 // ----------------------------------------------------------------------

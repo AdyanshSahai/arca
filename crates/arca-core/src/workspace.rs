@@ -15,6 +15,7 @@ use std::path::{Path, PathBuf};
 use serde::Serialize;
 
 use crate::error::{CoreError, Result};
+use crate::history::History;
 use crate::links::{self, LinkKind, Resolver, TagRef, WikiLink};
 use crate::postit::{self, PostIt};
 use crate::search::{self, FileHit, IndexDoc, SearchIndex, TextHit, TopicKind};
@@ -76,6 +77,15 @@ pub struct PostItEntry {
     pub note_title: String,
     #[serde(flatten)]
     pub postit: PostIt,
+}
+
+/// What a history restore did.
+#[derive(Debug, Clone, Default, Serialize, PartialEq, Eq)]
+pub struct RestoreReport {
+    /// Notes written back with their old text.
+    pub written: usize,
+    /// Notes that didn't exist at that time, moved to the trash.
+    pub trashed: usize,
 }
 
 /// One link to rewrite after a rename.
@@ -387,6 +397,35 @@ impl Workspace {
         self.rebuild_resolver();
         self.index.commit()?;
         Ok(dest)
+    }
+
+    /// Brings back how things were in history snapshot `id`.
+    ///
+    /// `prefix` picks what: a note path restores just that note; a folder
+    /// path ("hardware") restores that chapter; "" restores the whole vault.
+    /// Notes are rewritten only where they differ. Notes that exist now but
+    /// didn't in the snapshot are moved to the trash, never deleted, so a
+    /// restore can itself be undone.
+    pub fn restore_from_history(&mut self, history: &History, id: &str, prefix: &str) -> Result<RestoreReport> {
+        let within = |p: &str| prefix.is_empty() || p == prefix || p.starts_with(&format!("{prefix}/"));
+        let then: Vec<String> = history.files_at(id)?.into_iter().filter(|p| within(p)).collect();
+        if then.is_empty() && is_note_path(Path::new(prefix)) {
+            return Err(CoreError::NotFound(format!("{prefix} in that snapshot")));
+        }
+        let mut report = RestoreReport::default();
+        for path in &then {
+            let Some(text) = history.read_at(id, path)? else { continue };
+            if self.vault.read_note(path).ok().as_deref() != Some(text.as_str()) {
+                self.write_note(path, &text)?;
+                report.written += 1;
+            }
+        }
+        let now: Vec<String> = self.notes.keys().filter(|p| within(p)).cloned().collect();
+        for path in now.iter().filter(|p| !then.contains(p)) {
+            self.trash(path)?;
+            report.trashed += 1;
+        }
+        Ok(report)
     }
 
     /// Puts a trashed item back where it came from and indexes it again.
@@ -762,6 +801,26 @@ mod tests {
         assert_eq!(report.links, 1);
         assert!(ws.read_note("hardware/memory.md").unwrap().contains("[[CPU]]"));
         assert!(ws.read_note("index.md").unwrap().contains("[[chips/cpu]]"));
+    }
+
+    #[test]
+    fn restoring_from_history_brings_back_old_text_and_trashes_newcomers() {
+        let (_d, mut ws) = workspace();
+        let h = History::open_or_init(ws.root()).unwrap();
+        let before = h.snapshot().unwrap().unwrap();
+        ws.write_note("hardware/memory.md", "# Memory\n\nrewritten").unwrap();
+        ws.write_note("hardware/new.md", "# New").unwrap();
+        h.snapshot().unwrap().unwrap();
+
+        // One note…
+        let r = ws.restore_from_history(&h, &before, "hardware/memory.md").unwrap();
+        assert_eq!(r, RestoreReport { written: 1, trashed: 0 });
+        assert!(ws.read_note("hardware/memory.md").unwrap().contains("Back to [[CPU]]"));
+        // …or a whole chapter: new.md didn't exist then, so it goes to the trash.
+        let r = ws.restore_from_history(&h, &before, "hardware").unwrap();
+        assert_eq!(r.trashed, 1);
+        assert!(ws.notes().iter().all(|n| n.path != "hardware/new.md"));
+        assert_eq!(ws.vault().list_trash().unwrap().len(), 1);
     }
 
     #[test]

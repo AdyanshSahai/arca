@@ -5,6 +5,7 @@ use std::path::PathBuf;
 use std::sync::{Mutex, MutexGuard};
 use std::time::{Duration, Instant};
 
+use arca_core::history::History;
 use arca_core::Workspace;
 
 use crate::error::{CmdError, CmdResult};
@@ -21,6 +22,8 @@ pub struct AppState {
     pub workspace: Mutex<Option<Workspace>>,
     /// Kept alive for as long as the vault is open; dropping it stops watching.
     pub watcher: Mutex<Option<VaultWatcher>>,
+    /// Version history of the open vault, when the user has it switched on.
+    pub history: Mutex<Option<History>>,
     /// Paths Arca itself just wrote → when. See [`SELF_WRITE_GRACE`].
     recent_writes: Mutex<HashMap<String, Instant>>,
     pub settings: Mutex<AppSettings>,
@@ -37,6 +40,7 @@ impl AppState {
         Self {
             workspace: Mutex::new(None),
             watcher: Mutex::new(None),
+            history: Mutex::new(None),
             recent_writes: Mutex::new(HashMap::new()),
             settings: Mutex::new(settings),
             settings_path,
