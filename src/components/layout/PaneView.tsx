@@ -4,7 +4,7 @@
 // friendly empty state with the essential shortcuts.
 
 import { useRenderCount } from "../../lib/perf";
-import { BookOpen, ChevronRight, Columns2, FilePlus, PanelLeft, Rows2, Search, X } from "lucide-react";
+import { BookOpen, ChevronRight, History, Columns2, FilePlus, PanelLeft, Rows2, Search, X } from "lucide-react";
 import { Editor } from "../../editor/Editor";
 import { openFolder } from "../../lib/actions";
 import { isTextPath, stem } from "../../lib/paths";
@@ -23,6 +23,7 @@ export function PaneView({ paneId, focused }: { paneId: string; focused: boolean
   const pane = useLayout((s) => s.panes[paneId]);
   // Reading / writing is one switch for the whole app.
   const reading = useUi((s) => s.reading);
+  const historyOn = useUi((s) => s.prefs.history);
   const { focusPane, split, closePane, toggleMode } = useLayout.getState();
   // Dirty = text not yet written to disk.
   const dirty = useBuffers((s) => {
@@ -94,6 +95,12 @@ export function PaneView({ paneId, focused }: { paneId: string; focused: boolean
             title="Unsaved changes (autosaving)"
           />
         </div>
+        {/* This note's version history (when history is on). */}
+        {pane.path && historyOn && (
+          <IconButton small title="History of this note" onClick={() => useUi.getState().openTimeMachine(pane.path!)}>
+            <History size={14} />
+          </IconButton>
+        )}
         {/* Reading-mode badge (the mode is app-wide); click to write again. */}
         {pane.path && reading && (
           <button

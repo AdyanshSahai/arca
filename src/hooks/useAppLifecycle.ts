@@ -11,7 +11,7 @@ import { getCurrentWindow } from "@tauri-apps/api/window";
 import { editorRegistry } from "../editor/registry";
 import { attachDroppedFiles } from "../lib/attachments";
 import { useEffect, useState } from "react";
-import { ipc } from "../lib/ipc";
+import { errorMessage, ipc } from "../lib/ipc";
 import { PROFILING } from "../lib/perf";
 import { useBuffers } from "../store/buffers";
 import { type LayoutSnapshot, useLayout } from "../store/layout";
@@ -124,6 +124,43 @@ export function useFileDrops() {
   }, []);
 }
 
+/** How often history snapshots the vault (only if something changed). */
+const SNAPSHOT_EVERY_MS = 5 * 60 * 1000;
+
+/**
+ * Version history: while it's switched on and a vault is open, take a
+ * snapshot when the vault opens and then every few minutes, optionally
+ * pushing to the backup remote. Snapshots capture what autosave (or Ctrl+S)
+ * has written; unsaved typing isn't part of history.
+ */
+export function useHistory() {
+  const enabled = useUi((s) => s.prefs.history);
+  const vault = useVault((s) => s.info?.root);
+  useEffect(() => {
+    if (!vault || PROFILING) return;
+    if (!enabled) {
+      void ipc.historyStop();
+      return;
+    }
+    let pushFailed = false; // report a failing push once, not every 5 minutes
+    const afterSnapshot = (id: string | null) => {
+      if (!id || !useUi.getState().prefs.historyAutoPush) return;
+      ipc.historyPush().catch((err) => {
+        if (!pushFailed) useUi.getState().toast(`History push failed: ${errorMessage(err)}`, "error");
+        pushFailed = true;
+      });
+    };
+    ipc
+      .historyStart()
+      .then(afterSnapshot)
+      .catch((err) => useUi.getState().toast(`Version history: ${errorMessage(err)}`, "error"));
+    const timer = window.setInterval(() => {
+      void ipc.historySnapshot().then(afterSnapshot).catch(() => {});
+    }, SNAPSHOT_EVERY_MS);
+    return () => window.clearInterval(timer);
+  }, [enabled, vault]);
+}
+
 /** Persists layout + drawer state and flushes notes on window close. */
 export function usePersistence() {
   useEffect(() => {
@@ -164,6 +201,8 @@ export function usePersistence() {
       const buffers = useBuffers.getState();
       if (useUi.getState().prefs.autosave) {
         await buffers.flushAll();
+        // One last history snapshot of what was just saved.
+        if (useUi.getState().prefs.history) await ipc.historySnapshot().catch(() => null);
         return;
       }
       const unsaved = Object.entries(buffers.buffers).filter(([, b]) => b.loaded && b.content !== b.saved);

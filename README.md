@@ -126,6 +126,10 @@ $$
 
 **Templates.** "New note from template…" (palette or right-click) offers Bug Report, Study Log, Meeting Notes, Daily Note and Chapter Overview. They're plain files in `<vault>/.arca/templates/`, so edit them or add your own. `{{title}}`, `{{date}}`, `{{time}}`, `{{datetime}}` and `{{folder}}` are filled in for you.
 
+**History.** With version history on (Settings → Saving), Arca snapshots your notes every few minutes. The **Time Machine** (palette, or the clock button in a pane) shows a timeline: everything from the last day, then hourly, then daily. Compare any old version with now and restore a note, a chapter or the whole vault. Restores are themselves recorded, so they can be undone, and notes that didn't exist back then go to the trash rather than being deleted.
+
+**Renaming.** Renaming or moving a note fixes every `[[link]]` that pointed at it (with an Undo).
+
 **Export.** "Export notes…" compiles a note, a chapter (in reading order: overview first, then notes, then sub-chapters) or the whole vault into one HTML page with a table of contents. Post-its, callouts and images come along. Print it from a browser for a PDF. Markdown export merges everything into one `.md` file.
 
 ## Keyboard Shortcuts
@@ -160,6 +164,7 @@ Open Settings with `Ctrl+,` or the gear at the bottom of the left rail. Changes 
 | --- | --- | --- |
 | Colour scheme | TwilightPixel, Midnight, Rosewood, Forest | TwilightPixel |
 | Autosave | On (writes shortly after you stop typing and when Arca loses focus), or off (save with `Ctrl+S`; Arca asks before closing with unsaved notes) | On |
+| Version history | Snapshots of your notes every few minutes with built-in git, browsable in the Time Machine; optional push to a backup remote | Off |
 | Views (graph, search…) open | In the sidebar, or ask every time | Sidebar |
 | Notes opened from the sidebar | Ask when the tab is split, always ask, or use the focused pane | Ask when split |
 
@@ -171,7 +176,8 @@ Open Settings with `Ctrl+,` or the gear at the bottom of the left rail. Changes 
 | Attachments | `.assets/` next to the note that uses them |
 | Templates | `<vault>/.arca/templates/` |
 | Pinned shortcuts | `<vault>/.arca/vault.json` (they travel with the vault) |
-| Deleted notes | `<vault>/.trash/`. Restore by moving them back |
+| Deleted notes | `<vault>/.trash/`. Restore them from the Trash window (trash button in the chapter tree) |
+| Version history | `<vault>/.arca/history.git` (notes only, never attachments) |
 | Window layout, settings | `~/.config/dev.adyansh.arca/` |
 
 ## Updating
@@ -190,7 +196,6 @@ Delete the cloned folder and `~/.config/dev.adyansh.arca/`. Your vaults are not 
 
 ## Known Issues
 
-- Renaming or moving a note doesn't update `[[links]]` that point to it. They show up as ghost nodes in the graph until fixed.
 - There's no importer for CherryTree `.ctb` / `.ctd` files yet.
 - Keyboard shortcuts can't be rebound yet.
 - Math in exported HTML is typeset by KaTeX loaded from a CDN, so it needs an internet connection when the page is opened.
@@ -234,7 +239,6 @@ npm run sandbox                  # a second, isolated copy (port 1421, own setti
 ## Planned Updates
 
 - Import CherryTree `.ctb` / `.ctd` files into a folder of notes.
-- Rewrite `[[links]]` automatically when a note is renamed or moved.
 - Rebindable keyboard shortcuts.
 - Bundle KaTeX into exports so math renders offline.
 - Direct PDF export.

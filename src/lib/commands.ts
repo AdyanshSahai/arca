@@ -108,6 +108,18 @@ export function allCommands(): Command[] {
       },
     },
     { id: "trash", label: "Open trash…", group: "Vault", run: () => ui.openTrash() },
+    {
+      id: "timemachine",
+      label: "Time Machine…",
+      group: "Vault",
+      run: () => (ui.prefs.history ? ui.openTimeMachine() : ui.toast("Turn on version history in Settings → Saving")),
+    },
+    {
+      id: "note.history",
+      label: "History of this note…",
+      group: "Note",
+      run: withNote((p) => (ui.prefs.history ? ui.openTimeMachine(p) : ui.toast("Turn on version history in Settings → Saving"))),
+    },
     { id: "vault.refresh", label: "Re-scan vault", group: "Vault", run: () => void vault.refresh() },
     { id: "export", label: "Export notes…", group: "Vault", run: () => ui.openExport() },
   ];

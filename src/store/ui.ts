@@ -21,6 +21,14 @@ export interface Prefs {
    * unsaved notes stay open and Arca asks before closing.
    */
   autosave: boolean;
+  /**
+   * Version history (git, notes only): a snapshot of the vault every few
+   * minutes for the Time Machine. Off by default; chosen in the first-run
+   * walkthrough or Settings → Saving.
+   */
+  history: boolean;
+  /** Push history to the backup remote after each snapshot. */
+  historyAutoPush: boolean;
   /** Where rail views (graph, search…) open: straight into the sidebar, or ask. */
   viewPlacement: "sidebar" | "ask";
   /**
@@ -33,6 +41,8 @@ export interface Prefs {
 export const DEFAULT_PREFS: Prefs = {
   theme: "twilight",
   autosave: true,
+  history: false,
+  historyAutoPush: false,
   viewPlacement: "sidebar",
   notePlacement: "ask-split",
 };
@@ -163,6 +173,13 @@ interface UiState {
   setPrefs: (patch: Partial<Prefs>) => void;
   /** The Trash window (restore or permanently delete trashed notes). */
   trashOpen: boolean;
+  /**
+   * The Time Machine window: null when closed; `path` set = history of
+   * just that note.
+   */
+  timeMachine: { path?: string } | null;
+  openTimeMachine: (path?: string) => void;
+  closeTimeMachine: () => void;
   openTrash: () => void;
   closeTrash: () => void;
   toggleReading: () => void;
@@ -194,6 +211,7 @@ export const useUi = create<UiState>((set, get) => ({
   prefs: DEFAULT_PREFS,
   settingsOpen: false,
   trashOpen: false,
+  timeMachine: null,
   reading: false,
   graph: { mode: "local", depth: 1, folder: "", tag: "", ghosts: true },
 
@@ -214,6 +232,8 @@ export const useUi = create<UiState>((set, get) => ({
     setTimeout(() => get().dismissToast(id), tone === "error" || action ? 8000 : 2800);
   },
   openTrash: () => set({ trashOpen: true }),
+  openTimeMachine: (path) => set({ timeMachine: { path } }),
+  closeTimeMachine: () => set({ timeMachine: null }),
   closeTrash: () => set({ trashOpen: false }),
   dismissToast: (id) => set({ toasts: get().toasts.filter((t) => t.id !== id) }),
 

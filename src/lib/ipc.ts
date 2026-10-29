@@ -16,6 +16,8 @@ import type {
   Pin,
   PostItEntry,
   RenameReport,
+  RestoreReport,
+  Snapshot,
   TagCount,
   TemplateInfo,
   TextHit,
@@ -62,6 +64,19 @@ export const ipc = {
   newPostit: (color?: string, text?: string) => invoke<string>("new_postit", { color, text }),
   followLink: (target: string, from: string) => invoke<LinkTarget>("follow_link", { target, from }),
   openInDefaultApp: (path: string) => invoke<void>("open_in_default_app", { path }),
+
+  // --- version history ---
+  historyStart: () => invoke<string | null>("history_start"),
+  historyStop: () => invoke<void>("history_stop"),
+  historySnapshot: () => invoke<string | null>("history_snapshot"),
+  historyTimeline: (limit?: number, path?: string) => invoke<Snapshot[]>("history_timeline", { limit, path }),
+  historyFiles: (id: string) => invoke<string[]>("history_files", { id }),
+  historyRead: (id: string, path: string) => invoke<string | null>("history_read", { id, path }),
+  /** prefix: a note path, a folder path, or "" for the whole vault. */
+  historyRestore: (id: string, prefix: string) => invoke<RestoreReport>("history_restore", { id, prefix }),
+  historyRemote: () => invoke<string | null>("history_remote"),
+  historySetRemote: (url: string) => invoke<void>("history_set_remote", { url }),
+  historyPush: () => invoke<string>("history_push"),
 
   // --- attachments ---
   /**

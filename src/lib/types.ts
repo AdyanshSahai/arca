@@ -108,6 +108,20 @@ export interface TemplateInfo {
   path: string;
 }
 
+/** One history snapshot. */
+export interface Snapshot {
+  id: string;
+  /** Seconds since 1970. */
+  time: number;
+  changes: { path: string; kind: "added" | "modified" | "deleted" }[];
+}
+
+/** What a history restore did. */
+export interface RestoreReport {
+  written: number;
+  trashed: number;
+}
+
 /** What a rename did to [[links]] elsewhere. */
 export interface RenameReport {
   notes: number;

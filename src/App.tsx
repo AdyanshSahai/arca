@@ -19,6 +19,7 @@ import { TemplatePicker } from "./components/TemplatePicker";
 import { ExportDialog } from "./components/ExportDialog";
 import { SettingsDialog } from "./components/SettingsDialog";
 import { TrashDialog } from "./components/TrashDialog";
+import { TimeMachine } from "./components/TimeMachine";
 import { Dialogs } from "./components/Dialogs";
 import { Drawer } from "./components/Drawer";
 import { PinBar } from "./components/PinBar";
@@ -28,7 +29,7 @@ import { Toasts } from "./components/Toasts";
 import { Welcome } from "./components/Welcome";
 import { TabStrip } from "./components/layout/TabStrip";
 import { WorkArea } from "./components/layout/WorkArea";
-import { useBootstrap, useFileDrops, usePersistence, useVaultEvents } from "./hooks/useAppLifecycle";
+import { useBootstrap, useFileDrops, useHistory, usePersistence, useVaultEvents } from "./hooks/useAppLifecycle";
 import { useKeybindings } from "./hooks/useKeybindings";
 import { useUi } from "./store/ui";
 import { useVault } from "./store/vault";
@@ -43,6 +44,7 @@ export function App() {
   useVaultEvents();
   usePersistence();
   useFileDrops();
+  useHistory();
 
   const info = useVault((s) => s.info);
   // In full-view mode the drawer takes over the work area.
@@ -80,6 +82,7 @@ export function App() {
         <ExportDialog />
         <SettingsDialog />
         <TrashDialog />
+        <TimeMachine />
         <Dialogs />
         <Toasts />
       </div>

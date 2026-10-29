@@ -7,7 +7,8 @@
 // Changes apply immediately and are saved with the window layout.
 
 import { Keyboard, LayoutPanelLeft, Palette, Save, X } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { errorMessage, ipc } from "../lib/ipc";
 import { THEMES } from "../lib/themes";
 import { useBuffers } from "../store/buffers";
 import { type Prefs, useUi } from "../store/ui";
@@ -198,8 +199,115 @@ function Saving({ prefs, setPrefs }: SectionProps) {
             if (v === "on") void useBuffers.getState().flushAll();
           }}
         />
+
+        <div className="mt-7 mb-1 font-medium text-fg">Version history</div>
+        <p className="mb-2.5 text-[12px] text-muted/75">
+          Every few minutes Arca quietly snapshots your notes (not attachments) with git, built in, so you can go back
+          to any earlier version in the Time Machine. Stored in the vault's hidden .arca folder, about 4 MB a year for
+          a busy vault.
+        </p>
+        <div className="flex items-center gap-3">
+          <Segmented
+            value={prefs.history ? "on" : "off"}
+            options={[
+              { id: "on", label: "On" },
+              { id: "off", label: "Off" },
+            ]}
+            onChange={(v) => setPrefs({ history: v === "on" })}
+          />
+          {prefs.history && (
+            <button
+              onClick={() => {
+                useUi.getState().closeSettings();
+                useUi.getState().openTimeMachine();
+              }}
+              className="btn-soft rounded-md px-3 py-1 text-[12px]"
+            >
+              Open Time Machine
+            </button>
+          )}
+        </div>
+        {prefs.history && <BackupRemote prefs={prefs} setPrefs={setPrefs} />}
       </div>
     </>
+  );
+}
+
+/**
+ * Optional off-machine backup: a git remote (e.g. a private GitHub repo)
+ * that history is pushed to, by hand or after every snapshot. Pushing uses
+ * the system `git`, so its SSH keys / credentials apply.
+ */
+function BackupRemote({ prefs, setPrefs }: SectionProps) {
+  const [url, setUrl] = useState("");
+  const [saved, setSaved] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+  useEffect(() => {
+    ipc
+      .historyRemote()
+      .then((r) => {
+        setSaved(r);
+        setUrl(r ?? "");
+      })
+      .catch(() => {});
+  }, []);
+  const save = async () => {
+    try {
+      await ipc.historySetRemote(url);
+      setSaved(url.trim() || null);
+      useUi.getState().toast(url.trim() ? "Backup remote saved" : "Backup remote removed");
+    } catch (err) {
+      useUi.getState().toast(errorMessage(err), "error");
+    }
+  };
+  const push = async () => {
+    setBusy(true);
+    try {
+      await ipc.historySnapshot();
+      await ipc.historyPush();
+      useUi.getState().toast("History pushed to the backup remote");
+    } catch (err) {
+      useUi.getState().toast(errorMessage(err), "error");
+    }
+    setBusy(false);
+  };
+  return (
+    <div className="mt-5 rounded-lg border border-line p-4">
+      <div className="mb-1 font-medium text-fg">Off-machine backup (optional)</div>
+      <p className="mb-2.5 text-[12px] text-muted/75">
+        A git remote to push history to, e.g. an empty private GitHub repo (git@github.com:you/notes-history.git).
+        Needs git installed and signed in.
+      </p>
+      <div className="flex gap-2">
+        <input
+          value={url}
+          onChange={(e) => setUrl(e.target.value)}
+          placeholder="git@github.com:you/notes-history.git"
+          spellCheck={false}
+          className="h-8 min-w-0 flex-1 rounded-md border border-line-strong bg-void px-2.5 text-[12px] text-fg focus:border-accent focus:outline-none"
+        />
+        <button onClick={() => void save()} className="btn-soft rounded-md px-3 text-[12px]">
+          Save
+        </button>
+        <button
+          onClick={() => void push()}
+          disabled={!saved || busy}
+          className="btn-soft rounded-md px-3 text-[12px]"
+        >
+          {busy ? "Pushing…" : "Push now"}
+        </button>
+      </div>
+      <label className="mt-3 flex items-center gap-2 text-[12px] text-muted">
+        <input
+          type="checkbox"
+          checked={prefs.historyAutoPush}
+          disabled={!saved}
+          onChange={() => setPrefs({ historyAutoPush: !prefs.historyAutoPush })}
+          className="cm-task !m-0"
+        />
+        Push automatically after each snapshot
+      </label>
+    </div>
   );
 }
 
