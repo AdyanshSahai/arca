@@ -159,6 +159,7 @@ Open Settings with `Ctrl+,` or the gear at the bottom of the left rail. Changes 
 | Setting | Options | Default |
 | --- | --- | --- |
 | Colour scheme | TwilightPixel, Midnight, Rosewood, Forest | TwilightPixel |
+| Autosave | On (writes shortly after you stop typing and when Arca loses focus), or off (save with `Ctrl+S`; Arca asks before closing with unsaved notes) | On |
 | Views (graph, search…) open | In the sidebar, or ask every time | Sidebar |
 | Notes opened from the sidebar | Ask when the tab is split, always ask, or use the focused pane | Ask when split |
 

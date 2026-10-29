@@ -15,6 +15,12 @@ export type SearchMode = "files" | "text" | "topic";
 /** User preferences, edited in the Settings dialog and saved with the layout. */
 export interface Prefs {
   theme: ThemeId;
+  /**
+   * Autosave (default on): notes are written to disk shortly after you stop
+   * typing, and whenever the window loses focus. Off: save with Ctrl+S;
+   * unsaved notes stay open and Arca asks before closing.
+   */
+  autosave: boolean;
   /** Where rail views (graph, search…) open: straight into the sidebar, or ask. */
   viewPlacement: "sidebar" | "ask";
   /**
@@ -24,7 +30,12 @@ export interface Prefs {
   notePlacement: "ask-split" | "ask" | "focused";
 }
 
-export const DEFAULT_PREFS: Prefs = { theme: "twilight", viewPlacement: "sidebar", notePlacement: "ask-split" };
+export const DEFAULT_PREFS: Prefs = {
+  theme: "twilight",
+  autosave: true,
+  viewPlacement: "sidebar",
+  notePlacement: "ask-split",
+};
 
 /** Graph view settings, kept here so they survive the panel closing. */
 export interface GraphPrefs {
@@ -63,6 +74,14 @@ export type Dialog =
       selectRange?: [number, number];
       confirmText: string;
       onSubmit: (value: string) => void | Promise<void>;
+    }
+  | {
+      /** A message with several buttons, e.g. Save all / Don't save / Cancel. */
+      kind: "choice";
+      title: string;
+      message: string;
+      /** Rendered left to right; the last one is the default (Enter). */
+      choices: { label: string; tone?: "plain" | "primary" | "danger"; onSelect: () => void | Promise<void> }[];
     }
   | {
       kind: "confirm";

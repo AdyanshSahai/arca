@@ -1,20 +1,23 @@
 // Settings (Ctrl+, or the gear at the bottom of the rail):
 //   Appearance  – colour scheme
+//   Saving      – autosave on/off (and, later, version history)
 //   Opening     – where views and notes opened from the sidebar go
 //   Shortcuts   – every keyboard shortcut, for reference
 //
 // Changes apply immediately and are saved with the window layout.
 
-import { Keyboard, LayoutPanelLeft, Palette, X } from "lucide-react";
+import { Keyboard, LayoutPanelLeft, Palette, Save, X } from "lucide-react";
 import { useState } from "react";
 import { THEMES } from "../lib/themes";
+import { useBuffers } from "../store/buffers";
 import { type Prefs, useUi } from "../store/ui";
 import { Segmented } from "./ui/Segmented";
 
-type Section = "appearance" | "opening" | "shortcuts";
+type Section = "appearance" | "saving" | "opening" | "shortcuts";
 
 const SECTIONS: { id: Section; label: string; Icon: typeof Palette }[] = [
   { id: "appearance", label: "Appearance", Icon: Palette },
+  { id: "saving", label: "Saving", Icon: Save },
   { id: "opening", label: "Opening", Icon: LayoutPanelLeft },
   { id: "shortcuts", label: "Shortcuts", Icon: Keyboard },
 ];
@@ -114,6 +117,7 @@ function Settings() {
             <X size={16} />
           </button>
           {section === "appearance" && <Appearance prefs={prefs} setPrefs={setPrefs} />}
+          {section === "saving" && <Saving prefs={prefs} setPrefs={setPrefs} />}
           {section === "opening" && <Opening prefs={prefs} setPrefs={setPrefs} />}
           {section === "shortcuts" && <Shortcuts />}
         </div>
@@ -167,6 +171,33 @@ function Appearance({ prefs, setPrefs }: SectionProps) {
             </button>
           );
         })}
+      </div>
+    </>
+  );
+}
+
+function Saving({ prefs, setPrefs }: SectionProps) {
+  return (
+    <>
+      <Heading title="Saving" />
+      <div className="text-[13px]">
+        <div className="mb-1 font-medium text-fg">Autosave</div>
+        <p className="mb-2.5 text-[12px] text-muted/75">
+          On: notes are written to disk about half a second after you stop typing, and whenever Arca loses focus. Off:
+          save with Ctrl+S; unsaved notes stay open and Arca asks before closing.
+        </p>
+        <Segmented
+          value={prefs.autosave ? "on" : "off"}
+          options={[
+            { id: "on", label: "On" },
+            { id: "off", label: "Off (Ctrl+S)" },
+          ]}
+          onChange={(v) => {
+            setPrefs({ autosave: v === "on" });
+            // Switching it on saves anything that was waiting for Ctrl+S.
+            if (v === "on") void useBuffers.getState().flushAll();
+          }}
+        />
       </div>
     </>
   );

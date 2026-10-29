@@ -1,5 +1,6 @@
-// Modal prompt / confirm dialog driven by `useUi().dialog`. Small and
-// keyboard-first: Enter confirms, Escape cancels.
+// Modal dialogs driven by `useUi().dialog`: a text prompt, a yes/no
+// confirmation, or a choice between several buttons. Small and
+// keyboard-first: Enter picks the default (rightmost) button, Escape cancels.
 
 import { useEffect, useRef, useState } from "react";
 import { type Dialog, useUi } from "../store/ui";
@@ -9,6 +10,13 @@ export function Dialogs() {
   if (!dialog) return null;
   // Keyed so each new dialog starts with fresh input state.
   return <DialogBox key={dialog.title + (dialog.kind === "prompt" ? dialog.initial : dialog.message)} dialog={dialog} />;
+}
+
+/** Button colours by tone. */
+function toneClass(tone: "plain" | "primary" | "danger" = "plain"): string {
+  if (tone === "primary") return "bg-accent text-void hover:bg-[#ffd6ff]";
+  if (tone === "danger") return "bg-[#5c1f3d] text-fg hover:bg-[#7a2650]";
+  return "text-muted hover:bg-hover hover:text-fg";
 }
 
 function DialogBox({ dialog }: { dialog: Dialog }) {
@@ -36,7 +44,8 @@ function DialogBox({ dialog }: { dialog: Dialog }) {
     // Close first: the action may open another dialog (e.g. an error flow).
     close();
     if (dialog.kind === "prompt") await dialog.onSubmit(value);
-    else await dialog.onConfirm();
+    else if (dialog.kind === "confirm") await dialog.onConfirm();
+    else await dialog.choices[dialog.choices.length - 1].onSelect();
   };
 
   return (
@@ -58,20 +67,37 @@ function DialogBox({ dialog }: { dialog: Dialog }) {
         <div className="px-5 py-3">
           {dialog.kind === "prompt" ? (
             <>
-              {dialog.label && <div className="mb-2 truncate text-[12px] text-muted/80">{dialog.label}</div>}
-              <input
-                ref={input}
-                value={value}
-                onChange={(e) => setValue(e.target.value)}
-                spellCheck={false}
-                className="h-9 w-full rounded-md border border-line-strong bg-void px-3 text-[13px] text-fg transition-colors focus:border-accent focus:outline-none"
-              />
+                {dialog.label && <div className="mb-2 truncate text-[12px] text-muted/80">{dialog.label}</div>}
+                <input
+                  ref={input}
+                  value={value}
+                  onChange={(e) => setValue(e.target.value)}
+                  spellCheck={false}
+                  className="h-9 w-full rounded-md border border-line-strong bg-void px-3 text-[13px] text-fg transition-colors focus:border-accent focus:outline-none"
+                />
             </>
           ) : (
             <p className="text-[13px] leading-relaxed text-fg/85">{dialog.message}</p>
           )}
         </div>
         <div className="flex justify-end gap-2 px-5 pt-1 pb-4 text-[13px]">
+          {dialog.kind === "choice" ? (
+            dialog.choices.map((c, i) => (
+              <button
+                key={c.label}
+                // The last (default) button takes focus, so Enter picks it.
+                ref={i === dialog.choices.length - 1 ? confirmBtn : undefined}
+                onClick={() => {
+                  close();
+                  void c.onSelect();
+                }}
+                className={`rounded-md px-3.5 py-1.5 font-medium transition-colors ${toneClass(c.tone)}`}
+              >
+                {c.label}
+              </button>
+            ))
+          ) : (
+            <>
           <button onClick={close} className="rounded-md px-3 py-1.5 text-muted transition-colors hover:bg-hover hover:text-fg">
             Cancel
           </button>
@@ -86,6 +112,8 @@ function DialogBox({ dialog }: { dialog: Dialog }) {
           >
             {dialog.confirmText}
           </button>
+            </>
+          )}
         </div>
       </div>
     </div>

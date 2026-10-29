@@ -98,7 +98,9 @@ export const useBuffers = create<BufferState>((set, get) => {
       const buf = get().buffers[path];
       if (!buf || buf.content === content) return;
       patch(path, { content });
-      // Restart this note's autosave countdown.
+      // Autosave: (re)start this note's countdown, so the file is written
+      // once typing pauses. With autosave off, saving waits for Ctrl+S.
+      if (!useUi.getState().prefs.autosave) return;
       window.clearTimeout(timers.get(path));
       timers.set(path, window.setTimeout(() => void get().flush(path), AUTOSAVE_MS));
     },
@@ -168,7 +170,15 @@ export const useBuffers = create<BufferState>((set, get) => {
     },
 
     retainOnly: (keep) => {
-      const drop = Object.keys(get().buffers).filter((p) => !keep.has(p));
+      const autosave = useUi.getState().prefs.autosave;
+      const drop = Object.keys(get().buffers).filter((p) => {
+        if (keep.has(p)) return false;
+        // Without autosave, a closed note's unsaved edits are kept in memory
+        // (never silently saved or lost): reopening it brings them back, and
+        // Arca asks about them before quitting.
+        const b = get().buffers[p];
+        return autosave || !b || b.content === b.saved;
+      });
       if (drop.length === 0) return;
       // Save before forgetting; the drop happens once the write finishes.
       void Promise.all(drop.map((p) => get().flush(p))).then(() => {

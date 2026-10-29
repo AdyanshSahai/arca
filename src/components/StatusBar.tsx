@@ -11,6 +11,7 @@ export function StatusBar() {
   useRenderCount("StatusBar");
   const pane = useContextPane();
   const reading = useUi((s) => s.reading);
+  const autosave = useUi((s) => s.prefs.autosave);
   const status = useStatus();
   const tabs = useLayout((s) => s.tabs.length);
   const buffer = useBuffers((s) => (pane?.path ? s.buffers[pane.path] : undefined));
@@ -24,7 +25,10 @@ export function StatusBar() {
             {reading ? "Reading" : pane.mode === "live" ? "Live preview" : "Raw markdown"}
           </span>
           <span className="truncate text-fg/60">{pane.path}</span>
-          <span className={dirty ? "text-accent" : "text-muted/60"}>{dirty ? "saving…" : "saved"}</span>
+          <span className={dirty ? "text-accent" : "text-muted/60"}>
+            {/* With autosave off, unsaved stays unsaved until Ctrl+S. */}
+            {!dirty ? "saved" : autosave ? "saving…" : "unsaved · Ctrl+S"}
+          </span>
           <div className="flex-1" />
           <span>
             Ln {status.line}, Col {status.col}

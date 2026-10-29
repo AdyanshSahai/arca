@@ -148,13 +148,53 @@ export function usePersistence() {
       if (s.panel !== prev.panel || s.drawerSize !== prev.drawerSize || s.prefs !== prev.prefs || s.reading !== prev.reading) schedule();
     });
 
-    // Make sure typing from the last 600ms reaches disk before exiting.
-    const offClose = getCurrentWindow().onCloseRequested(async () => {
-      await useBuffers.getState().flushAll();
+    // Autosave also saves whenever the window loses focus (alt-tab, clicking
+    // another app, the laptop going to sleep), not just on a typing pause.
+    const onBlur = () => {
+      if (useUi.getState().prefs.autosave) void useBuffers.getState().flushAll();
+    };
+    window.addEventListener("blur", onBlur);
+    const onHidden = () => document.visibilityState === "hidden" && onBlur();
+    document.addEventListener("visibilitychange", onHidden);
+
+    // Closing: with autosave, write anything pending and go. Without it, ask
+    // about unsaved notes first: Save all / Don't save / Cancel.
+    const win = getCurrentWindow();
+    const offClose = win.onCloseRequested(async (event) => {
+      const buffers = useBuffers.getState();
+      if (useUi.getState().prefs.autosave) {
+        await buffers.flushAll();
+        return;
+      }
+      const unsaved = Object.entries(buffers.buffers).filter(([, b]) => b.loaded && b.content !== b.saved);
+      if (unsaved.length === 0) return;
+      event.preventDefault(); // decide first, then destroy the window ourselves
+      useUi.getState().openDialog({
+        kind: "choice",
+        title: "Unsaved changes",
+        message: `${unsaved.length} note${unsaved.length === 1 ? " has" : "s have"} unsaved changes: ${unsaved
+          .map(([p]) => p)
+          .slice(0, 4)
+          .join(", ")}${unsaved.length > 4 ? "…" : ""}`,
+        choices: [
+          { label: "Cancel", onSelect: () => {} },
+          { label: "Don't save", tone: "danger", onSelect: () => void win.destroy() },
+          {
+            label: "Save all",
+            tone: "primary",
+            onSelect: async () => {
+              await useBuffers.getState().flushAll();
+              await win.destroy();
+            },
+          },
+        ],
+      });
     });
 
     return () => {
       window.clearTimeout(timer);
+      window.removeEventListener("blur", onBlur);
+      document.removeEventListener("visibilitychange", onHidden);
       offLayout();
       offUi();
       void offClose.then((off) => off());
