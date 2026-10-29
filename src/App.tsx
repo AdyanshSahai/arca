@@ -20,6 +20,7 @@ import { ExportDialog } from "./components/ExportDialog";
 import { SettingsDialog } from "./components/SettingsDialog";
 import { TrashDialog } from "./components/TrashDialog";
 import { TimeMachine } from "./components/TimeMachine";
+import { Onboarding } from "./components/Onboarding";
 import { Dialogs } from "./components/Dialogs";
 import { Drawer } from "./components/Drawer";
 import { PinBar } from "./components/PinBar";
@@ -85,6 +86,8 @@ export function App() {
         <TimeMachine />
         <Dialogs />
         <Toasts />
+        {/* First-run walkthrough (once; again from Settings). Not during startup. */}
+        {!booting && <Onboarding />}
       </div>
     </Profiler>
   );

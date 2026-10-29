@@ -144,6 +144,15 @@ function Appearance({ prefs, setPrefs }: SectionProps) {
   return (
     <>
       <Heading title="Colour scheme" subtitle="Applies instantly. A scheme is 8 colours; borders and highlights are worked out from them." />
+      <button
+        onClick={() => {
+          useUi.getState().closeSettings();
+          setPrefs({ onboarded: false });
+        }}
+        className="btn-soft absolute top-4 right-14 rounded-md px-2.5 py-1 text-[12px]"
+      >
+        Run the welcome tour again
+      </button>
       <div className="grid grid-cols-3 gap-3">
         {THEMES.map((t) => (
           <ThemeCard

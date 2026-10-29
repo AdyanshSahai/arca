@@ -507,3 +507,24 @@ mark {
 }
 .cm-image-missing { color: var(--fg-inactive); font-size: 0.9em; }
 .cm-md-link { color: var(--accent-magenta); cursor: pointer; text-decoration: underline; text-decoration-color: rgb(255 191 255 / 0.35); text-underline-offset: 3px; }
+
+/* ---- First-run walkthrough (components/Onboarding.tsx) --------------- */
+@keyframes onb-in-right {
+  from { opacity: 0; transform: translateX(36px); }
+  to { opacity: 1; transform: none; }
+}
+@keyframes onb-in-left {
+  from { opacity: 0; transform: translateX(-36px); }
+  to { opacity: 1; transform: none; }
+}
+@keyframes onb-pop {
+  0% { opacity: 0; transform: scale(0.7); }
+  60% { opacity: 1; transform: scale(1.06); }
+  100% { transform: scale(1); }
+}
+.onb-enter-right { animation: onb-in-right 420ms cubic-bezier(0.2, 0.8, 0.2, 1) both; }
+.onb-enter-left { animation: onb-in-left 420ms cubic-bezier(0.2, 0.8, 0.2, 1) both; }
+.onb-pop { animation: onb-pop 600ms cubic-bezier(0.2, 0.8, 0.2, 1) 120ms both; }
+@media (prefers-reduced-motion: reduce) {
+  .onb-enter-right, .onb-enter-left, .onb-pop { animation: none; }
+}

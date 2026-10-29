@@ -32,6 +32,8 @@ export interface Prefs {
   history: boolean;
   /** Push history to the backup remote after each snapshot. */
   historyAutoPush: boolean;
+  /** The first-run walkthrough has been completed (or skipped). */
+  onboarded: boolean;
   /** Where rail views (graph, search…) open: straight into the sidebar, or ask. */
   viewPlacement: "sidebar" | "ask";
   /**
@@ -47,6 +49,7 @@ export const DEFAULT_PREFS: Prefs = {
   autosave: true,
   history: false,
   historyAutoPush: false,
+  onboarded: false,
   viewPlacement: "sidebar",
   notePlacement: "ask-split",
 };

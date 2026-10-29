@@ -171,9 +171,12 @@ export function usePersistence() {
       window.clearTimeout(timer);
       timer = window.setTimeout(() => {
         const info = useVault.getState().info;
-        if (!info) return; // nothing worth remembering before a vault is open
         const { panel, drawerSize, prefs, reading } = useUi.getState();
-        const ui: SavedUi = { vault: info.root, panel, drawerSize, prefs, reading, layout: useLayout.getState().snapshot() };
+        // Preferences are saved even before a vault is open (the first-run
+        // walkthrough writes them); the layout only means something with one.
+        const ui: SavedUi = info
+          ? { vault: info.root, panel, drawerSize, prefs, reading, layout: useLayout.getState().snapshot() }
+          : { panel, drawerSize, prefs, reading };
         void ipc.saveUi(ui).catch(() => {
           /* Settings are best-effort; never interrupt the user for them. */
         });
