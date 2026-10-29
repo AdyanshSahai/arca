@@ -42,6 +42,8 @@ export const ipc = {
   /** Returns how many links elsewhere were rewritten to follow the move. */
   renameEntry: (from: string, to: string) => invoke<RenameReport>("rename_entry", { from, to }),
   trashEntry: (path: string) => invoke<string>("trash_entry", { path }),
+  /** Saves a folder's custom child order (names; "" = vault root). */
+  setOrder: (dir: string, names: string[]) => invoke<void>("set_order", { dir, names }),
   listTrash: () => invoke<TrashEntry[]>("list_trash"),
   restoreTrash: (trashPath: string) => invoke<string>("restore_trash", { trashPath }),
   deleteTrash: (trashPath: string) => invoke<void>("delete_trash", { trashPath }),

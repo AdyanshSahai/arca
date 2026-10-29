@@ -3,8 +3,11 @@
 // - Click a note to open it (Ctrl/middle-click opens in a new tab). Other
 //   files (PDFs, scripts) open in the system's default app.
 // - Right-click for new note/folder, rename, pin, move to trash.
-// - Drag an entry onto a folder (or the empty area below the tree, which
-//   means the vault root) to move it.
+// - Drag an entry onto the top or bottom edge of a row to place it before
+//   or after that row (in any folder), or onto the middle of a folder to
+//   move it inside. The empty area below the tree means the vault root.
+//   Alt+↑ / Alt+↓ move the selected entry within its folder. The order is
+//   saved in .arca/order.json.
 // - The note in the focused pane is highlighted and its folders expanded.
 // - Folders are dual-purpose: clicking the name opens the folder's own
 //   note (written on first keystroke if it doesn't exist yet), and the
@@ -41,6 +44,25 @@ function ancestors(path: string): string[] {
 
 /** MIME-ish key for our drag payload, so foreign drops are ignored. */
 const DND_TYPE = "application/x-arca-path";
+
+/** Where on a row a dragged entry is: before it, after it, or into a folder. */
+type Zone = "before" | "after" | "into";
+interface DropTarget {
+  path: string;
+  zone: Zone;
+}
+
+/**
+ * Top 30% of a row = before, bottom 30% = after, the middle = into (for
+ * folders; a note's middle splits at half height).
+ */
+function zoneAt(e: React.DragEvent, isDir: boolean): Zone {
+  const r = (e.currentTarget as HTMLElement).getBoundingClientRect();
+  const y = (e.clientY - r.top) / r.height;
+  if (y < 0.3) return "before";
+  if (y > 0.7) return "after";
+  return isDir ? "into" : y < 0.5 ? "before" : "after";
+}
 
 /**
  * Left offset (px) of a row at `depth`: 16px per level for the first six,
@@ -87,7 +109,7 @@ export function TreePanel() {
   const [expanded, setExpanded] = useState<Set<string>>(() => new Set());
   const [menu, setMenu] = useState<MenuSpec | null>(null);
   /** Folder currently highlighted as a drop target. */
-  const [dropTarget, setDropTarget] = useState<string | null>(null);
+  const [dropTarget, setDropTarget] = useState<DropTarget | null>(null);
   /** Keyboard cursor: the row arrow keys act on (separate from the open note). */
   const [cursor, setCursor] = useState<string | null>(null);
   const scroller = useRef<HTMLDivElement>(null);
@@ -137,6 +159,58 @@ export function TreePanel() {
     expand([toDir]);
   };
 
+  /** The tree node for a folder path ("" = the vault root). */
+  const folderNode = (dir: string): TreeNode | null => {
+    if (!tree) return null;
+    if (!dir) return tree;
+    const walk = (n: TreeNode): TreeNode | null =>
+      n.path === dir ? n : (n.children.filter((c) => c.isDir).map(walk).find(Boolean) ?? null);
+    return walk(tree);
+  };
+
+  /**
+   * Puts `from` right before / after `target` (moving it into target's
+   * folder first if needed) and saves that folder's new order.
+   */
+  const place = async (from: string, target: TreeNode, zone: "before" | "after") => {
+    if (from === target.path) return;
+    const dir = dirName(target.path);
+    if (isWithin(dir, from)) return; // a folder can't go inside itself
+    let path = from;
+    if (dirName(from) !== dir) {
+      path = joinPath(dir, baseName(from));
+      await useVault.getState().moveEntry(from, path);
+    }
+    // Siblings as currently shown, minus the moved entry, with it inserted.
+    const siblings = (folderNode(dir)?.children ?? []).map((c) => c.name).filter((n) => n !== baseName(path));
+    const at = siblings.indexOf(target.name);
+    siblings.splice(at === -1 ? siblings.length : zone === "after" ? at + 1 : at, 0, baseName(path));
+    try {
+      await ipc.setOrder(dir, siblings);
+      await useVault.getState().refresh();
+    } catch (err) {
+      useUi.getState().toast(`Couldn't save the order: ${errorMessage(err)}`, "error");
+    }
+  };
+
+  /** Drop handler shared by every row. */
+  const dropAt = (from: string, target: TreeNode, zone: Zone) => {
+    if (zone === "into") void move(from, target.path);
+    else void place(from, target, zone);
+  };
+
+  /** Alt+↑ / Alt+↓: swap an entry with its neighbour in the same folder. */
+  const nudge = async (node: TreeNode, delta: -1 | 1) => {
+    const dir = dirName(node.path);
+    const names = (folderNode(dir)?.children ?? []).map((c) => c.name);
+    const i = names.indexOf(node.name);
+    const j = i + delta;
+    if (i === -1 || j < 0 || j >= names.length) return;
+    [names[i], names[j]] = [names[j], names[i]];
+    await ipc.setOrder(dir, names);
+    await useVault.getState().refresh();
+  };
+
   /** Moves the keyboard cursor to a row and keeps it visible. */
   const moveCursor = (path: string) => {
     setCursor(path);
@@ -152,6 +226,11 @@ export function TreePanel() {
     const row = rows[idx];
     const isOpen = row.node.isDir && expanded.has(row.node.path);
     let handled = true;
+    if (e.altKey && (e.key === "ArrowUp" || e.key === "ArrowDown")) {
+      e.preventDefault();
+      void nudge(row.node, e.key === "ArrowUp" ? -1 : 1);
+      return;
+    }
     switch (e.key) {
       case "ArrowDown":
         moveCursor(rows[Math.min(idx + 1, rows.length - 1)].node.path);
@@ -244,13 +323,13 @@ export function TreePanel() {
         tabIndex={0}
         onKeyDown={onKeyDown}
         onFocus={() => !cursor && rows[0] && setCursor(activePath && rows.some((r) => r.node.path === activePath) ? activePath : rows[0].node.path)}
-        className={`group/tree min-h-0 flex-1 overflow-x-hidden overflow-y-auto px-2 py-2 outline-none ${dropTarget === "" ? "bg-accent-soft" : ""}`}
+        className={`group/tree min-h-0 flex-1 overflow-x-hidden overflow-y-auto px-2 py-2 outline-none ${dropTarget?.path === "" ? "bg-accent-soft" : ""}`}
         onContextMenu={(e) => openMenu(e, null)}
         // Dropping on empty space below the rows = move to the vault root.
         onDragOver={(e) => {
           if (e.dataTransfer.types.includes(DND_TYPE)) {
             e.preventDefault();
-            setDropTarget("");
+            setDropTarget({ path: "", zone: "into" });
           }
         }}
         onDragLeave={() => setDropTarget(null)}
@@ -279,7 +358,7 @@ export function TreePanel() {
             }}
             onMenu={openMenu}
             onDropTarget={setDropTarget}
-            onMove={move}
+            onDropAt={dropAt}
           />
         ))}
       </div>
@@ -295,17 +374,19 @@ interface RowProps {
   activePath: string | null;
   /** Row holds the keyboard cursor. */
   isCursor: boolean;
-  dropTarget: string | null;
+  dropTarget: DropTarget | null;
   onToggle: (path: string) => void;
   /** Click on the row: move the cursor there (and expand folders being opened). */
   onSelect: (opening: boolean) => void;
   onMenu: (e: React.MouseEvent, node: TreeNode) => void;
-  onDropTarget: (path: string | null) => void;
-  onMove: (from: string, toDir: string) => void;
+  onDropTarget: (target: DropTarget | null) => void;
+  onDropAt: (from: string, target: TreeNode, zone: Zone) => void;
 }
 
 function Row(props: RowProps) {
-  const { node, depth, isOpen, activePath, isCursor, dropTarget, onToggle, onSelect, onMenu, onDropTarget, onMove } = props;
+  const { node, depth, isOpen, activePath, isCursor, dropTarget, onToggle, onSelect, onMenu, onDropTarget, onDropAt } = props;
+  // Which part of this row a dragged entry is over, if any.
+  const zone = dropTarget?.path === node.path ? dropTarget.zone : null;
   // A folder's page: its existing note, or where a new one would go.
   const folderNote = node.isDir ? (node.notePath ?? defaultFolderNote(node.path)) : null;
   const isActive = node.isDir ? folderNote === activePath : node.path === activePath;
@@ -325,20 +406,17 @@ function Row(props: RowProps) {
         e.dataTransfer.effectAllowed = "move";
       }}
       onDragOver={(e) => {
-        // Only folders accept drops; stop the root container from claiming it.
-        if (node.isDir && e.dataTransfer.types.includes(DND_TYPE)) {
-          e.preventDefault();
-          e.stopPropagation();
-          onDropTarget(node.path);
-        }
+        if (!e.dataTransfer.types.includes(DND_TYPE)) return;
+        e.preventDefault();
+        e.stopPropagation(); // the row, not the root container, takes it
+        onDropTarget({ path: node.path, zone: zoneAt(e, node.isDir) });
       }}
       onDrop={(e) => {
-        if (!node.isDir) return;
         e.preventDefault();
         e.stopPropagation();
         onDropTarget(null);
         const from = e.dataTransfer.getData(DND_TYPE);
-        if (from) onMove(from, node.path);
+        if (from) onDropAt(from, node, zoneAt(e, node.isDir));
       }}
       onClick={onClick}
       onAuxClick={(e) => e.button === 1 && onClick(e)}
@@ -347,11 +425,19 @@ function Row(props: RowProps) {
       style={{ paddingLeft: 8 + indentOf(depth) }}
       className={`relative flex h-[30px] min-w-0 cursor-default items-center gap-2 rounded-md pr-2 text-[13.5px] transition-colors ${
         isActive ? "bg-accent-soft text-accent" : "text-fg/85 hover:bg-hover"
-      } ${dropTarget === node.path ? "outline outline-1 -outline-offset-1 outline-accent" : ""} ${
+      } ${zone === "into" ? "outline outline-1 -outline-offset-1 outline-accent" : ""} ${
         // Keyboard cursor ring, only while the tree has focus.
         isCursor ? "group-focus/tree:shadow-[inset_0_0_0_1px_var(--fg-inactive)]" : ""
       }`}
     >
+      {/* Where a dragged entry would land: a line above or below the row. */}
+      {(zone === "before" || zone === "after") && (
+        <span
+          aria-hidden
+          className={`pointer-events-none absolute right-1 h-[2px] rounded-full bg-accent ${zone === "before" ? "-top-px" : "-bottom-px"}`}
+          style={{ left: 8 + indentOf(depth) }}
+        />
+      )}
       {/* Indent guides: one faint vertical line per ancestor level, centred
           under that level's arrow. */}
       {Array.from({ length: depth }, (_, level) => (

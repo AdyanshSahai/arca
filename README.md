@@ -7,7 +7,7 @@ A CherryTree alternative built on plain Markdown files. You get the same deep tr
 ![Search](https://img.shields.io/badge/search-Tantivy-ffbfff)
 ![License](https://img.shields.io/badge/license-MIT-9fdcb4)
 
-- **A real tree.** Folders are chapters, nested as deep as you like. Click a chapter's name to open its own overview note, or its arrow to expand it.
+- **A real tree.** Folders are chapters, nested as deep as you like and arranged in any order. Click a chapter's name to open its own overview note, or its arrow to expand it.
 - **Plain files.** Every note is a `.md` file in a folder you choose. There's no database and nothing to export your way out of.
 - **Links that work both ways.** `[[WikiLinks]]`, a backlinks panel, and a graph of how the current note connects to others.
 - **Post-it notes.** Small coloured annotations live inside a note, and all of them are collected in one panel.
@@ -22,7 +22,7 @@ Arca is a personal project shared as-is. It reads and writes only the folder you
 | CherryTree | Arca |
 | --- | --- |
 | One `.ctb` / `.ctd` file holding every node | A folder of `.md` files you can open in any editor, sync or `git` |
-| Node | Note (a `.md` file) |
+| Node | Note (a `.md` file). Order them however you like by dragging |
 | Node with children | Folder. Its own text lives in a folder note (`hardware/hardware.md`, `hardware/index.md` or `hardware.md` next to the folder) |
 | Rich text | Markdown with live preview: headings, bold, lists and tasks render in place |
 | Codebox | Fenced code block with syntax highlighting, a language picker and a copy button |
@@ -90,7 +90,7 @@ The window is a [Tauri v2](https://v2.tauri.app) app with a React + TypeScript f
 
 ## Using It
 
-**Notes and chapters.** Right-click in the chapter tree to create notes, chapter folders, notes from a template, or to rename, pin, export or trash. Drag entries onto folders to move them. Deleting never destroys anything: it moves the entry to `.trash/` inside the vault.
+**Notes and chapters.** Right-click in the chapter tree to create notes, chapter folders, notes from a template, or to rename, pin, export or trash. Drag entries to rearrange them: drop on the top or bottom edge of a row to place it before or after that row, or on the middle of a folder to move it inside (`Alt+↑` / `Alt+↓` move the selected entry too). Your order is remembered. Deleting never destroys anything: it moves the entry to `.trash/` inside the vault.
 
 **Writing.** Live preview renders Markdown as you go and shows the raw syntax only on the line you're editing. `Ctrl+E` switches a pane to raw Markdown, and `Ctrl+Shift+E` puts every note in reading mode. Typing `[[` autocompletes note names. Paste an image, or drop a file from your file manager, and it's saved in a hidden `.assets/` folder next to the note and linked.
 
