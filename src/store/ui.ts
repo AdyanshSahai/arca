@@ -82,6 +82,8 @@ export type Dialog =
       message: string;
       /** Rendered left to right; the last one is the default (Enter). */
       choices: { label: string; tone?: "plain" | "primary" | "danger"; onSelect: () => void | Promise<void> }[];
+      /** False = Escape / clicking outside don't close it; a button must be picked. */
+      dismissable?: boolean;
     }
   | {
       kind: "confirm";
@@ -96,6 +98,8 @@ export interface Toast {
   id: number;
   text: string;
   tone: "info" | "error";
+  /** Optional button, e.g. "Undo" after a rename. */
+  action?: { label: string; run: () => void };
 }
 
 interface UiState {
@@ -148,7 +152,7 @@ interface UiState {
   setDrawerSize: (size: DrawerSize) => void;
   openDialog: (dialog: Dialog) => void;
   closeDialog: () => void;
-  toast: (text: string, tone?: Toast["tone"]) => void;
+  toast: (text: string, tone?: Toast["tone"], action?: Toast["action"]) => void;
   dismissToast: (id: number) => void;
   /** Opens the search panel in `mode`, optionally replacing the query, and focuses it. */
   requestSearch: (mode: SearchMode, query?: string) => void;
@@ -157,6 +161,10 @@ interface UiState {
   openPalette: (initial?: string) => void;
   askForPane: (choice: PaneChoice) => void;
   setPrefs: (patch: Partial<Prefs>) => void;
+  /** The Trash window (restore or permanently delete trashed notes). */
+  trashOpen: boolean;
+  openTrash: () => void;
+  closeTrash: () => void;
   toggleReading: () => void;
   setGraph: (patch: Partial<GraphPrefs>) => void;
 
@@ -185,6 +193,7 @@ export const useUi = create<UiState>((set, get) => ({
   paneChoice: null,
   prefs: DEFAULT_PREFS,
   settingsOpen: false,
+  trashOpen: false,
   reading: false,
   graph: { mode: "local", depth: 1, folder: "", tag: "", ghosts: true },
 
@@ -198,12 +207,14 @@ export const useUi = create<UiState>((set, get) => ({
   openDialog: (dialog) => set({ dialog }),
   closeDialog: () => set({ dialog: null }),
 
-  toast: (text, tone = "info") => {
+  toast: (text, tone = "info", action) => {
     const id = ++toastSeq;
-    set({ toasts: [...get().toasts, { id, text, tone }] });
-    // Errors linger longer so there is time to read them.
-    setTimeout(() => get().dismissToast(id), tone === "error" ? 6000 : 2800);
+    set({ toasts: [...get().toasts, { id, text, tone, action }] });
+    // Errors and toasts with a button linger longer, so there's time to act.
+    setTimeout(() => get().dismissToast(id), tone === "error" || action ? 8000 : 2800);
   },
+  openTrash: () => set({ trashOpen: true }),
+  closeTrash: () => set({ trashOpen: false }),
   dismissToast: (id) => set({ toasts: get().toasts.filter((t) => t.id !== id) }),
 
   requestSearch: (mode, query) =>

@@ -107,6 +107,7 @@ export function allCommands(): Command[] {
         if (typeof dir === "string") await useVault.getState().open(dir);
       },
     },
+    { id: "trash", label: "Open trash…", group: "Vault", run: () => ui.openTrash() },
     { id: "vault.refresh", label: "Re-scan vault", group: "Vault", run: () => void vault.refresh() },
     { id: "export", label: "Export notes…", group: "Vault", run: () => ui.openExport() },
   ];

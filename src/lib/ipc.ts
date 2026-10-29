@@ -15,9 +15,11 @@ import type {
   NoteInfo,
   Pin,
   PostItEntry,
+  RenameReport,
   TagCount,
   TemplateInfo,
   TextHit,
+  TrashEntry,
   TreeNode,
   VaultInfo,
 } from "./types";
@@ -35,8 +37,12 @@ export const ipc = {
   writeNote: (path: string, content: string) => invoke<void>("write_note", { path, content }),
   createNote: (path: string) => invoke<string>("create_note", { path }),
   createFolder: (path: string) => invoke<void>("create_folder", { path }),
-  renameEntry: (from: string, to: string) => invoke<void>("rename_entry", { from, to }),
+  /** Returns how many links elsewhere were rewritten to follow the move. */
+  renameEntry: (from: string, to: string) => invoke<RenameReport>("rename_entry", { from, to }),
   trashEntry: (path: string) => invoke<string>("trash_entry", { path }),
+  listTrash: () => invoke<TrashEntry[]>("list_trash"),
+  restoreTrash: (trashPath: string) => invoke<string>("restore_trash", { trashPath }),
+  deleteTrash: (trashPath: string) => invoke<void>("delete_trash", { trashPath }),
 
   // --- search ---
   searchFiles: (query: string, limit?: number, caseSensitive?: boolean) =>

@@ -21,7 +21,7 @@
 
 import { useRenderCount } from "../../lib/perf";
 import { openFromSidebar } from "../../lib/actions";
-import { ChevronRight, FilePlus, FileText, Folder, FolderMinus, FolderOpen, FolderPlus, Paperclip } from "lucide-react";
+import { ChevronRight, FilePlus, FileText, Folder, FolderMinus, FolderOpen, FolderPlus, Paperclip, Trash2 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { errorMessage, ipc } from "../../lib/ipc";
 import { scrollWithin } from "../../lib/scroll";
@@ -229,6 +229,9 @@ export function TreePanel() {
           <FolderPlus size={14} />
         </IconButton>
         <div className="flex-1" />
+        <IconButton title="Trash: restore deleted notes" onClick={() => useUi.getState().openTrash()}>
+          <Trash2 size={14} />
+        </IconButton>
         <IconButton title="Collapse all" onClick={() => setExpanded(new Set())}>
           <FolderMinus size={14} />
         </IconButton>

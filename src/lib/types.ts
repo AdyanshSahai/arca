@@ -108,6 +108,23 @@ export interface TemplateInfo {
   path: string;
 }
 
+/** What a rename did to [[links]] elsewhere. */
+export interface RenameReport {
+  notes: number;
+  links: number;
+}
+
+/** One item in the vault's trash. */
+export interface TrashEntry {
+  /** Path inside .trash/ (its id). */
+  trashPath: string;
+  /** Where it was before being trashed. */
+  original: string;
+  isDir: boolean;
+  /** Milliseconds since 1970. */
+  deletedMs: number;
+}
+
 export type PinKind = "note" | "folder" | "file";
 
 export interface Pin {

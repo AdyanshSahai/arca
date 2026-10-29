@@ -58,6 +58,80 @@ interface BufferState {
 /** Pending autosave timers, by path. Kept outside the store: not UI state. */
 const timers = new Map<string, number>();
 
+/** Notes with a conflict prompt already open (so one change = one prompt). */
+const conflicts = new Set<string>();
+
+/** "notes/cpu.md" → "notes/cpu (conflict 2026-10-29 1405).md" */
+function conflictPath(path: string): string {
+  const d = new Date();
+  const two = (n: number) => String(n).padStart(2, "0");
+  const stamp = `${d.getFullYear()}-${two(d.getMonth() + 1)}-${two(d.getDate())} ${two(d.getHours())}${two(d.getMinutes())}`;
+  const dot = path.lastIndexOf(".");
+  return dot > path.lastIndexOf("/") ? `${path.slice(0, dot)} (conflict ${stamp})${path.slice(dot)}` : `${path} (conflict ${stamp})`;
+}
+
+/**
+ * A note changed on disk (another app, a sync tool…) while it had unsaved
+ * edits in Arca. Instead of silently keeping one side, ask:
+ *  - Keep both: the disk version is saved as a separate "(conflict …)" note
+ *    next to it, and your version stays in the original.
+ *  - Use the disk version: your unsaved edits are dropped.
+ *  - Keep mine: your version overwrites the disk copy now.
+ */
+function askAboutConflict(path: string, disk: string) {
+  if (conflicts.has(path)) return;
+  conflicts.add(path);
+  // Stop any pending autosave until the user decides.
+  window.clearTimeout(timers.get(path));
+  timers.delete(path);
+  const store = useBuffers.getState();
+  const done = () => conflicts.delete(path);
+  useUi.getState().openDialog({
+    kind: "choice",
+    title: "Note changed on disk",
+    message: `“${path}” was changed outside Arca while you had unsaved edits in it. Which version do you want?`,
+    dismissable: false, // an unanswered conflict would silently pick a side
+    choices: [
+      {
+        label: "Use the disk version",
+        onSelect: () => {
+          done();
+          store.replace(path, disk, true);
+        },
+      },
+      {
+        label: "Keep both",
+        onSelect: async () => {
+          done();
+          const copy = conflictPath(path);
+          try {
+            await ipc.writeNote(copy, disk);
+            useUi.getState().toast(`Saved the disk version as ${copy}`);
+          } catch (err) {
+            useUi.getState().toast(`Couldn't save the other version: ${errorMessage(err)}`, "error");
+            return;
+          }
+          // Yours wins in the original file.
+          const b = useBuffers.getState().buffers[path];
+          if (b) useBuffers.setState({ buffers: { ...useBuffers.getState().buffers, [path]: { ...b, saved: disk } } });
+          await useBuffers.getState().flush(path);
+          window.dispatchEvent(new Event("arca:files-created")); // refresh the tree
+        },
+      },
+      {
+        label: "Keep mine",
+        tone: "primary",
+        onSelect: async () => {
+          done();
+          const b = useBuffers.getState().buffers[path];
+          if (b) useBuffers.setState({ buffers: { ...useBuffers.getState().buffers, [path]: { ...b, saved: disk } } });
+          await useBuffers.getState().flush(path);
+        },
+      },
+    ],
+  });
+}
+
 export const useBuffers = create<BufferState>((set, get) => {
   /** Shallow-merges fields into one buffer. */
   const patch = (path: string, fields: Partial<Buffer>) => {
@@ -153,10 +227,9 @@ export const useBuffers = create<BufferState>((set, get) => {
         // Clean buffer: just take the disk version.
         patch(path, { content: disk, saved: disk, externalRev: current.externalRev + 1 });
       } else {
-        // Dirty buffer and the file changed underneath. Keep the user's edits
-        // (they win on the next save) but say so.
-        patch(path, { saved: disk });
-        useUi.getState().toast(`${path} changed on disk; keeping your unsaved edits`);
+        // Dirty buffer and the file changed underneath: a real conflict.
+        // Hold off saving and let the user decide.
+        askAboutConflict(path, disk);
       }
     },
 

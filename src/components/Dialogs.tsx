@@ -25,6 +25,7 @@ function DialogBox({ dialog }: { dialog: Dialog }) {
   const [busy, setBusy] = useState(false);
   const input = useRef<HTMLInputElement>(null);
   const confirmBtn = useRef<HTMLButtonElement>(null);
+  const dismissable = dialog.kind !== "choice" || dialog.dismissable !== false;
 
   // Focus the input (selecting the suggested part) or the confirm button.
   useEffect(() => {
@@ -51,9 +52,10 @@ function DialogBox({ dialog }: { dialog: Dialog }) {
   return (
     <div
       className="fixed inset-0 z-40 flex items-start justify-center bg-black/55 pt-[18vh] backdrop-blur-[2px]"
-      onMouseDown={(e) => e.target === e.currentTarget && close()} // click outside = cancel
+      // Click outside / Escape cancel, unless the dialog demands an answer.
+      onMouseDown={(e) => e.target === e.currentTarget && dismissable && close()}
       onKeyDown={(e) => {
-        if (e.key === "Escape") close();
+        if (e.key === "Escape" && dismissable) close();
         if (e.key === "Enter") {
           e.preventDefault();
           void submit();

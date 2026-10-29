@@ -135,7 +135,7 @@ export const useVault = create<VaultState>((set, get) => ({
     try {
       // Save first so a pending autosave doesn't recreate the old file.
       await useBuffers.getState().flushAll();
-      await ipc.renameEntry(from, to);
+      const report = await ipc.renameEntry(from, to);
       // Move open buffers and panes over to the new path(s).
       for (const p of Object.keys(useBuffers.getState().buffers)) {
         const next = remapPath(p, from, to);
@@ -152,6 +152,14 @@ export const useVault = create<VaultState>((set, get) => ({
         await ipc.setPins(pins);
       }
       await get().refresh();
+      // Say what happened, with Undo (which moves it back, fixing links again).
+      const fixed = report.links
+        ? ` Updated ${report.links} link${report.links === 1 ? "" : "s"} in ${report.notes} note${report.notes === 1 ? "" : "s"}.`
+        : "";
+      useUi.getState().toast(`Moved to ${to}.${fixed}`, "info", {
+        label: "Undo",
+        run: () => void get().moveEntry(to, from),
+      });
     } catch (err) {
       fail("Move failed")(err);
     }
@@ -161,7 +169,7 @@ export const useVault = create<VaultState>((set, get) => ({
     useUi.getState().openDialog({
       kind: "confirm",
       title: "Move to trash",
-      message: `Move “${path}” to the vault's .trash folder? You can restore it from there.`,
+      message: `Move “${path}” to the trash? You can restore it from the Trash window (trash button in the chapter tree).`,
       confirmText: "Move to trash",
       danger: true,
       onConfirm: async () => {
