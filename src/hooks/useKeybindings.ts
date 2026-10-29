@@ -20,7 +20,7 @@
 //   Ctrl+Shift+F                full-text search
 //   Ctrl+N                      new note (in the focused note's folder)
 //   Ctrl+Alt+P                  insert post-it at the cursor
-//   Ctrl+B                      toggle the drawer
+//   Ctrl+B                      toggle the drawer (bold instead while writing in a note)
 //   Ctrl+,                      settings
 //   Ctrl+S                      save now (autosave runs anyway)
 //   Alt+1…9                     open pinned shortcut N
@@ -217,7 +217,10 @@ export function useKeybindings() {
         take();
         return ui.openSettings();
       }
-      if (mod && !e.shiftKey && key === "b") {
+      // In a note being written, Ctrl+B is bold (Word habit), so let it
+      // through to the editor's own keymap (editor/format.ts).
+      const inEditor = !!(e.target as HTMLElement | null)?.closest?.(".cm-editor");
+      if (mod && !e.shiftKey && key === "b" && !(inEditor && !ui.reading)) {
         take();
         return ui.panel ? ui.closeDrawer() : ui.showPanel(lastPanel);
       }

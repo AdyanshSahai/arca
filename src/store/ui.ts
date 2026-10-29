@@ -41,6 +41,11 @@ export interface Prefs {
    * the tab is split, always ask, or just use the focused pane.
    */
   notePlacement: "ask-split" | "ask" | "focused";
+  /**
+   * The formatting ribbon above notes in writing mode: one compact row of
+   * the common buttons, or Word-style labelled groups with everything.
+   */
+  ribbon: "minimal" | "full";
 }
 
 export const DEFAULT_PREFS: Prefs = {
@@ -52,6 +57,7 @@ export const DEFAULT_PREFS: Prefs = {
   onboarded: false,
   viewPlacement: "sidebar",
   notePlacement: "ask-split",
+  ribbon: "minimal",
 };
 
 /** Graph view settings, kept here so they survive the panel closing. */

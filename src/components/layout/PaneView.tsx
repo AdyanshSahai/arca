@@ -17,6 +17,7 @@ import { useVault } from "../../store/vault";
 import { IconButton } from "../ui/IconButton";
 import { PANE_DND_TYPE } from "./TabStrip";
 import { ArcaMark } from "../ui/ArcaMark";
+import { Ribbon } from "./Ribbon";
 
 export function PaneView({ paneId, focused }: { paneId: string; focused: boolean }) {
   useRenderCount("PaneView");
@@ -152,6 +153,10 @@ export function PaneView({ paneId, focused }: { paneId: string; focused: boolean
           </IconButton>
         </div>
       </div>
+      {/* Formatting ribbon: always there while writing a Markdown note, never in reading mode. */}
+      {pane.path && !pane.view && !reading && !isTextPath(pane.path) && (
+        <Ribbon paneId={paneId} path={pane.path} focused={focused} />
+      )}
       <div className="relative min-h-0 flex-1">
         {pane.path && isTextPath(pane.path) && <TextFileNotice path={pane.path} />}
         {pane.view ? (

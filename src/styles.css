@@ -528,3 +528,21 @@ mark {
 @media (prefers-reduced-motion: reduce) {
   .onb-enter-right, .onb-enter-left, .onb-pop { animation: none; }
 }
+
+/* ---- Formatting ribbon (components/layout/Ribbon.tsx) -------------------
+   The same button renders two ways: icon-only in a compact row, or as a
+   Word-style tile (icon over a small label) in the full ribbon's groups. */
+.ribbon-compact .ribbon-btn {
+  height: 1.75rem;
+  width: 1.75rem;
+}
+.ribbon-compact .ribbon-label {
+  display: none;
+}
+.ribbon-large .ribbon-btn {
+  flex-direction: column;
+  gap: 0.2rem;
+  height: 3.25rem;
+  min-width: 2.9rem;
+  padding: 0 0.35rem;
+}

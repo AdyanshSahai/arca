@@ -19,13 +19,16 @@ interface StatusState {
   line: number;
   col: number;
   words: number;
+  /** Heading level of the cursor's line (0 = body text), for the ribbon's style picker. */
+  heading: number;
   /** Updates any subset of the fields. */
-  set: (s: Partial<{ line: number; col: number; words: number }>) => void;
+  set: (s: Partial<{ line: number; col: number; words: number; heading: number }>) => void;
 }
 
 export const useStatus = create<StatusState>((set) => ({
   line: 1,
   col: 1,
   words: 0,
+  heading: 0,
   set: (s) => set(s),
 }));

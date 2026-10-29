@@ -94,6 +94,8 @@ The window is a [Tauri v2](https://v2.tauri.app) app with a React + TypeScript f
 
 **Writing.** Live preview renders Markdown as you go and shows the raw syntax only on the line you're editing. `Ctrl+E` switches a pane to raw Markdown, and `Ctrl+Shift+E` puts every note in reading mode. Typing `[[` autocompletes note names. Paste an image, or drop a file from your file manager, and it's saved in a hidden `.assets/` folder next to the note and linked.
 
+**Formatting ribbon.** While writing, a toolbar like Word's or Google Docs' sits above each note: undo, paragraph style, bold/italic, lists, links, tables, equations, callouts and more. The ▾ at its right end switches between a slim **minimal ribbon** and the **full ribbon** with labelled groups. It disappears in reading mode. Every button just writes ordinary Markdown.
+
 **Post-its.** `Ctrl+Alt+P` drops one at the cursor. On disk it's plain Markdown that other tools show as a quote:
 
 ```markdown
@@ -149,8 +151,11 @@ $$
 | `Ctrl+E` | Live preview / raw Markdown |
 | `Ctrl+Shift+E` | Reading / writing mode (all notes) |
 | `Ctrl+Alt+P` | Insert a post-it |
+| `Ctrl+B` / `Ctrl+I` / `Ctrl+K` | Bold / italic / link (while writing) |
+| `Ctrl+Alt+1…6` / `Ctrl+Alt+0` | Heading level / normal text |
+| `Ctrl+Shift+8` / `Ctrl+Shift+7` | Bulleted / numbered list |
 | `Tab` / `Shift+Tab` | Next / previous table cell |
-| `Ctrl+B` | Toggle the sidebar |
+| `Ctrl+B` | Toggle the sidebar (outside the editor) |
 | `Ctrl+,` | Settings |
 | `Alt+1…9` | Open pinned shortcut N |
 

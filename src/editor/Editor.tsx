@@ -31,6 +31,7 @@ import { livePreview } from "./livePreview";
 import { postits } from "./postits";
 import { richBlocks, richLive } from "./richBlocks";
 import { tableKeymap } from "./tables";
+import { formatKeymap } from "./format";
 import { editorRegistry, useStatus } from "./registry";
 import { editorTheme, highlightStyle } from "./theme";
 import { linkContext, livePreviewOn, refreshLinks, wikiCompletion, wikiLinks } from "./wikilinks";
@@ -142,6 +143,9 @@ export function Editor({ pane, path, focused, readOnly = false }: Props) {
         autocompletion({ override: [wikiCompletion], icons: false }),
         // Ctrl+Alt+P (post-it) and other app shortcuts are global; see useKeybindings.
         keymap.of([
+          // Word-style Ctrl+B / I / K… first, so they beat the defaults
+          // (defaultKeymap binds Ctrl+I to "select parent syntax").
+          ...formatKeymap,
           ...completionKeymap,
           ...searchKeymap,
           ...historyKeymap,
@@ -174,7 +178,8 @@ export function Editor({ pane, path, focused, readOnly = false }: Props) {
           if (focusedRef.current && (u.docChanged || u.selectionSet)) {
             const head = u.state.selection.main.head;
             const line = u.state.doc.lineAt(head);
-            useStatus.getState().set({ line: line.number, col: head - line.from + 1 });
+            const heading = /^(#{1,6})\s/.exec(line.text)?.[1].length ?? 0;
+            useStatus.getState().set({ line: line.number, col: head - line.from + 1, heading });
             // Counting every word of a long note on each keystroke is
             // wasted work; count once typing pauses.
             if (u.docChanged) scheduleWordCount(u.view);
