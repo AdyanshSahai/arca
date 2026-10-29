@@ -12,8 +12,8 @@ use std::path::PathBuf;
 
 use arca_core::postit;
 use arca_core::search::{FileHit, TextHit, TopicKind};
-use arca_core::vault::TreeNode;
-use arca_core::workspace::{Backlink, Graph, LinkTarget, NoteInfo, PostItEntry, TagCount};
+use arca_core::vault::{TrashEntry, TreeNode};
+use arca_core::workspace::{Backlink, Graph, LinkTarget, NoteInfo, PostItEntry, RenameReport, TagCount};
 use arca_core::Workspace;
 use serde::Serialize;
 use tauri::{AppHandle, Manager, State};
@@ -186,9 +186,30 @@ pub async fn create_folder(state: State<'_, AppState>, path: String) -> CmdResul
 }
 
 #[tauri::command]
-pub async fn rename_entry(state: State<'_, AppState>, from: String, to: String) -> CmdResult<()> {
+pub async fn rename_entry(state: State<'_, AppState>, from: String, to: String) -> CmdResult<RenameReport> {
     let _t = timed("rename_entry");
     state.with_ws_mut(|ws| Ok(ws.rename(&from, &to)?))
+}
+
+/// Everything in the vault's trash, newest first.
+#[tauri::command]
+pub async fn list_trash(state: State<'_, AppState>) -> CmdResult<Vec<TrashEntry>> {
+    let _t = timed("list_trash");
+    state.with_ws(|ws| Ok(ws.vault().list_trash()?))
+}
+
+/// Restores a trashed item to where it came from; returns its path.
+#[tauri::command]
+pub async fn restore_trash(state: State<'_, AppState>, trash_path: String) -> CmdResult<String> {
+    let _t = timed("restore_trash");
+    state.with_ws_mut(|ws| Ok(ws.restore_trash(&trash_path)?))
+}
+
+/// Permanently deletes one trashed item.
+#[tauri::command]
+pub async fn delete_trash(state: State<'_, AppState>, trash_path: String) -> CmdResult<()> {
+    let _t = timed("delete_trash");
+    state.with_ws(|ws| Ok(ws.vault().delete_trash(&trash_path)?))
 }
 
 /// Moves a note/folder to `.trash/`; returns where it went.

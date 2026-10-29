@@ -51,6 +51,10 @@ pub struct WikiLink {
     pub line: usize,
     /// The full source line, trimmed, for backlink previews.
     pub context: String,
+    /// Byte range of the target text (`cpu` in `[[ cpu |alias]]`) in the
+    /// note, so renames can rewrite exactly that text.
+    #[serde(skip)]
+    pub span: (usize, usize),
 }
 
 /// One `#tag` occurrence.
@@ -185,13 +189,16 @@ pub fn extract(src: &str) -> Extracted {
         let m = cap.get(1).unwrap();
         // Read the inner text from the *original* source; offsets are the same.
         let inner = &src[m.start()..m.end()];
-        let (target, alias) = match inner.split_once('|') {
-            Some((t, a)) => (t.trim(), Some(a.trim().to_string())),
-            None => (inner.trim(), None),
+        let (target_part, alias) = match inner.split_once('|') {
+            Some((t, a)) => (t, Some(a.trim().to_string())),
+            None => (inner, None),
         };
+        let target = target_part.trim();
         if target.is_empty() {
             continue;
         }
+        // Where the trimmed target starts: after any leading spaces.
+        let start = m.start() + (target_part.len() - target_part.trim_start().len());
         let (line, context) = line_info(src, &starts, m.start());
         out.links.push(WikiLink {
             target: target.to_string(),
@@ -199,6 +206,7 @@ pub fn extract(src: &str) -> Extracted {
             kind: classify(target),
             line,
             context,
+            span: (start, start + target.len()),
         });
     }
 

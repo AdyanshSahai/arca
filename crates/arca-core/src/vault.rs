@@ -61,6 +61,23 @@ pub fn sanitize_file_name(name: &str) -> String {
 /// File extensions treated as notes.
 const NOTE_EXTENSIONS: &[&str] = &["md", "markdown"];
 
+/// File inside `.trash/` mapping each trashed item to where it came from.
+const TRASH_INDEX: &str = ".index.json";
+
+/// One item in the trash, for the Trash window.
+#[derive(Debug, Clone, Serialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct TrashEntry {
+    /// Vault-relative path inside `.trash/` (the item's id).
+    pub trash_path: String,
+    /// Where it was before it was trashed (vault-relative). Items trashed
+    /// before the index existed fall back to the vault root.
+    pub original: String,
+    pub is_dir: bool,
+    /// Milliseconds since 1970 when it was trashed.
+    pub deleted_ms: u64,
+}
+
 /// One entry of the chapter tree sent to the sidebar.
 #[derive(Debug, Clone, Serialize, PartialEq, Eq)]
 #[serde(rename_all = "camelCase")]
@@ -460,7 +477,111 @@ impl Vault {
         let dst = self.resolve(&trash_rel)?;
         fs::create_dir_all(self.root.join(TRASH_DIR))?;
         fs::rename(src, dst)?;
+        // Remember the original location so it can be restored there.
+        let mut index = self.trash_index();
+        index.insert(trash_rel.clone(), rel.to_string());
+        self.save_trash_index(&index)?;
         Ok(trash_rel)
+    }
+
+    /// `.trash/.index.json` as a map; missing or unreadable means empty.
+    fn trash_index(&self) -> std::collections::BTreeMap<String, String> {
+        fs::read_to_string(self.root.join(TRASH_DIR).join(TRASH_INDEX))
+            .ok()
+            .and_then(|t| serde_json::from_str(&t).ok())
+            .unwrap_or_default()
+    }
+
+    fn save_trash_index(&self, index: &std::collections::BTreeMap<String, String>) -> Result<()> {
+        let path = self.root.join(TRASH_DIR).join(TRASH_INDEX);
+        let json = serde_json::to_string_pretty(index).map_err(|e| std::io::Error::other(e.to_string()))?;
+        fs::write(path, json)?;
+        Ok(())
+    }
+
+    /// Everything in the trash, newest first.
+    pub fn list_trash(&self) -> Result<Vec<TrashEntry>> {
+        let dir = self.root.join(TRASH_DIR);
+        if !dir.is_dir() {
+            return Ok(Vec::new());
+        }
+        let index = self.trash_index();
+        let mut out = Vec::new();
+        for entry in fs::read_dir(&dir)? {
+            let entry = entry?;
+            let name = entry.file_name().to_string_lossy().into_owned();
+            if name == TRASH_INDEX {
+                continue;
+            }
+            let trash_path = format!("{TRASH_DIR}/{name}");
+            // Names are "<ms>-<original name>".
+            let (stamp, original_name) = name.split_once('-').unwrap_or(("0", &name));
+            out.push(TrashEntry {
+                original: index.get(&trash_path).cloned().unwrap_or_else(|| original_name.to_string()),
+                is_dir: entry.path().is_dir(),
+                deleted_ms: stamp.parse().unwrap_or(0),
+                trash_path,
+            });
+        }
+        out.sort_by_key(|e| std::cmp::Reverse(e.deleted_ms)); // newest first
+        Ok(out)
+    }
+
+    /// Checks that `trash_path` names an item directly inside `.trash/`.
+    fn trash_item(&self, trash_path: &str) -> Result<PathBuf> {
+        let name = trash_path
+            .strip_prefix(&format!("{TRASH_DIR}/"))
+            .filter(|n| !n.is_empty() && !n.contains('/') && *n != TRASH_INDEX)
+            .ok_or_else(|| CoreError::InvalidName(trash_path.to_string()))?;
+        let path = self.root.join(TRASH_DIR).join(name);
+        if !path.exists() {
+            return Err(CoreError::NotFound(trash_path.to_string()));
+        }
+        Ok(path)
+    }
+
+    /// Moves a trashed item back to where it came from. If something now
+    /// occupies that path, " (restored)" is added to the name. Returns the
+    /// restored vault-relative path.
+    pub fn restore_trash(&self, trash_path: &str) -> Result<String> {
+        let src = self.trash_item(trash_path)?;
+        let mut index = self.trash_index();
+        let original = index
+            .get(trash_path)
+            .cloned()
+            .unwrap_or_else(|| trash_path.rsplit('/').next().unwrap_or("").split_once('-').map_or("", |x| x.1).to_string());
+        // First free name: original, "name (restored).md", "name (restored 2).md"…
+        let mut target = original.clone();
+        let mut n = 1;
+        while self.resolve(&target)?.exists() {
+            let (stem, ext) = match original.rsplit_once('.') {
+                Some((s, e)) if !s.is_empty() && !e.contains('/') => (s.to_string(), format!(".{e}")),
+                _ => (original.clone(), String::new()),
+            };
+            target = if n == 1 { format!("{stem} (restored){ext}") } else { format!("{stem} (restored {n}){ext}") };
+            n += 1;
+        }
+        let dst = self.resolve(&target)?;
+        if let Some(parent) = dst.parent() {
+            fs::create_dir_all(parent)?; // its folder may have been trashed too
+        }
+        fs::rename(src, dst)?;
+        index.remove(trash_path);
+        self.save_trash_index(&index)?;
+        Ok(target)
+    }
+
+    /// Permanently deletes one trashed item. This can't be undone.
+    pub fn delete_trash(&self, trash_path: &str) -> Result<()> {
+        let path = self.trash_item(trash_path)?;
+        if path.is_dir() {
+            fs::remove_dir_all(&path)?;
+        } else {
+            fs::remove_file(&path)?;
+        }
+        let mut index = self.trash_index();
+        index.remove(trash_path);
+        self.save_trash_index(&index)
     }
 }
 
@@ -573,6 +694,29 @@ mod tests {
         assert!(v.root().join(&t).exists());
         assert!(v.list_notes().is_empty());
         assert!(v.trash("").is_err());
+    }
+
+    #[test]
+    fn trash_can_be_listed_restored_and_emptied() {
+        let (_d, v) = vault();
+        v.create_note("hw/cpu.md").unwrap();
+        v.create_note("hw/ram.md").unwrap();
+        let cpu = v.trash("hw/cpu.md").unwrap();
+        let ram = v.trash("hw/ram.md").unwrap();
+        let listed = v.list_trash().unwrap();
+        assert_eq!(listed.len(), 2);
+        assert!(listed.iter().any(|e| e.original == "hw/cpu.md"));
+        // Restores to the original place…
+        assert_eq!(v.restore_trash(&cpu).unwrap(), "hw/cpu.md");
+        assert!(v.root().join("hw/cpu.md").exists());
+        // …or next to it if that name was taken in the meantime.
+        v.create_note("hw/ram.md").unwrap();
+        assert_eq!(v.restore_trash(&ram).unwrap(), "hw/ram (restored).md");
+        // Permanent delete, and escaping the trash is refused.
+        let again = v.trash("hw/cpu.md").unwrap();
+        v.delete_trash(&again).unwrap();
+        assert!(v.list_trash().unwrap().is_empty());
+        assert!(v.delete_trash(".trash/../hw/ram.md").is_err());
     }
 
     #[test]

@@ -78,6 +78,34 @@ pub struct PostItEntry {
     pub postit: PostIt,
 }
 
+/// One link to rewrite after a rename.
+struct LinkEdit {
+    /// Byte range of the link's target text in its note.
+    span: (usize, usize),
+    /// The target text as it was (e.g. "hardware/cpu").
+    old_text: String,
+    /// The moved note's new path.
+    new_target: String,
+}
+
+/// What a rename did to links elsewhere in the vault.
+#[derive(Debug, Clone, Default, Serialize, PartialEq, Eq)]
+pub struct RenameReport {
+    /// Notes whose links were rewritten.
+    pub notes: usize,
+    /// Links rewritten in total.
+    pub links: usize,
+}
+
+/// `path` after `from` was renamed to `to`, if it was affected.
+fn remap(path: &str, from: &str, to: &str) -> Option<String> {
+    if path == from {
+        Some(to.to_string())
+    } else {
+        path.strip_prefix(&format!("{from}/")).map(|rest| format!("{to}/{rest}"))
+    }
+}
+
 /// A tag and how many notes carry it.
 #[derive(Debug, Clone, Serialize)]
 pub struct TagCount {
@@ -273,11 +301,83 @@ impl Workspace {
         self.vault.create_folder(rel)
     }
 
-    /// Renames/moves a note or folder. Links pointing at it are *not*
-    /// rewritten; they show up as ghost nodes until fixed.
-    pub fn rename(&mut self, from: &str, to: &str) -> Result<()> {
+    /// Renames/moves a note or folder, then fixes every `[[link]]` in the
+    /// vault that pointed at a moved note and would otherwise break.
+    ///
+    /// A link is only rewritten if it no longer resolves to the same note
+    /// (moving `cpu.md` to another folder keeps `[[cpu]]` working, so it's
+    /// left alone). Rewritten links keep their `#heading` and `|alias`, and
+    /// use the note's name when that's unambiguous, else its full path.
+    pub fn rename(&mut self, from: &str, to: &str) -> Result<RenameReport> {
+        // Old path → new path for every note that moves.
+        let moved: HashMap<String, String> = self
+            .notes
+            .keys()
+            .filter_map(|p| remap(p, from, to).map(|n| (p.clone(), n)))
+            .collect();
+        // Every link (in any note) that currently points at a moving note.
+        let mut edits: Vec<(String, LinkEdit)> = Vec::new();
+        for meta in self.notes.values() {
+            for link in meta.links.iter().filter(|l| l.kind == LinkKind::Note) {
+                if let Some(target) = self.resolver.resolve(&link.target, &meta.path) {
+                    if let Some(new_target) = moved.get(&target) {
+                        let edit = LinkEdit { span: link.span, old_text: link.target.clone(), new_target: new_target.clone() };
+                        edits.push((meta.path.clone(), edit));
+                    }
+                }
+            }
+        }
+
         self.vault.rename(from, to)?;
-        self.reindex_all()
+        self.reindex_all()?; // new resolver, new paths
+
+        // Group by (new) source note and rewrite from the end of the file
+        // backwards, so earlier byte offsets stay valid.
+        let mut by_source: BTreeMap<String, Vec<LinkEdit>> = BTreeMap::new();
+        for (src, edit) in edits {
+            let src_now = moved.get(&src).cloned().unwrap_or(src);
+            by_source.entry(src_now).or_default().push(edit);
+        }
+        let mut report = RenameReport::default();
+        for (src, mut list) in by_source {
+            let Ok(mut content) = self.vault.read_note(&src) else { continue };
+            list.sort_by_key(|e| std::cmp::Reverse(e.span.0)); // last link first
+            let mut changed = 0;
+            for LinkEdit { span: (start, end), old_text, new_target } in list {
+                // Still resolves to the same note (e.g. [[cpu]] after a folder move)?
+                if self.resolver.resolve(&old_text, &src).as_deref() == Some(new_target.as_str()) {
+                    continue;
+                }
+                // Only touch the text if it's exactly what we read before.
+                if content.get(start..end) != Some(old_text.as_str()) {
+                    continue;
+                }
+                let replacement = self.link_text_for(&new_target, &old_text, &src);
+                content.replace_range(start..end, &replacement);
+                changed += 1;
+            }
+            if changed > 0 {
+                self.write_note(&src, &content)?;
+                report.notes += 1;
+                report.links += changed;
+            }
+        }
+        Ok(report)
+    }
+
+    /// The text to put inside `[[…]]` to link from `from` to `target`:
+    /// the bare note name if that resolves to it, else its vault path
+    /// (without ".md"), keeping any `#heading` from the old link.
+    fn link_text_for(&self, target: &str, old_text: &str, from: &str) -> String {
+        let anchor = old_text.split_once('#').map(|(_, a)| format!("#{a}")).unwrap_or_default();
+        let no_ext = target.strip_suffix(".md").or_else(|| target.strip_suffix(".markdown")).unwrap_or(target);
+        let stem = no_ext.rsplit('/').next().unwrap_or(no_ext);
+        let base = if !old_text.contains('/') && self.resolver.resolve(stem, from).as_deref() == Some(target) {
+            stem
+        } else {
+            no_ext
+        };
+        format!("{base}{anchor}")
     }
 
     /// Moves a note or folder to `.trash/`.
@@ -287,6 +387,13 @@ impl Workspace {
         self.rebuild_resolver();
         self.index.commit()?;
         Ok(dest)
+    }
+
+    /// Puts a trashed item back where it came from and indexes it again.
+    pub fn restore_trash(&mut self, trash_path: &str) -> Result<String> {
+        let restored = self.vault.restore_trash(trash_path)?;
+        self.reindex_all()?;
+        Ok(restored)
     }
 
     // ------------------------------------------------------------------
@@ -633,6 +740,28 @@ mod tests {
         assert!(ws.notes().iter().all(|n| !n.path.starts_with(".arca")));
         // Anything else is still refused.
         assert!(ws.write_note("bin/tool.sh", "x").is_err());
+    }
+
+    #[test]
+    fn renaming_fixes_links_that_would_break() {
+        let (_d, mut ws) = workspace();
+        // memory.md links [[CPU]]; index.md links [[hardware/cpu]].
+        let report = ws.rename("hardware/cpu.md", "hardware/processor.md").unwrap();
+        assert_eq!(report, RenameReport { notes: 2, links: 2 });
+        assert!(ws.read_note("hardware/memory.md").unwrap().contains("Back to [[processor]]."));
+        assert!(ws.read_note("index.md").unwrap().contains("[[hardware/processor]]"));
+        assert!(ws.graph().nodes.iter().filter(|n| n.ghost).all(|n| n.id == "ghost:missing note"));
+    }
+
+    #[test]
+    fn moving_a_note_keeps_working_links_untouched() {
+        let (_d, mut ws) = workspace();
+        // [[CPU]] still finds the note in its new folder, so it isn't rewritten;
+        // [[hardware/cpu]] would break, so it is.
+        let report = ws.rename("hardware/cpu.md", "chips/cpu.md").unwrap();
+        assert_eq!(report.links, 1);
+        assert!(ws.read_note("hardware/memory.md").unwrap().contains("[[CPU]]"));
+        assert!(ws.read_note("index.md").unwrap().contains("[[chips/cpu]]"));
     }
 
     #[test]

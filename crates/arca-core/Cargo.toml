@@ -20,6 +20,8 @@ thiserror = "2"
 pulldown-cmark = { version = "0.13", default-features = false, features = ["html"] }
 # Embedding local images into exported HTML as data: URIs.
 base64 = "0.22"
+# The trash index (.trash/.index.json: where each trashed item came from).
+serde_json = "1"
 
 [dev-dependencies]
 # Throwaway vault directories for the tests.
