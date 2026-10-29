@@ -56,13 +56,8 @@ export const DEFAULT_PREFS: Prefs = {
 
 /** Graph view settings, kept here so they survive the panel closing. */
 export interface GraphPrefs {
-  /** Local = the active note's neighbourhood (default); global = everything. */
-  mode: "local" | "global";
-  /** Local view: how many links away from the active note (1–3). */
+  /** How many links away from the active note to show (1–3). */
   depth: number;
-  /** Global view filters: a folder ("" = all) and a tag ("" = all). */
-  folder: string;
-  tag: string;
   /** Show links to notes that don't exist yet. */
   ghosts: boolean;
 }
@@ -220,7 +215,7 @@ export const useUi = create<UiState>((set, get) => ({
   trashOpen: false,
   timeMachine: null,
   reading: false,
-  graph: { mode: "local", depth: 1, folder: "", tag: "", ghosts: true },
+  graph: { depth: 1, ghosts: true },
 
   templatePicker: null,
   exportDialog: null,

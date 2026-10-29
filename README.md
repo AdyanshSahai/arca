@@ -9,7 +9,7 @@ A CherryTree alternative built on plain Markdown files. You get the same deep tr
 
 - **A real tree.** Folders are chapters, nested as deep as you like. Click a chapter's name to open its own overview note, or its arrow to expand it.
 - **Plain files.** Every note is a `.md` file in a folder you choose. There's no database and nothing to export your way out of.
-- **Links that work both ways.** `[[WikiLinks]]`, a backlinks panel, and a local or global graph of how your notes connect.
+- **Links that work both ways.** `[[WikiLinks]]`, a backlinks panel, and a graph of how the current note connects to others.
 - **Post-it notes.** Small coloured annotations live inside a note, and all of them are collected in one panel.
 - **Panes like Konsole.** Split any tab left/right or top/bottom, move panes between tabs, and keep different notes side by side.
 - **Instant search.** Fuzzy file names, full text (with match case), and `#tag` / `[[link]]` topics, all from an in-memory Tantivy index.
@@ -120,7 +120,7 @@ $$
 
 **Sidebar views.** Chapters, Graph, Search, Backlinks and Post-its live in the left rail. They open in the sidebar, which snaps to ¼, ½ or full width. "Move to pane" turns any of them into a pane of its own.
 
-**Graph.** Opens on the current note's neighbourhood (depth 1–3). Switch to Global for the whole vault, coloured by chapter and filterable by folder and tag. The current note is the square.
+**Graph.** Shows the current note's neighbourhood: the notes it links to and from, up to 1–3 links away. The current note is the square.
 
 **Command palette.** `Ctrl+P` jumps to any note. Type `>` for actions, or `#` to find notes by tag.
 

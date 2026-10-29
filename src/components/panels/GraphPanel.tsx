@@ -3,17 +3,17 @@
 // - Nodes are notes; edges are resolved [[links]]. Ghost nodes are links to
 //   notes that don't exist yet. They're hollow, and clicking one offers to
 //   create the note.
-// - Local view (default): the active note and its neighbours up to 1–3
-//   links away (depth slider). Global view (toggle): every note, coloured
-//   by chapter, filterable by folder and by tag.
-// - The active note is drawn as a square (colour already means chapter,
-//   size means hover, hollow means ghost), with its label always shown in
-//   bold. Hovering a node lights up its neighbours.
+// - Always local: the active note and its neighbours up to 1–3 links away
+//   (depth slider). There's no whole-vault view; it was slow on big vaults
+//   and not useful.
+// - The active note is drawn as a square (size means hover, hollow means
+//   ghost), with its label always shown in bold. Hovering a node lights up
+//   its neighbours.
 // - Bigger drawer sizes (½, full) make this genuinely usable.
 //
 // The graph never animates. Positions are computed up front by
-// lib/graphLayout.ts (d3-force, with chapters clustered and coloured in
-// the global view) and handed over pinned, so the canvas only draws.
+// lib/graphLayout.ts (d3-force) and handed over pinned, so the canvas
+// only draws.
 // Refreshes start from the previous positions, so the picture stays put.
 // Node dragging is disabled; pan with the mouse, and zoom with the wheel,
 // the +/−/fit buttons, or + − 0 when the graph has focus.
@@ -21,13 +21,12 @@
 import { bump, useRenderCount } from "../../lib/perf";
 import { Maximize, Minus, Plus } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { clusterColor, layoutGraph, nodeRadius, type Positioned, topFolder } from "../../lib/graphLayout";
+import { layoutGraph, nodeRadius, type Positioned } from "../../lib/graphLayout";
 import ForceGraph2D, { type ForceGraphMethods, type LinkObject, type NodeObject } from "react-force-graph-2d";
 import { followLink, openFromSidebar } from "../../lib/actions";
 import { errorMessage, ipc } from "../../lib/ipc";
 import type { Graph, GraphNode } from "../../lib/types";
 import { useContextPane } from "../../store/layout";
-import { Segmented } from "../ui/Segmented";
 import { useUi } from "../../store/ui";
 import { useVault } from "../../store/vault";
 
@@ -58,9 +57,8 @@ export function GraphPanel() {
   const [graph, setGraph] = useState<Graph>({ nodes: [], edges: [] });
   // Mode, depth and filters live in the ui store (they survive the panel
   // closing). Local view needs an active note; without one, show global.
-  const { mode, depth, folder, tag, ghosts: showGhosts } = useUi((s) => s.graph);
+  const { depth, ghosts: showGhosts } = useUi((s) => s.graph);
   const setGraphPrefs = useUi((s) => s.setGraph);
-  const local = mode === "local" && !!active;
   const [hover, setHover] = useState<string | null>(null);
   const [size, setSize] = useState({ w: 300, h: 300 });
   const box = useRef<HTMLDivElement>(null);
@@ -121,10 +119,8 @@ export function GraphPanel() {
     return map;
   }, [graph]);
 
-  // In global mode the focused note only changes colours, not the data, so
-  // it must not be a dependency there. Otherwise every note switch would
-  // rebuild the data and restart the physics simulation.
-  const localRoot = local ? active : null;
+  /** The note the neighbourhood is drawn around. */
+  const localRoot = active;
 
   /**
    * Last computed positions, kept per view ("global", or one per local
@@ -155,46 +151,31 @@ export function GraphPanel() {
         frontier = next;
       }
     }
-    // Global filters: folder (and everything under it) and tag.
-    const inFolder = (n: GraphNode) => !folder || n.folder === folder || n.folder.startsWith(folder + "/");
-    const hasTag = (n: GraphNode) => !tag || n.tags.includes(tag);
-    const filtered = !localRoot && (folder || tag);
-    let shown = graph.nodes.filter(
-      (n) => !n.ghost && (!keep || keep.has(n.id)) && (!filtered || (inFolder(n) && hasTag(n))),
-    );
+    // No active note = nothing to draw (there's no whole-vault view).
+    if (!keep) return { nodes: [], links: [] };
+    let shown = graph.nodes.filter((n) => !n.ghost && keep.has(n.id));
     if (showGhosts) {
       // Ghosts only appear next to a note that's shown.
       const ids = new Set(shown.map((n) => n.id));
       const linked = new Set(graph.edges.filter((e) => ids.has(e.source)).map((e) => e.target));
-      shown = shown.concat(graph.nodes.filter((n) => n.ghost && linked.has(n.id) && (!keep || keep.has(n.id))));
+      shown = shown.concat(graph.nodes.filter((n) => n.ghost && linked.has(n.id) && keep.has(n.id)));
     }
     const ids = new Set(shown.map((n) => n.id));
     const edges = graph.edges.filter((e) => ids.has(e.source) && ids.has(e.target));
     // Lay out once, here, then pin every node (fx/fy) so the widget's own
     // physics has nothing to move. Global view clusters by chapter.
-    const viewKey = localRoot ? `local:${localRoot}:${depth}` : `global:${folder}:${tag}`;
+    const viewKey = `local:${localRoot}:${depth}`;
     const memory = positions.current.get(viewKey) ?? new Map<string, Positioned>();
     bump("graph:layout"); // profiling: how often the (costly) layout runs
-    const placed = layoutGraph(shown, edges, memory, !localRoot);
+    const placed = layoutGraph(shown, edges, memory, false);
     positions.current.set(viewKey, placed);
     const nodes: GNode[] = shown.map((n) => {
       const p = placed.get(n.id)!;
       return { ...n, x: p.x, y: p.y, fx: p.x, fy: p.y };
     });
     return { nodes, links: edges.map((e) => ({ ...e })) };
-  }, [graph, depth, localRoot, showGhosts, neighbours, folder, tag]);
+  }, [graph, depth, localRoot, showGhosts, neighbours]);
 
-  // Choices for the global filters, from the graph data itself.
-  const folderOptions = useMemo(() => {
-    const all = new Set<string>();
-    for (const n of graph.nodes) {
-      // Every ancestor folder too, so "hardware" covers "hardware/cpu".
-      const parts = n.folder ? n.folder.split("/") : [];
-      parts.forEach((_, i) => all.add(parts.slice(0, i + 1).join("/")));
-    }
-    return [...all].sort();
-  }, [graph]);
-  const tagOptions = useMemo(() => [...new Set(graph.nodes.flatMap((n) => n.tags))].sort(), [graph]);
 
   // After new data arrives, fit the view once the simulation has come to
   // rest (see `onEngineStop`), not on a guessed timer.
@@ -206,13 +187,6 @@ export function GraphPanel() {
 
   const hoverSet = hover ? neighbours.get(hover) : undefined;
 
-  // Chapters in the drawn data (for colours and the legend). Only the
-  // global view colours by chapter; local view is small enough without.
-  const clusters = useMemo(
-    () => [...new Set(data.nodes.filter((n) => !n.ghost).map((n) => topFolder(n.folder)).filter(Boolean))].sort(),
-    [data],
-  );
-  const colorByChapter = !localRoot && clusters.length > 1;
 
   /** Zooms by a factor around the centre, animated briefly. */
   const zoomBy = (factor: number) => {
@@ -245,7 +219,7 @@ export function GraphPanel() {
       ctx.lineWidth = 1 / scale;
       ctx.stroke();
     } else {
-      const base = colorByChapter ? clusterColor(clusters, topFolder(node.folder)) : colors.muted;
+      const base = colors.muted;
       ctx.fillStyle = isHover ? colors.fg : base;
       ctx.fill();
     }
@@ -267,15 +241,7 @@ export function GraphPanel() {
     <div className="flex h-full flex-col">
       <div className="shrink-0 space-y-2 border-b border-line px-4 py-2.5 text-[12px]">
         <div className="flex items-center gap-2">
-          <Segmented
-            value={local ? "local" : "global"}
-            options={[
-              { id: "local", label: "Local", disabled: !active, title: "The active note and its neighbours" },
-              { id: "global", label: "Global", title: "Every note in the vault" },
-            ]}
-            onChange={(v) => setGraphPrefs({ mode: v })}
-          />
-          {local && (
+          {localRoot && (
             // Depth slider: how many links away from the active note.
             <label className="flex items-center gap-2 text-muted" title="How many links away from the active note">
               Depth
@@ -305,28 +271,6 @@ export function GraphPanel() {
             {data.nodes.length} · {data.links.length}
           </span>
         </div>
-        {!local && (
-          // Global view filters.
-          <div className="flex items-center gap-2">
-            <FilterSelect
-              label="Folder"
-              value={folder}
-              options={folderOptions}
-              // Indent nested folders with non-breaking spaces (plain ones collapse).
-              format={(f) => `${"\u00a0\u00a0".repeat(f.split("/").length - 1)}${f.split("/").pop()}`}
-              onChange={(v) => setGraphPrefs({ folder: v })}
-            />
-            <FilterSelect label="Tag" value={tag} options={tagOptions} format={(t) => `#${t}`} onChange={(v) => setGraphPrefs({ tag: v })} />
-            {(folder || tag) && (
-              <button
-                onClick={() => setGraphPrefs({ folder: "", tag: "" })}
-                className="rounded-md px-2 py-[3px] text-muted transition-colors hover:bg-hover hover:text-fg"
-              >
-                Clear
-              </button>
-            )}
-          </div>
-        )}
       </div>
       {/* `relative` box measured by the ResizeObserver; the canvas lives in an
           absolute layer inside it so it can't affect the box's size. */}
@@ -356,16 +300,10 @@ export function GraphPanel() {
             <Maximize size={14} />
           </ZoomButton>
         </div>
-        {/* Chapter colour legend (global view only). */}
-        {colorByChapter && (
-          <div className="absolute bottom-3 left-3 z-10 flex max-w-[60%] flex-wrap gap-x-3 gap-y-1 rounded-lg border border-line bg-btn/90 px-3 py-2 text-[11px] text-fg/75">
-            {clusters.map((c) => (
-              <span key={c} className="flex items-center gap-1.5">
-                <span className="h-2 w-2 rounded-full" style={{ background: clusterColor(clusters, c) }} />
-                {c}
-              </span>
-            ))}
-          </div>
+        {!localRoot && (
+          <p className="absolute inset-x-0 top-1/3 z-10 px-6 text-center text-[13px] text-muted/60">
+            Open a note to see how it connects to others.
+          </p>
         )}
         <div className="absolute inset-0">
           <ForceGraph2D<GraphNode, { source: string; target: string }>
@@ -430,38 +368,5 @@ function ZoomButton({ title, onClick, children }: { title: string; onClick: () =
     >
       {children}
     </button>
-  );
-}
-
-/** A compact labelled <select> for the global view's filters ("" = all). */
-function FilterSelect({
-  label,
-  value,
-  options,
-  format,
-  onChange,
-}: {
-  label: string;
-  value: string;
-  options: string[];
-  format: (v: string) => string;
-  onChange: (v: string) => void;
-}) {
-  return (
-    <label className="flex min-w-0 flex-1 items-center gap-1.5 text-muted">
-      {label}
-      <select
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        className="btn-soft min-w-0 flex-1 rounded-md px-1.5 py-[3px] text-[12px] outline-none"
-      >
-        <option value="">All</option>
-        {options.map((o) => (
-          <option key={o} value={o}>
-            {format(o)}
-          </option>
-        ))}
-      </select>
-    </label>
   );
 }
