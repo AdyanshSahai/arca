@@ -61,6 +61,7 @@ pub fn run() {
             commands::create_folder,
             commands::rename_entry,
             commands::trash_entry,
+            commands::set_order,
             commands::list_trash,
             commands::restore_trash,
             commands::delete_trash,

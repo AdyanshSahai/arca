@@ -61,6 +61,14 @@ pub fn sanitize_file_name(name: &str) -> String {
 /// File extensions treated as notes.
 const NOTE_EXTENSIONS: &[&str] = &["md", "markdown"];
 
+/// Custom order of folders' children (drag-to-reorder in the tree):
+/// `{ "<folder path>": ["child name", …] }`, "" being the vault root.
+/// Children not listed follow in the default order (folders first, A–Z).
+const ORDER_FILE: &str = ".arca/order.json";
+
+/// A folder path → its children's names in the user's order.
+pub type OrderMap = std::collections::BTreeMap<String, Vec<String>>;
+
 /// File inside `.trash/` mapping each trashed item to where it came from.
 const TRASH_INDEX: &str = ".index.json";
 
@@ -228,7 +236,8 @@ impl Vault {
 
     /// Builds the whole chapter tree (folders mirror real directories).
     pub fn tree(&self) -> Result<TreeNode> {
-        let mut root = self.tree_at(&self.root)?;
+        let order = self.order();
+        let mut root = self.tree_at(&self.root, &order)?;
         // Show the vault folder's own name at the top instead of "".
         root.name = self
             .root
@@ -239,7 +248,7 @@ impl Vault {
     }
 
     /// Recursive helper for [`Self::tree`].
-    fn tree_at(&self, dir: &Path) -> Result<TreeNode> {
+    fn tree_at(&self, dir: &Path, order: &OrderMap) -> Result<TreeNode> {
         let mut children = Vec::new();
         for entry in fs::read_dir(dir)? {
             let entry = entry?;
@@ -251,7 +260,7 @@ impl Vault {
             // `file_type()` does not follow symlinks; `path.is_dir()` does,
             // so linked folders still show up as folders.
             if path.is_dir() {
-                children.push(self.tree_at(&path)?);
+                children.push(self.tree_at(&path, order)?);
             } else {
                 children.push(TreeNode {
                     is_note: is_note_path(&path),
@@ -282,12 +291,17 @@ impl Vault {
             children[i].note_path = Some(note.clone());
             children.retain(|c| c.path != note);
         }
-        // Folders first, then case-insensitive alphabetical order.
+        // Folders first, then case-insensitive alphabetical order…
         children.sort_by(|a, b| {
             b.is_dir
                 .cmp(&a.is_dir)
                 .then_with(|| a.name.to_lowercase().cmp(&b.name.to_lowercase()))
         });
+        // …unless the user arranged this folder: listed names come first, in
+        // their order, then everything else as above (the sort is stable).
+        if let Some(list) = order.get(&self.relativize(dir).unwrap_or_default()) {
+            children.sort_by_key(|c| list.iter().position(|n| *n == c.name).unwrap_or(usize::MAX));
+        }
         let name = dir
             .file_name()
             .map(|n| n.to_string_lossy().into_owned())
@@ -422,7 +436,66 @@ impl Vault {
             fs::create_dir_all(parent)?;
         }
         fs::rename(src, dst)?;
+        self.follow_rename_in_order(from, to)?;
         Ok(())
+    }
+
+    /// The custom tree order (empty if never arranged or unreadable).
+    pub fn order(&self) -> OrderMap {
+        fs::read_to_string(self.root.join(ORDER_FILE))
+            .ok()
+            .and_then(|t| serde_json::from_str(&t).ok())
+            .unwrap_or_default()
+    }
+
+    fn save_order(&self, order: &OrderMap) -> Result<()> {
+        let path = self.root.join(ORDER_FILE);
+        if let Some(parent) = path.parent() {
+            fs::create_dir_all(parent)?;
+        }
+        let json = serde_json::to_string_pretty(order).map_err(|e| std::io::Error::other(e.to_string()))?;
+        fs::write(path, json)?;
+        Ok(())
+    }
+
+    /// Sets the order of `dir`'s children (names, not paths).
+    pub fn set_order(&self, dir: &str, names: Vec<String>) -> Result<()> {
+        if !dir.is_empty() {
+            self.resolve(dir)?; // validate: no escaping the vault
+        }
+        let mut order = self.order();
+        order.insert(dir.to_string(), names);
+        self.save_order(&order)
+    }
+
+    /// Keeps the custom order in step with a rename/move: within the same
+    /// folder the entry keeps its place under its new name; moved elsewhere
+    /// it leaves the old list. A renamed folder's own list moves with it.
+    fn follow_rename_in_order(&self, from: &str, to: &str) -> Result<()> {
+        let mut order = self.order();
+        if order.is_empty() {
+            return Ok(());
+        }
+        let (from_dir, from_name) = from.rsplit_once('/').unwrap_or(("", from));
+        let (to_dir, to_name) = to.rsplit_once('/').unwrap_or(("", to));
+        if let Some(list) = order.get_mut(from_dir) {
+            if let Some(i) = list.iter().position(|n| n == from_name) {
+                if from_dir == to_dir {
+                    list[i] = to_name.to_string();
+                } else {
+                    list.remove(i);
+                }
+            }
+        }
+        // The folder's (and its sub-folders') lists follow it.
+        let moved: Vec<(String, Vec<String>)> = order
+            .iter()
+            .filter(|(k, _)| *k == from || k.starts_with(&format!("{from}/")))
+            .map(|(k, v)| (format!("{to}{}", &k[from.len()..]), v.clone()))
+            .collect();
+        order.retain(|k, _| !(k == from || k.starts_with(&format!("{from}/"))));
+        order.extend(moved);
+        self.save_order(&order)
     }
 
     /// Saves an attachment for the note at `note_rel` into the note's folder's
@@ -717,6 +790,25 @@ mod tests {
         v.delete_trash(&again).unwrap();
         assert!(v.list_trash().unwrap().is_empty());
         assert!(v.delete_trash(".trash/../hw/ram.md").is_err());
+    }
+
+    #[test]
+    fn custom_order_is_applied_and_follows_renames() {
+        let (_d, v) = vault();
+        for n in ["a.md", "b.md", "c.md", "sub/x.md"] {
+            v.create_note(n).unwrap();
+        }
+        let names = |t: &TreeNode| t.children.iter().map(|c| c.name.clone()).collect::<Vec<_>>();
+        assert_eq!(names(&v.tree().unwrap()), vec!["sub", "a.md", "b.md", "c.md"]);
+        // Arranged: c before a; unlisted entries follow in the default order.
+        v.set_order("", vec!["c.md".into(), "a.md".into()]).unwrap();
+        assert_eq!(names(&v.tree().unwrap()), vec!["c.md", "a.md", "sub", "b.md"]);
+        // A rename keeps the slot; a move elsewhere leaves the list.
+        v.rename("c.md", "z.md").unwrap();
+        assert_eq!(names(&v.tree().unwrap()), vec!["z.md", "a.md", "sub", "b.md"]);
+        v.rename("z.md", "sub/z.md").unwrap();
+        assert_eq!(v.order()[""], vec!["a.md"]);
+        assert!(v.set_order("../x", vec![]).is_err());
     }
 
     #[test]

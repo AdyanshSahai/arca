@@ -194,6 +194,13 @@ pub async fn rename_entry(state: State<'_, AppState>, from: String, to: String) 
     state.with_ws_mut(|ws| Ok(ws.rename(&from, &to)?))
 }
 
+/// Sets the custom order of a folder's children ("" = vault root).
+#[tauri::command]
+pub async fn set_order(state: State<'_, AppState>, dir: String, names: Vec<String>) -> CmdResult<()> {
+    let _t = timed("set_order");
+    state.with_ws(|ws| Ok(ws.vault().set_order(&dir, names)?))
+}
+
 /// Everything in the vault's trash, newest first.
 #[tauri::command]
 pub async fn list_trash(state: State<'_, AppState>) -> CmdResult<Vec<TrashEntry>> {
