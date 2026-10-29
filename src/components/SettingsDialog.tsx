@@ -9,7 +9,8 @@
 import { Keyboard, LayoutPanelLeft, Palette, Save, X } from "lucide-react";
 import { useEffect, useState } from "react";
 import { errorMessage, ipc } from "../lib/ipc";
-import { THEMES } from "../lib/themes";
+import { PALETTE_KEYS, PALETTE_LABELS, paletteFor, THEMES } from "../lib/themes";
+import { ThemeCard } from "./ui/ThemeCard";
 import { useBuffers } from "../store/buffers";
 import { type Prefs, useUi } from "../store/ui";
 import { Segmented } from "./ui/Segmented";
@@ -139,40 +140,68 @@ function Heading({ title, subtitle }: { title: string; subtitle?: string }) {
 }
 
 function Appearance({ prefs, setPrefs }: SectionProps) {
+  const custom = paletteFor("custom", prefs.customColors ?? paletteFor(prefs.theme === "custom" ? "twilight" : prefs.theme));
   return (
     <>
-      <Heading title="Colour scheme" subtitle="Applies instantly to the whole app." />
-      <div className="grid grid-cols-2 gap-3">
-        {THEMES.map((t) => {
-          const v = t.vars;
-          const on = prefs.theme === t.id;
-          return (
-            <button
-              key={t.id}
-              onClick={() => setPrefs({ theme: t.id })}
-              aria-pressed={on}
-              className={`overflow-hidden rounded-lg border text-left transition-colors ${
-                on ? "border-accent" : "border-line-strong hover:border-muted"
-              }`}
-            >
-              {/* A tiny mock window in the theme's own colours. */}
-              <div className="flex h-20" style={{ background: v["--bg-normal"] }}>
-                <div className="w-7" style={{ background: v["--bg-alternate"] }} />
-                <div className="flex flex-1 flex-col gap-1.5 p-2.5">
-                  <div className="h-2 w-16 rounded-full" style={{ background: v["--accent-magenta"] }} />
-                  <div className="h-1.5 w-28 rounded-full" style={{ background: v["--fg-normal"], opacity: 0.8 }} />
-                  <div className="h-1.5 w-20 rounded-full" style={{ background: v["--fg-inactive"] }} />
-                  <div className="mt-auto h-3 w-12 rounded" style={{ background: v["--bg-button"], border: `1px solid ${v["--line-strong"]}` }} />
-                </div>
-              </div>
-              <div className="flex items-center justify-between px-3 py-2 text-[13px]">
-                <span className="text-fg">{t.name}</span>
-                {on && <span className="text-[11px] text-accent">Current</span>}
-              </div>
-            </button>
-          );
-        })}
+      <Heading title="Colour scheme" subtitle="Applies instantly. A scheme is 8 colours; borders and highlights are worked out from them." />
+      <div className="grid grid-cols-3 gap-3">
+        {THEMES.map((t) => (
+          <ThemeCard
+            key={t.id}
+            name={t.name}
+            palette={t.palette}
+            selected={prefs.theme === t.id}
+            onClick={() => setPrefs({ theme: t.id })}
+          />
+        ))}
+        <ThemeCard
+          name="Custom"
+          palette={custom}
+          selected={prefs.theme === "custom"}
+          // Starting a custom scheme copies the current preset's colours.
+          onClick={() => setPrefs({ theme: "custom", customColors: custom })}
+        />
       </div>
+
+      {prefs.theme === "custom" && (
+        <div className="mt-6">
+          <div className="mb-3 flex items-center gap-3">
+            <span className="text-[13px] font-medium text-fg">Your colours</span>
+            <select
+              defaultValue=""
+              onChange={(e) => {
+                const t = THEMES.find((x) => x.id === e.target.value);
+                if (t) setPrefs({ customColors: { ...t.palette } });
+                e.target.value = "";
+              }}
+              className="btn-soft rounded-md px-2 py-1 text-[12px] outline-none"
+            >
+              <option value="">Start from a preset…</option>
+              {THEMES.map((t) => (
+                <option key={t.id} value={t.id}>
+                  {t.name}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div className="grid grid-cols-2 gap-x-6 gap-y-2.5">
+            {PALETTE_KEYS.map((k) => (
+              <label key={k} className="flex items-center justify-between gap-3 text-[13px] text-fg/85">
+                {PALETTE_LABELS[k]}
+                <span className="flex items-center gap-2">
+                  <span className="font-mono text-[11px] text-muted">{custom[k]}</span>
+                  <input
+                    type="color"
+                    value={custom[k]}
+                    onChange={(e) => setPrefs({ customColors: { ...custom, [k]: e.target.value } })}
+                    className="h-7 w-9 cursor-pointer rounded border border-line-strong bg-transparent"
+                  />
+                </span>
+              </label>
+            ))}
+          </div>
+        </div>
+      )}
     </>
   );
 }

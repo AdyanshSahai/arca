@@ -162,7 +162,7 @@ Open Settings with `Ctrl+,` or the gear at the bottom of the left rail. Changes 
 
 | Setting | Options | Default |
 | --- | --- | --- |
-| Colour scheme | TwilightPixel, Midnight, Rosewood, Forest | TwilightPixel |
+| Colour scheme | TwilightPixel, Midnight, Rosewood, Forest, Ember, Paper (light), or Custom (pick all 8 colours yourself) | TwilightPixel |
 | Autosave | On (writes shortly after you stop typing and when Arca loses focus), or off (save with `Ctrl+S`; Arca asks before closing with unsaved notes) | On |
 | Version history | Snapshots of your notes every few minutes with built-in git, browsable in the Time Machine; optional push to a backup remote | Off |
 | Views (graph, search…) open | In the sidebar, or ask every time | Sidebar |

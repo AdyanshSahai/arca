@@ -34,6 +34,17 @@
   --hover: #1d1133; /* row / button hover */
   --accent-soft: rgb(255 191 255 / 0.12); /* tinted backgrounds for active items */
 
+  /* Syntax colours (overridden per scheme by lib/themes.ts). */
+  --tok-strong: var(--fg-normal);
+  --tok-code: #d8c2ff;
+  --tok-meta: #6d4f80;
+  --tok-keyword: var(--accent-magenta);
+  --tok-string: #b5e8c8;
+  --tok-number: #f0cf8a;
+  --tok-function: #9db8ff;
+  --tok-type: #e8a7ff;
+  --tok-property: #cfd9ff;
+
   /* Post-it colours; the `color=` attribute picks one. */
   --postit-purple: #bc8bca;
   --postit-magenta: #ffbfff;

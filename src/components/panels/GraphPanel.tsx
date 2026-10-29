@@ -66,7 +66,7 @@ export function GraphPanel() {
   const box = useRef<HTMLDivElement>(null);
   const fg = useRef<ForceGraphMethods<GNode, GLink>>(undefined);
   // Canvas colours come from CSS variables, so re-read them on theme change.
-  const theme = useUi((s) => s.prefs.theme);
+  const theme = useUi((s) => `${s.prefs.theme}:${JSON.stringify(s.prefs.customColors)}`);
   const colors = useMemo(palette, [theme]);
 
   // Refetch the graph whenever the vault changes. Most saves don't change

@@ -2,7 +2,7 @@
 // requests sent from keyboard shortcuts to the search panel.
 
 import { create } from "zustand";
-import { applyTheme, type ThemeId } from "../lib/themes";
+import { applyPalette, type Palette, paletteFor, type ThemeId } from "../lib/themes";
 
 /** The five drawer panels reachable from the left action rail. */
 export type PanelId = "tree" | "graph" | "search" | "backlinks" | "postits";
@@ -14,7 +14,10 @@ export type SearchMode = "files" | "text" | "topic";
 
 /** User preferences, edited in the Settings dialog and saved with the layout. */
 export interface Prefs {
-  theme: ThemeId;
+  /** A preset scheme, or "custom" (the colours in `customColors`). */
+  theme: ThemeId | "custom";
+  /** The user's own 8 colours (Settings → Appearance → Custom). */
+  customColors: Partial<Palette> | null;
   /**
    * Autosave (default on): notes are written to disk shortly after you stop
    * typing, and whenever the window loses focus. Off: save with Ctrl+S;
@@ -40,6 +43,7 @@ export interface Prefs {
 
 export const DEFAULT_PREFS: Prefs = {
   theme: "twilight",
+  customColors: null,
   autosave: true,
   history: false,
   historyAutoPush: false,
@@ -256,7 +260,7 @@ export const useUi = create<UiState>((set, get) => ({
   cancelPaneChoice: () => set({ paneChoice: null }),
   setPrefs: (patch) => {
     const prefs = { ...get().prefs, ...patch };
-    if (patch.theme) applyTheme(patch.theme);
+    if (patch.theme || patch.customColors) applyPalette(paletteFor(prefs.theme, prefs.customColors));
     set({ prefs });
   },
   toggleReading: () => set({ reading: !get().reading }),

@@ -81,7 +81,8 @@ export const editorTheme = EditorView.theme(
 export const highlightStyle = HighlightStyle.define([
   { tag: t.heading, color: "var(--fg-normal)", fontWeight: "700" },
   { tag: t.heading1, color: "var(--accent-magenta)" },
-  { tag: t.strong, fontWeight: "700", color: "#ffffff" },
+  // Token colours are CSS variables (see lib/themes.ts) so light themes work.
+  { tag: t.strong, fontWeight: "700", color: "var(--tok-strong)" },
   { tag: t.emphasis, fontStyle: "italic" },
   { tag: t.strikethrough, textDecoration: "line-through", color: "var(--fg-inactive)" },
   { tag: t.link, color: "var(--accent-magenta)" },
@@ -90,7 +91,7 @@ export const highlightStyle = HighlightStyle.define([
   // Inline `code` is the one place notes use a monospace face.
   {
     tag: t.monospace,
-    color: "#d8c2ff",
+    color: "var(--tok-code)",
     backgroundColor: "var(--bg-alternate)",
     fontFamily: "var(--font-mono)",
     fontSize: "0.9em",
@@ -98,16 +99,16 @@ export const highlightStyle = HighlightStyle.define([
     padding: "1px 3px",
   },
   // Markdown punctuation (#, *, >, ``` …): visible in raw mode but quiet.
-  { tag: [t.processingInstruction, t.meta, t.contentSeparator], color: "#6d4f80" },
-  { tag: t.comment, color: "#6d4f80", fontStyle: "italic" },
+  { tag: [t.processingInstruction, t.meta, t.contentSeparator], color: "var(--tok-meta)" },
+  { tag: t.comment, color: "var(--tok-meta)", fontStyle: "italic" },
   { tag: t.list, color: "var(--fg-normal)" },
   // Tokens inside fenced code blocks (via @codemirror/language-data).
-  { tag: t.keyword, color: "#ffbfff" },
-  { tag: [t.string, t.special(t.string)], color: "#b5e8c8" },
-  { tag: [t.number, t.bool, t.null], color: "#f0cf8a" },
-  { tag: [t.function(t.variableName), t.function(t.propertyName)], color: "#9db8ff" },
-  { tag: [t.typeName, t.className], color: "#e8a7ff" },
+  { tag: t.keyword, color: "var(--tok-keyword)" },
+  { tag: [t.string, t.special(t.string)], color: "var(--tok-string)" },
+  { tag: [t.number, t.bool, t.null], color: "var(--tok-number)" },
+  { tag: [t.function(t.variableName), t.function(t.propertyName)], color: "var(--tok-function)" },
+  { tag: [t.typeName, t.className], color: "var(--tok-type)" },
   { tag: t.variableName, color: "var(--fg-normal)" },
-  { tag: t.propertyName, color: "#cfd9ff" },
+  { tag: t.propertyName, color: "var(--tok-property)" },
   { tag: t.operator, color: "var(--fg-inactive)" },
 ]);
