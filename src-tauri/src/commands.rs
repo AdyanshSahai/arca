@@ -168,12 +168,32 @@ pub async fn read_note(state: State<'_, AppState>, path: String) -> CmdResult<St
 }
 
 #[tauri::command]
-pub async fn write_note(state: State<'_, AppState>, path: String, content: String) -> CmdResult<()> {
+pub async fn write_note(
+    state: State<'_, AppState>,
+    path: String,
+    content: String,
+    expected: Option<String>,
+) -> CmdResult<()> {
     let _t = timed("write_note");
-    // Marked *before* writing: the watcher may fire before we return.
-    state.mark_written(&path);
-    state.with_ws_mut(|ws| Ok(ws.write_note(&path, &content)?))
+    state.with_ws_mut(|ws| {
+        // `expected` is the text the editor last read from / wrote to disk.
+        // If the file now holds something else, another program changed it
+        // since: refuse, so the frontend can ask instead of overwriting.
+        if let Some(expected) = &expected {
+            if let Ok(disk) = ws.read_note(&path) {
+                if &disk != expected {
+                    return Err(CmdError(format!("{CONFLICT_PREFIX}{path}")));
+                }
+            }
+        }
+        // Marked *before* writing: the watcher may fire before we return.
+        state.mark_written(&path, &content);
+        Ok(ws.write_note(&path, &content)?)
+    })
 }
+
+/// Error prefix for a write refused because the file changed on disk.
+const CONFLICT_PREFIX: &str = "changed on disk: ";
 
 /// Creates a note; returns its final path (".md" appended if missing).
 #[tauri::command]
@@ -313,8 +333,13 @@ pub async fn update_postit(
     color: Option<String>,
 ) -> CmdResult<String> {
     let _t = timed("update_postit");
-    state.mark_written(&path);
-    state.with_ws_mut(|ws| Ok(ws.update_postit(&path, &id, &text, color.as_deref())?))
+    state.with_ws_mut(|ws| {
+        let text = ws.update_postit(&path, &id, &text, color.as_deref())?;
+        // Marked after the write (the new text isn't known before); the
+        // watcher's debounce leaves plenty of time for it.
+        state.mark_written(&path, &text);
+        Ok(text)
+    })
 }
 
 /// Returns a fresh post-it block (with a new id) for the editor to insert.
@@ -598,7 +623,7 @@ pub async fn create_from_template(state: State<'_, AppState>, path: String, cont
     let _t = timed("create_from_template");
     state.with_ws_mut(|ws| {
         let created = ws.create_note(&path)?;
-        state.mark_written(&created);
+        state.mark_written(&created, &content);
         ws.write_note(&created, &content)?;
         Ok(created)
     })

@@ -68,10 +68,11 @@ pub fn start(app: AppHandle, root: &Path) -> notify::Result<VaultWatcher> {
             .iter()
             .filter(|ev| is_change(&ev.kind))
             .flat_map(|ev| ev.paths.iter())
-            .filter_map(|p| vault.relativize(p))
-            .filter(|rel| !rel.is_empty() && !Vault::is_hidden_rel(rel))
+            .filter_map(|p| Some((vault.relativize(p)?, p)))
+            .filter(|(rel, _)| !rel.is_empty() && !Vault::is_hidden_rel(rel))
             // Our own autosaves were already indexed by `write_note`.
-            .filter(|rel| !state.was_self_written(rel))
+            .filter(|(rel, abs)| !state.was_self_written(rel, abs))
+            .map(|(rel, _)| rel)
             .collect();
         changed.sort();
         changed.dedup();

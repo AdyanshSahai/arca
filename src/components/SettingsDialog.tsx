@@ -211,6 +211,20 @@ function Saving({ prefs, setPrefs }: SectionProps) {
           }}
         />
 
+        <div className="mt-7 mb-1 font-medium text-fg">Notes changed by other programs</div>
+        <p className="mb-2.5 text-[12px] text-muted/75">
+          When another app (a text editor, a sync tool…) changes an open note. If you also have unsaved edits in it,
+          Arca always asks first.
+        </p>
+        <Segmented
+          value={prefs.autoReload ? "reload" : "ask"}
+          options={[
+            { id: "ask", label: "Ask with a banner" },
+            { id: "reload", label: "Reload automatically" },
+          ]}
+          onChange={(v) => setPrefs({ autoReload: v === "reload" })}
+        />
+
         <div className="mt-7 mb-1 font-medium text-fg">Version history</div>
         <p className="mb-2.5 text-[12px] text-muted/75">
           Every few minutes Arca quietly snapshots your notes (not attachments) with git, built in, so you can go back

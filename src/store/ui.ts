@@ -33,6 +33,12 @@ export interface Prefs {
    * walkthrough or Settings → Saving.
    */
   history: boolean;
+  /**
+   * A note changed by another program while it has no unsaved edits in
+   * Arca: reload it silently (on), or ask with the banner (off). With
+   * unsaved edits Arca always asks.
+   */
+  autoReload: boolean;
   /** Push history to the backup remote after each snapshot. */
   historyAutoPush: boolean;
   /** The first-run walkthrough has been completed (or skipped). */
@@ -54,6 +60,7 @@ export const DEFAULT_PREFS: Prefs = {
   customColors: null,
   autosave: true,
   history: false,
+  autoReload: false,
   historyAutoPush: false,
   onboarded: false,
   notePlacement: "ask-split",

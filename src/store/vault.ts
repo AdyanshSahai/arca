@@ -142,6 +142,11 @@ export const useVault = create<VaultState>((set, get) => ({
         if (next) useBuffers.getState().rename(p, next);
       }
       useLayout.getState().remap(from, to);
+      // Open notes whose [[links]] the rename just fixed take the new text
+      // now, before the file watcher reports it as an outside change.
+      for (const p of Object.keys(useBuffers.getState().buffers)) {
+        await useBuffers.getState().reloadFromDisk(p, { ours: true });
+      }
       // Pins pointing at (or into) the moved entry follow it too.
       const pins = get().pins.map((pin) => {
         const next = remapPath(pin.path, from, to);

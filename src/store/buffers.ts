@@ -30,7 +30,22 @@ export interface Buffer {
    * replace their document instead of treating it as their own keystroke.
    */
   externalRev: number;
+  /**
+   * The file changed on disk (another program) and Arca hasn't decided
+   * what to do yet: this is the disk's text. While set, nothing is saved
+   * and the pane shows the "changed on disk" banner (ConflictBanner).
+   */
+  conflict?: string;
 }
+
+/** How a "changed on disk" conflict is settled (see ConflictBanner). */
+export type ConflictChoice =
+  /** Take the disk version; unsaved edits in Arca are dropped. */
+  | "reload"
+  /** Write Arca's version over the disk version. */
+  | "mine"
+  /** Save the disk version as a separate "(conflict …)" note; Arca's version stays. */
+  | "both";
 
 interface BufferState {
   buffers: Record<string, Buffer>;
@@ -47,19 +62,22 @@ interface BufferState {
   /** Writes one buffer now if it is dirty. */
   flush: (path: string) => Promise<void>;
   flushAll: () => Promise<void>;
-  /** Re-reads a file after the watcher reported an outside change. */
-  reloadFromDisk: (path: string) => Promise<void>;
+  /**
+   * Re-reads a file after it changed on disk. With `ours`, Arca itself made
+   * the change (link fixes after a rename, a Time Machine restore), so a
+   * note without unsaved edits just takes the new text, no banner.
+   */
+  reloadFromDisk: (path: string, opts?: { ours?: boolean }) => Promise<void>;
   /** Moves a buffer to a new key after a rename. */
   rename: (from: string, to: string) => void;
+  /** Settles a "changed on disk" conflict. */
+  resolveConflict: (path: string, choice: ConflictChoice) => Promise<void>;
   /** Forgets buffers whose path isn't in `keep` (flushing them first). */
   retainOnly: (keep: Set<string>) => void;
 }
 
 /** Pending autosave timers, by path. Kept outside the store: not UI state. */
 const timers = new Map<string, number>();
-
-/** Notes with a conflict prompt already open (so one change = one prompt). */
-const conflicts = new Set<string>();
 
 /** "notes/cpu.md" → "notes/cpu (conflict 2026-10-29 1405).md" */
 function conflictPath(path: string): string {
@@ -68,68 +86,6 @@ function conflictPath(path: string): string {
   const stamp = `${d.getFullYear()}-${two(d.getMonth() + 1)}-${two(d.getDate())} ${two(d.getHours())}${two(d.getMinutes())}`;
   const dot = path.lastIndexOf(".");
   return dot > path.lastIndexOf("/") ? `${path.slice(0, dot)} (conflict ${stamp})${path.slice(dot)}` : `${path} (conflict ${stamp})`;
-}
-
-/**
- * A note changed on disk (another app, a sync tool…) while it had unsaved
- * edits in Arca. Instead of silently keeping one side, ask:
- *  - Keep both: the disk version is saved as a separate "(conflict …)" note
- *    next to it, and your version stays in the original.
- *  - Use the disk version: your unsaved edits are dropped.
- *  - Keep mine: your version overwrites the disk copy now.
- */
-function askAboutConflict(path: string, disk: string) {
-  if (conflicts.has(path)) return;
-  conflicts.add(path);
-  // Stop any pending autosave until the user decides.
-  window.clearTimeout(timers.get(path));
-  timers.delete(path);
-  const store = useBuffers.getState();
-  const done = () => conflicts.delete(path);
-  useUi.getState().openDialog({
-    kind: "choice",
-    title: "Note changed on disk",
-    message: `“${path}” was changed outside Arca while you had unsaved edits in it. Which version do you want?`,
-    dismissable: false, // an unanswered conflict would silently pick a side
-    choices: [
-      {
-        label: "Use the disk version",
-        onSelect: () => {
-          done();
-          store.replace(path, disk, true);
-        },
-      },
-      {
-        label: "Keep both",
-        onSelect: async () => {
-          done();
-          const copy = conflictPath(path);
-          try {
-            await ipc.writeNote(copy, disk);
-            useUi.getState().toast(`Saved the disk version as ${copy}`);
-          } catch (err) {
-            useUi.getState().toast(`Couldn't save the other version: ${errorMessage(err)}`, "error");
-            return;
-          }
-          // Yours wins in the original file.
-          const b = useBuffers.getState().buffers[path];
-          if (b) useBuffers.setState({ buffers: { ...useBuffers.getState().buffers, [path]: { ...b, saved: disk } } });
-          await useBuffers.getState().flush(path);
-          window.dispatchEvent(new Event("arca:files-created")); // refresh the tree
-        },
-      },
-      {
-        label: "Keep mine",
-        tone: "primary",
-        onSelect: async () => {
-          done();
-          const b = useBuffers.getState().buffers[path];
-          if (b) useBuffers.setState({ buffers: { ...useBuffers.getState().buffers, [path]: { ...b, saved: disk } } });
-          await useBuffers.getState().flush(path);
-        },
-      },
-    ],
-  });
 }
 
 export const useBuffers = create<BufferState>((set, get) => {
@@ -193,17 +149,28 @@ export const useBuffers = create<BufferState>((set, get) => {
       window.clearTimeout(timers.get(path));
       timers.delete(path);
       const buf = get().buffers[path];
-      if (!buf || !buf.loaded || buf.error || buf.content === buf.saved) return;
+      // An unsettled conflict blocks saving until the user picks a side.
+      if (!buf || !buf.loaded || buf.error || buf.conflict !== undefined || buf.content === buf.saved) return;
       const content = buf.content;
       try {
-        await ipc.writeNote(path, content);
+        // Rust refuses the write if the file no longer holds `saved`, i.e.
+        // another program changed it since we last read or wrote it. A
+        // not-yet-written folder note has nothing to compare against.
+        await ipc.writeNote(path, content, buf.missing ? undefined : buf.saved);
         // Only mark what we actually wrote as saved: typing may have continued.
         patch(path, { saved: content, missing: false });
         // A brand-new file (first save of a folder note) changes the tree.
         // The watcher ignores our own writes, so announce it ourselves.
         if (buf.missing) window.dispatchEvent(new Event("arca:files-created"));
       } catch (err) {
-        useUi.getState().toast(`Save failed: ${errorMessage(err)}`, "error");
+        const message = errorMessage(err);
+        if (message.startsWith("changed on disk")) {
+          // Show the banner with the disk's current text.
+          const disk = await ipc.readNote(path).catch(() => null);
+          if (disk !== null) patch(path, { conflict: disk });
+          return;
+        }
+        useUi.getState().toast(`Save failed: ${message}`, "error");
       }
     },
 
@@ -211,7 +178,7 @@ export const useBuffers = create<BufferState>((set, get) => {
       await Promise.all(Object.keys(get().buffers).map((p) => get().flush(p)));
     },
 
-    reloadFromDisk: async (path) => {
+    reloadFromDisk: async (path, opts) => {
       const buf = get().buffers[path];
       if (!buf || !buf.loaded) return;
       let disk: string;
@@ -222,15 +189,54 @@ export const useBuffers = create<BufferState>((set, get) => {
         return;
       }
       const current = get().buffers[path];
-      if (!current || disk === current.saved) return; // nothing new on disk
-      if (current.content === current.saved) {
-        // Clean buffer: just take the disk version.
-        patch(path, { content: disk, saved: disk, externalRev: current.externalRev + 1 });
-      } else {
-        // Dirty buffer and the file changed underneath: a real conflict.
-        // Hold off saving and let the user decide.
-        askAboutConflict(path, disk);
+      if (!current) return;
+      if (disk === current.saved) {
+        // The file is back to what we know (e.g. the other program undid
+        // its change): any open banner no longer applies.
+        if (current.conflict !== undefined) patch(path, { conflict: undefined });
+        return;
       }
+      if (disk === current.content) {
+        // The disk now matches what's on screen: nothing to decide.
+        patch(path, { saved: disk, conflict: undefined });
+        return;
+      }
+      if (current.content === current.saved && (opts?.ours || useUi.getState().prefs.autoReload)) {
+        // No unsaved edits, and the change was Arca's own or the user chose
+        // to always reload.
+        patch(path, { content: disk, saved: disk, conflict: undefined, externalRev: current.externalRev + 1 });
+        return;
+      }
+      // Ask with the banner (see ConflictBanner); hold any pending autosave.
+      window.clearTimeout(timers.get(path));
+      timers.delete(path);
+      patch(path, { conflict: disk });
+    },
+
+    resolveConflict: async (path, choice) => {
+      const buf = get().buffers[path];
+      if (!buf || buf.conflict === undefined) return;
+      const disk = buf.conflict;
+      if (choice === "reload") {
+        patch(path, { content: disk, saved: disk, conflict: undefined, externalRev: buf.externalRev + 1 });
+        return;
+      }
+      if (choice === "both") {
+        const copy = conflictPath(path);
+        try {
+          await ipc.writeNote(copy, disk);
+          useUi.getState().toast(`Saved the other version as ${copy}`);
+          window.dispatchEvent(new Event("arca:files-created")); // refresh the tree
+        } catch (err) {
+          useUi.getState().toast(`Couldn't save the other version: ${errorMessage(err)}`, "error");
+          return;
+        }
+      }
+      // "mine" and "both": Arca's text wins in the original file. Treating
+      // the disk text as "saved" makes the write go through, and marks the
+      // buffer dirty so flush has something to write.
+      patch(path, { saved: disk, conflict: undefined });
+      if (get().buffers[path]?.content !== disk) await get().flush(path);
     },
 
     rename: (from, to) => {

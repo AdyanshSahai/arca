@@ -121,7 +121,7 @@ function Machine({ only }: { only?: string }) {
           await useBuffers.getState().flushAll();
           const r = await ipc.historyRestore(entry.id, prefix);
           // Open editors pick up the restored text.
-          for (const p of Object.keys(useBuffers.getState().buffers)) await useBuffers.getState().reloadFromDisk(p);
+          for (const p of Object.keys(useBuffers.getState().buffers)) await useBuffers.getState().reloadFromDisk(p, { ours: true });
           await useVault.getState().refresh();
           useUi.getState().toast(
             `Restored ${r.written} note${r.written === 1 ? "" : "s"}${r.trashed ? `, moved ${r.trashed} newer note${r.trashed === 1 ? "" : "s"} to the trash` : ""}.`,

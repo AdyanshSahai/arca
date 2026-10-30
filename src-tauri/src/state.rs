@@ -1,9 +1,10 @@
 //! Shared application state, managed by Tauri and handed to every command.
 
+use std::collections::hash_map::DefaultHasher;
 use std::collections::HashMap;
-use std::path::PathBuf;
+use std::hash::{Hash, Hasher};
+use std::path::{Path, PathBuf};
 use std::sync::{Mutex, MutexGuard};
-use std::time::{Duration, Instant};
 
 use arca_core::history::History;
 use arca_core::Workspace;
@@ -12,9 +13,12 @@ use crate::error::{CmdError, CmdResult};
 use crate::settings::{self, AppSettings};
 use crate::watcher::VaultWatcher;
 
-/// How long after Arca writes a file the watcher ignores events for it.
-/// Without this, every autosave would bounce back as an "external change".
-const SELF_WRITE_GRACE: Duration = Duration::from_secs(2);
+/// Fingerprint of a file's text, to recognise Arca's own writes.
+fn fingerprint(text: &str) -> u64 {
+    let mut h = DefaultHasher::new();
+    text.hash(&mut h);
+    h.finish()
+}
 
 pub struct AppState {
     /// The open vault, or `None` before the user picks one. A `Mutex` (not
@@ -24,8 +28,9 @@ pub struct AppState {
     pub watcher: Mutex<Option<VaultWatcher>>,
     /// Version history of the open vault, when the user has it switched on.
     pub history: Mutex<Option<History>>,
-    /// Paths Arca itself just wrote → when. See [`SELF_WRITE_GRACE`].
-    recent_writes: Mutex<HashMap<String, Instant>>,
+    /// Paths Arca itself wrote → fingerprint of the text it wrote. See
+    /// [`Self::was_self_written`].
+    recent_writes: Mutex<HashMap<String, u64>>,
     pub settings: Mutex<AppSettings>,
     /// Location of `settings.json`.
     settings_path: PathBuf,
@@ -69,20 +74,25 @@ impl AppState {
         f(ws)
     }
 
-    /// Records that Arca wrote `rel` just now.
-    pub fn mark_written(&self, rel: &str) {
+    /// Records that Arca wrote `content` to `rel`.
+    pub fn mark_written(&self, rel: &str, content: &str) {
         let mut map = self.recent_writes.lock().unwrap_or_else(|e| e.into_inner());
-        let now = Instant::now();
-        // Opportunistically drop stale entries so the map never grows.
-        map.retain(|_, t| now.duration_since(*t) < SELF_WRITE_GRACE);
-        map.insert(rel.to_string(), now);
+        map.insert(rel.to_string(), fingerprint(content));
     }
 
-    /// `true` if `rel` was written by Arca within the grace period.
-    pub fn was_self_written(&self, rel: &str) -> bool {
-        let map = self.recent_writes.lock().unwrap_or_else(|e| e.into_inner());
-        map.get(rel)
-            .is_some_and(|t| t.elapsed() < SELF_WRITE_GRACE)
+    /// `true` if the file at `abs` (vault-relative `rel`) still holds
+    /// exactly what Arca last wrote there, i.e. a watcher event for it is
+    /// just the echo of our own save.
+    ///
+    /// This compares contents rather than ignoring a file for a while after
+    /// each save: a time window also swallowed real edits made by another
+    /// program within it, so they were never noticed (and the next
+    /// autosave overwrote them).
+    pub fn was_self_written(&self, rel: &str, abs: &Path) -> bool {
+        let Some(expected) = self.recent_writes.lock().unwrap_or_else(|e| e.into_inner()).get(rel).copied() else {
+            return false;
+        };
+        std::fs::read_to_string(abs).is_ok_and(|text| fingerprint(&text) == expected)
     }
 
     /// Persists the app settings to disk.

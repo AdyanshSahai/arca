@@ -3,11 +3,28 @@
 // the essential shortcuts when the pane has no note.
 
 import { useRenderCount } from "../../lib/perf";
-import { BookOpen, ChevronRight, History, Columns2, FilePlus, Rows2, Search, X } from "lucide-react";
+import {
+  BookOpen,
+  ChevronRight,
+  Columns2,
+  Copy,
+  FileDiff,
+  FilePlus,
+  History,
+  RefreshCw,
+  RotateCcw,
+  Rows2,
+  Save,
+  Search,
+  TriangleAlert,
+  X,
+} from "lucide-react";
+import { useMemo, useState } from "react";
 import { Editor } from "../../editor/Editor";
 import { openFolder } from "../../lib/actions";
 import { isTextPath, stem } from "../../lib/paths";
-import { useBuffers } from "../../store/buffers";
+import { diffLines } from "../../lib/diff";
+import { type ConflictChoice, useBuffers } from "../../store/buffers";
 import { type EditorMode, paneIds, useLayout } from "../../store/layout";
 import { useUi } from "../../store/ui";
 import { useVault } from "../../store/vault";
@@ -136,6 +153,8 @@ export function PaneView({ paneId, focused }: { paneId: string; focused: boolean
           </IconButton>
         </div>
       </div>
+      {/* Another program changed this note: ask what to do (like KWrite's bar). */}
+      {pane.path && <ConflictBanner path={pane.path} />}
       {/* Formatting ribbon: always there while writing a Markdown note, never in reading mode. */}
       {pane.path && !reading && !isTextPath(pane.path) && (
         <Ribbon paneId={paneId} path={pane.path} focused={focused} />
@@ -185,6 +204,106 @@ function PaneChoiceOverlay({ paneId, focused }: { paneId: string; focused: boole
         {focused ? " or Enter" : ""} · Esc to cancel
       </span>
     </button>
+  );
+}
+
+/**
+ * The "changed on disk" bar, shown under the pane header while a note's
+ * buffer has an unsettled conflict (see buffers.ts). The choices:
+ *
+ *   View difference   your text vs the disk's, line by line (toggles)
+ *   Reload            take the disk version (drops unsaved edits)
+ *   Keep mine         write Arca's version over the disk's
+ *   Keep both         the disk version is saved next to it as "(conflict …)"
+ *   Always reload     (no unsaved edits only) reload now, and from now on
+ *                     reload silently when nothing would be lost
+ */
+function ConflictBanner({ path }: { path: string }) {
+  const disk = useBuffers((s) => s.buffers[path]?.conflict);
+  const content = useBuffers((s) => s.buffers[path]?.content ?? "");
+  const saved = useBuffers((s) => s.buffers[path]?.saved ?? "");
+  const [showDiff, setShowDiff] = useState(false);
+  // Only computed while the difference is on screen.
+  const diff = useMemo(
+    () => (showDiff && disk !== undefined ? diffLines(content, disk) : []),
+    [showDiff, content, disk],
+  );
+  if (disk === undefined) return null;
+  const dirty = content !== saved;
+  const resolve = (choice: ConflictChoice) => {
+    setShowDiff(false);
+    void useBuffers.getState().resolveConflict(path, choice);
+  };
+  const btn = "btn-soft flex items-center gap-1.5 rounded-md px-2.5 py-1 text-[12px]";
+
+  return (
+    <div className="shrink-0 border-b border-line bg-accent-soft">
+      <div className="flex flex-wrap items-center gap-x-3 gap-y-2 px-4 py-2.5">
+        <TriangleAlert size={15} className="shrink-0 text-accent" />
+        <div className="min-w-0 flex-1 text-[12.5px] leading-snug">
+          <span className="font-medium text-fg">This note was changed by another program.</span>{" "}
+          <span className="text-fg/65">
+            {dirty ? "You also have unsaved edits here; nothing is saved until you choose." : "Reload to see the new version."}
+          </span>
+        </div>
+        <div className="flex flex-wrap items-center gap-1.5">
+          {!dirty && (
+            <button
+              className={btn}
+              title="Reload now, and from now on reload notes changed elsewhere automatically when you have no unsaved edits (Settings → Saving)"
+              onClick={() => {
+                useUi.getState().setPrefs({ autoReload: true });
+                resolve("reload");
+              }}
+            >
+              <RefreshCw size={12} /> Always reload
+            </button>
+          )}
+          <button className={btn} aria-pressed={showDiff} onClick={() => setShowDiff(!showDiff)}>
+            <FileDiff size={12} /> {showDiff ? "Hide difference" : "View difference"}
+          </button>
+          {dirty && (
+            <>
+              <button className={btn} title="Save the other version as a separate note next to this one" onClick={() => resolve("both")}>
+                <Copy size={12} /> Keep both
+              </button>
+              <button className={btn} title="Overwrite the file with your version" onClick={() => resolve("mine")}>
+                <Save size={12} /> Keep mine
+              </button>
+            </>
+          )}
+          <button
+            className="flex items-center gap-1.5 rounded-md bg-accent px-3 py-1 text-[12px] font-medium text-void transition-opacity hover:opacity-90"
+            title={dirty ? "Use the version on disk; your unsaved edits are dropped" : "Load the version on disk"}
+            onClick={() => resolve("reload")}
+          >
+            <RotateCcw size={12} /> Reload
+          </button>
+        </div>
+      </div>
+      {showDiff && (
+        <div className="max-h-[40vh] overflow-auto border-t border-line bg-void/60 px-2 py-2 font-mono text-[12px] leading-relaxed">
+          <div className="mb-1.5 px-2 font-sans text-[11px] text-muted/70">
+            <span className="text-[#ff9ab8]">− here in Arca</span> · <span className="text-[#9fdcb4]">+ on disk</span>
+          </div>
+          {diff.map((d, i) => (
+            <div
+              key={i}
+              className={`whitespace-pre-wrap px-2 ${
+                d.kind === "added"
+                  ? "bg-[#9fdcb4]/10 text-[#c8f0d6]"
+                  : d.kind === "removed"
+                    ? "bg-[#ff9ab8]/10 text-[#ffc4d6] line-through decoration-[#ff9ab8]/50"
+                    : "text-fg/45"
+              }`}
+            >
+              {d.kind === "added" ? "+ " : d.kind === "removed" ? "− " : "  "}
+              {d.text || " "}
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
   );
 }
 

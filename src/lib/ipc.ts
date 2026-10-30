@@ -36,7 +36,13 @@ export const ipc = {
   vaultTree: () => invoke<TreeNode>("vault_tree"),
   listNotes: () => invoke<NoteInfo[]>("list_notes"),
   readNote: (path: string) => invoke<string>("read_note", { path }),
-  writeNote: (path: string, content: string) => invoke<void>("write_note", { path, content }),
+  /**
+   * Writes a note. With `expected` (the text last read from / written to
+   * disk), the write is refused with a "changed on disk" error if the file
+   * no longer holds that text.
+   */
+  writeNote: (path: string, content: string, expected?: string) =>
+    invoke<void>("write_note", { path, content, expected: expected ?? null }),
   createNote: (path: string) => invoke<string>("create_note", { path }),
   createFolder: (path: string) => invoke<void>("create_folder", { path }),
   /** Returns how many links elsewhere were rewritten to follow the move. */
