@@ -28,6 +28,7 @@ import { ChevronRight, FilePlus, FileText, Folder, FolderMinus, FolderOpen, Fold
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { errorMessage, ipc } from "../../lib/ipc";
 import { scrollWithin } from "../../lib/scroll";
+import { setDragGhost } from "../../lib/dragGhost";
 import { baseName, defaultFolderNote, dirName, isTextPath, isWithin, joinPath } from "../../lib/paths";
 import type { TreeNode } from "../../lib/types";
 import { useContextPane, useLayout } from "../../store/layout";
@@ -390,6 +391,8 @@ function Row(props: RowProps) {
   // A folder's page: its existing note, or where a new one would go.
   const folderNote = node.isDir ? (node.notePath ?? defaultFolderNote(node.path)) : null;
   const isActive = node.isDir ? folderNote === activePath : node.path === activePath;
+  // This row is being dragged: it fades so you can see where it came from.
+  const [dragging, setDragging] = useState(false);
 
   const onClick = (e: React.MouseEvent) => {
     // Opening a folder's page also reveals its children.
@@ -404,7 +407,11 @@ function Row(props: RowProps) {
       onDragStart={(e) => {
         e.dataTransfer.setData(DND_TYPE, node.path);
         e.dataTransfer.effectAllowed = "move";
+        // A small see-through label instead of a full-size snapshot of the row.
+        setDragGhost(e, node.name.replace(/\.(md|markdown)$/i, ""));
+        setDragging(true);
       }}
+      onDragEnd={() => setDragging(false)}
       onDragOver={(e) => {
         if (!e.dataTransfer.types.includes(DND_TYPE)) return;
         e.preventDefault();
@@ -424,6 +431,8 @@ function Row(props: RowProps) {
       // 8px base padding aligns the first level with the panel header.
       style={{ paddingLeft: 8 + indentOf(depth) }}
       className={`relative flex h-[30px] min-w-0 cursor-default items-center gap-2 rounded-md pr-2 text-[13.5px] transition-colors ${
+        dragging ? "opacity-40" : ""
+      } ${
         isActive ? "bg-accent-soft text-accent" : "text-fg/85 hover:bg-hover"
       } ${zone === "into" ? "outline outline-1 -outline-offset-1 outline-accent" : ""} ${
         // Keyboard cursor ring, only while the tree has focus.
