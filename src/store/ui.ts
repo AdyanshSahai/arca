@@ -4,8 +4,8 @@
 import { create } from "zustand";
 import { applyPalette, type Palette, paletteFor, type ThemeId } from "../lib/themes";
 
-/** The five drawer panels reachable from the left action rail. */
-export type PanelId = "tree" | "graph" | "search" | "backlinks" | "postits";
+/** The drawer panels reachable from the left action rail. */
+export type PanelId = "tree" | "outline" | "graph" | "search" | "backlinks" | "postits";
 
 /** Drawer snap points: ¼ of the window, ½, or the whole work area. */
 export type DrawerSize = "quarter" | "half" | "full";

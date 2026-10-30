@@ -75,6 +75,11 @@ interface LayoutState {
   openViewInNewTab: (view: PanelId) => void;
   /** Turns a view pane back into an empty pane (the view goes back to the drawer). */
   clearView: (paneId: string) => void;
+  /**
+   * Scrolls a pane's note to a 1-based line and puts the cursor there
+   * (Outline panel clicks, [[note#Heading]] links in the same note).
+   */
+  revealLine: (paneId: string, line: number) => void;
   newTab: (path?: string | null) => void;
   closeTab: (tabId: string) => void;
   /** Ctrl+Tab / Ctrl+Shift+Tab. */
@@ -245,6 +250,13 @@ export const useLayout = create<LayoutState>((set, get) => {
       const pane = get().panes[paneId];
       if (!pane) return;
       set({ panes: { ...get().panes, [paneId]: { ...pane, view: null } } });
+    },
+
+    revealLine: (paneId, line) => {
+      const pane = get().panes[paneId];
+      if (!pane) return;
+      // A fresh nonce makes the editor act even when the line is unchanged.
+      set({ panes: { ...get().panes, [paneId]: { ...pane, reveal: { line, nonce: Date.now() } } } });
     },
 
     openNoteIn: (paneId, path, opts) => {

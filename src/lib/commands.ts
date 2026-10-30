@@ -88,6 +88,7 @@ export function allCommands(): Command[] {
     { id: "tab.close", label: "Close tab", group: "Tab", shortcut: "Ctrl+W", run: () => layout.closeTab(layout.activeTab) },
     { id: "tab.next", label: "Next tab", group: "Tab", shortcut: "Ctrl+Tab", run: () => layout.cycleTab(1) },
     panel("tree", "chapters"),
+    panel("outline", "outline"),
     panel("graph", "graph"),
     panel("backlinks", "backlinks"),
     panel("postits", "post-its"),
