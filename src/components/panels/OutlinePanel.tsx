@@ -15,6 +15,7 @@ import { useRenderCount } from "../../lib/perf";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { currentHeadingIndex, parseHeadings } from "../../lib/headings";
 import { stem } from "../../lib/paths";
+import { scrollWithin } from "../../lib/scroll";
 import { useStatus } from "../../editor/registry";
 import { useBuffers } from "../../store/buffers";
 import { useContextPane, useLayout } from "../../store/layout";
@@ -54,7 +55,8 @@ export function OutlinePanel() {
   // ---- Keep the highlighted heading visible in long outlines -------------
   const list = useRef<HTMLDivElement>(null);
   useEffect(() => {
-    list.current?.querySelector<HTMLElement>("[data-current]")?.scrollIntoView({ block: "nearest" });
+    const row = list.current?.querySelector<HTMLElement>("[data-current]");
+    if (row) scrollWithin(list.current!, row);
   }, [current]);
 
   if (!path || !pane) {

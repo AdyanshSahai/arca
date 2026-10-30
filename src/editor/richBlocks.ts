@@ -31,7 +31,7 @@ import {
   WidgetType,
 } from "@codemirror/view";
 import katex from "katex";
-import { activeLines } from "./activeLines";
+import { activeLines, cursorHidden } from "./activeLines";
 import { parseTable, type ParsedTable, tableAt } from "./tables";
 import { linkContext, livePreviewOn } from "./wikilinks";
 
@@ -50,9 +50,9 @@ function inCode(state: EditorState, pos: number): boolean {
   return false;
 }
 
-/** True if any selection range overlaps [from, to] (never in read-only documents). */
+/** True if any selection range overlaps [from, to] (never in reading mode or right after a jump). */
 function selectionTouches(state: EditorState, from: number, to: number): boolean {
-  if (state.readOnly) return false;
+  if (cursorHidden(state)) return false;
   return state.selection.ranges.some((r) => r.from <= to && r.to >= from);
 }
 

@@ -187,7 +187,10 @@ export const useLayout = create<LayoutState>((set, get) => {
       } else {
         const paneId = active().focusedPane;
         const pane = get().panes[paneId];
-        set({ panes: { ...get().panes, [paneId]: { ...pane, path } }, contextPane: paneId });
+        // Drop any earlier jump request: the new note's editor would replay
+        // it on mount, opening the note at that old line (often clamped to
+        // the very bottom) instead of at the top.
+        set({ panes: { ...get().panes, [paneId]: { ...pane, path, reveal: undefined } }, contextPane: paneId });
       }
       void useBuffers.getState().ensure(path, { allowMissing: opts?.create });
       if (opts?.line) {

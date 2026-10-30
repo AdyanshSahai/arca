@@ -22,7 +22,7 @@ import {
   WidgetType,
 } from "@codemirror/view";
 import type { SyntaxNodeRef } from "@lezer/common";
-import { activeLines, rangeIsActive } from "./activeLines";
+import { activeLines, cursorHidden, rangeIsActive } from "./activeLines";
 
 /** Zero-width replacement that hides a range of markup. */
 const hide = Decoration.replace({});
@@ -126,7 +126,7 @@ function build(view: EditorView): DecorationSet {
           // touches them, not whenever it's somewhere on the heading line.
           // Otherwise clicking around the note made the title's "#" pop in
           // and out, which looked like a glitch.
-          const touched = !state.readOnly && state.selection.ranges.some((r) => r.from <= end && r.to >= node.from);
+          const touched = !cursorHidden(state) && state.selection.ranges.some((r) => r.from <= end && r.to >= node.from);
           if (!touched) out.push(hide.range(node.from, end));
           return;
         }

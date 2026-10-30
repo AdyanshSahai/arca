@@ -32,6 +32,7 @@ import { postits } from "./postits";
 import { richBlocks, richLive } from "./richBlocks";
 import { tableKeymap } from "./tables";
 import { formatKeymap } from "./format";
+import { quietCursor, quietJump } from "./activeLines";
 import { editorRegistry, useStatus } from "./registry";
 import { editorTheme, highlightStyle } from "./theme";
 import { linkContext, livePreviewOn, refreshLinks, wikiCompletion, wikiLinks } from "./wikilinks";
@@ -155,6 +156,8 @@ export function Editor({ pane, path, focused, readOnly = false }: Props) {
           ...tableKeymap,
           indentWithTab,
         ]),
+        // Keeps a jumped-to line rendered until the user moves (see activeLines.ts).
+        quietCursor,
         postits,
         wikiLinks,
         // Tables and display math (does nothing outside live preview).
@@ -242,7 +245,11 @@ export function Editor({ pane, path, focused, readOnly = false }: Props) {
     viewRef.current?.dispatch({ effects: [ctxComp.reconfigure(linkContext.of(linkCtx)), refreshLinks.of(null)] });
   }, [linkCtx, ctxComp]);
 
-  // ---- Jump-to-line requests (from backlinks, post-its, search) --------
+  // ---- Jump-to-line requests (outline, backlinks, post-its, search) ----
+  // The target line lands a quarter of the way down the pane, leaving the
+  // reader most of the screen for what follows it. The cursor goes to the
+  // end of the line (so a heading's "#"s stay hidden) and the line stays
+  // rendered until the user moves (quietJump).
   const reveal = pane.reveal;
   useEffect(() => {
     const view = viewRef.current;
@@ -250,8 +257,11 @@ export function Editor({ pane, path, focused, readOnly = false }: Props) {
     const n = Math.min(Math.max(reveal.line, 1), view.state.doc.lines);
     const line = view.state.doc.line(n);
     view.dispatch({
-      selection: EditorSelection.cursor(line.from),
-      effects: EditorView.scrollIntoView(line.from, { y: "center" }),
+      selection: EditorSelection.cursor(line.to),
+      effects: [
+        quietJump.of(null),
+        EditorView.scrollIntoView(line.from, { y: "start", yMargin: Math.round(view.scrollDOM.clientHeight / 4) }),
+      ],
     });
     view.focus();
   }, [reveal, loaded]);

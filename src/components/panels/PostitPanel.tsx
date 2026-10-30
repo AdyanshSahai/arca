@@ -3,7 +3,7 @@
 //
 // Each card edits the post-it's text and colour in place. Saving (blur or
 // Ctrl+Enter) rewrites just that block in the .md file through Rust, then
-// pushes the new file text into any open editor. "↗" jumps to the post-it
+// pushes the new file text into any open editor. "Show ↗" jumps to the post-it
 // inside its note. A filter switches between all notes and the focused one.
 
 import { useRenderCount } from "../../lib/perf";
@@ -155,12 +155,13 @@ function PostitCard({ entry }: { entry: PostItEntry }) {
         ))}
         <div className="flex-1" />
         <span className="text-[11px] text-muted/50 tabular-nums">line {entry.line}</span>
+        {/* A proper labelled button: the old bare 13px arrow was hard to hit. */}
         <button
           onClick={() => openFromSidebar(entry.path, { line: entry.line })}
-          title="Show in note"
-          className="text-muted hover:text-accent"
+          title="Show this post-it in its note"
+          className="btn-soft flex items-center gap-1 rounded-md px-2 py-1 text-[11px]"
         >
-          <ArrowUpRight size={13} />
+          Show <ArrowUpRight size={14} />
         </button>
       </div>
     </div>
