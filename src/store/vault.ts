@@ -136,12 +136,15 @@ export const useVault = create<VaultState>((set, get) => ({
       // Save first so a pending autosave doesn't recreate the old file.
       await useBuffers.getState().flushAll();
       const report = await ipc.renameEntry(from, to);
-      // Move open buffers and panes over to the new path(s).
-      for (const p of Object.keys(useBuffers.getState().buffers)) {
-        const next = remapPath(p, from, to);
-        if (next) useBuffers.getState().rename(p, next);
+      // Move open buffers, panes and pins over to the new path(s), one
+      // rename at a time (a folder can be renamed along with its note).
+      for (const [a, b] of report.moves) {
+        for (const p of Object.keys(useBuffers.getState().buffers)) {
+          const next = remapPath(p, a, b);
+          if (next) useBuffers.getState().rename(p, next);
+        }
+        useLayout.getState().remap(a, b);
       }
-      useLayout.getState().remap(from, to);
       // Open notes whose [[links]] the rename just fixed take the new text
       // now, before the file watcher reports it as an outside change.
       for (const p of Object.keys(useBuffers.getState().buffers)) {
@@ -149,8 +152,9 @@ export const useVault = create<VaultState>((set, get) => ({
       }
       // Pins pointing at (or into) the moved entry follow it too.
       const pins = get().pins.map((pin) => {
-        const next = remapPath(pin.path, from, to);
-        return next ? { ...pin, path: next } : pin;
+        let path = pin.path;
+        for (const [a, b] of report.moves) path = remapPath(path, a, b) ?? path;
+        return path === pin.path ? pin : { ...pin, path };
       });
       if (pins.some((p, i) => p !== get().pins[i])) {
         set({ pins });
@@ -161,9 +165,16 @@ export const useVault = create<VaultState>((set, get) => ({
       const fixed = report.links
         ? ` Updated ${report.links} link${report.links === 1 ? "" : "s"} in ${report.notes} note${report.notes === 1 ? "" : "s"}.`
         : "";
-      useUi.getState().toast(`Moved to ${to}.${fixed}`, "info", {
+      // Where the entry ended up: a folder note renamed in place takes
+      // its folder with it ("ch/ch.md" → "ch/part.md" → "part/part.md").
+      let landed = to;
+      for (const [a, b] of report.moves.slice(1)) landed = remapPath(landed, a, b) ?? landed;
+      const both = report.moves.length > 1;
+      useUi.getState().toast(`${both ? "Renamed" : "Moved"} to ${landed}${both ? " (folder and its note together)" : ""}.${fixed}`, "info", {
         label: "Undo",
-        run: () => void get().moveEntry(to, from),
+        // With a companion rename, renaming back by name undoes both
+        // (the same rule applies in reverse); otherwise move it back.
+        run: () => void get().moveEntry(landed, both ? joinPath(dirName(landed), baseName(from)) : from),
       });
     } catch (err) {
       fail("Move failed")(err);

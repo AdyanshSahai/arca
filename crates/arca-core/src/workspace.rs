@@ -105,6 +105,10 @@ pub struct RenameReport {
     pub notes: usize,
     /// Links rewritten in total.
     pub links: usize,
+    /// Every rename performed, in order, as (from, to): the one asked for,
+    /// plus the folder / folder note renamed along with it (see
+    /// [`Workspace::rename`]).
+    pub moves: Vec<(String, String)>,
 }
 
 /// `path` after `from` was renamed to `to`, if it was affected.
@@ -318,7 +322,77 @@ impl Workspace {
     /// (moving `cpu.md` to another folder keeps `[[cpu]]` working, so it's
     /// left alone). Rewritten links keep their `#heading` and `|alias`, and
     /// use the note's name when that's unambiguous, else its full path.
+    ///
+    /// A folder and its own note (`hardware/hardware.md`) keep the same
+    /// name, so they stay attached in the chapter tree:
+    /// - renaming the folder (`hardware` → `hw`) also renames the note
+    ///   inside it (`hw/hardware.md` → `hw/hw.md`);
+    /// - renaming the folder note in place (`hardware/hardware.md` →
+    ///   `hardware/hw.md`) also renames the folder (`hw/hw.md`).
+    /// Moving either one to another folder without changing its name, or a
+    /// folder whose note is `index.md`, renames nothing else. Nothing extra
+    /// happens either if the matching name is already taken.
     pub fn rename(&mut self, from: &str, to: &str) -> Result<RenameReport> {
+        let companion = self.companion_rename(from, to);
+        let mut report = self.rename_one(from, to)?;
+        if let Some((c_from, c_to)) = companion {
+            // Best effort: the main rename already happened, so a failure
+            // here just leaves the two names different, as before.
+            if let Ok(more) = self.rename_one(&c_from, &c_to) {
+                report.notes += more.notes;
+                report.links += more.links;
+                report.moves.extend(more.moves);
+            }
+        }
+        Ok(report)
+    }
+
+    /// The second rename that keeps a folder and its folder note named
+    /// alike after `from` → `to`, as (from, to) *after* the first rename.
+    fn companion_rename(&self, from: &str, to: &str) -> Option<(String, String)> {
+        let split = |p: &str| match p.rsplit_once('/') {
+            Some((dir, name)) => (dir.to_string(), name.to_string()),
+            None => (String::new(), p.to_string()),
+        };
+        let join = |dir: &str, name: &str| if dir.is_empty() { name.to_string() } else { format!("{dir}/{name}") };
+        let (from_dir, from_name) = split(from);
+        let (to_dir, to_name) = split(to);
+        let is_dir = self.vault.resolve(from).ok()?.is_dir();
+
+        if is_dir {
+            if from_name == to_name {
+                return None; // moved, not renamed: the note still matches
+            }
+            // The folder's own note, found case-insensitively like the tree does.
+            let own = format!("{from}/{from_name}.md").to_lowercase();
+            let note = self.notes.keys().find(|p| p.to_lowercase() == own)?;
+            let ext_at = note.len() - 3; // keep the note's own ".md" spelling
+            let new_note = join(to, &format!("{to_name}{}", &note[ext_at..]));
+            if self.vault.resolve(&new_note).ok()?.exists() {
+                return None;
+            }
+            return Some((join(to, &note[from.len() + 1..]), new_note));
+        }
+
+        // A folder note renamed in place: "<dir>/<dirname>.md" → "<dir>/<new>.md".
+        if from_dir.is_empty() || from_dir != to_dir {
+            return None;
+        }
+        let (parent, dir_name) = split(&from_dir);
+        let stem = |n: &str| n.strip_suffix(".md").or_else(|| n.strip_suffix(".MD")).map(str::to_string);
+        let (old_stem, new_stem) = (stem(&from_name)?, stem(&to_name)?);
+        if !old_stem.eq_ignore_ascii_case(&dir_name) || new_stem.eq_ignore_ascii_case(&dir_name) {
+            return None;
+        }
+        let new_dir = join(&parent, &new_stem);
+        if self.vault.resolve(&new_dir).ok()?.exists() {
+            return None;
+        }
+        Some((from_dir, new_dir))
+    }
+
+    /// Renames one file or folder and fixes the links to everything in it.
+    fn rename_one(&mut self, from: &str, to: &str) -> Result<RenameReport> {
         // Old path → new path for every note that moves.
         let moved: HashMap<String, String> = self
             .notes
@@ -348,7 +422,7 @@ impl Workspace {
             let src_now = moved.get(&src).cloned().unwrap_or(src);
             by_source.entry(src_now).or_default().push(edit);
         }
-        let mut report = RenameReport::default();
+        let mut report = RenameReport { moves: vec![(from.to_string(), to.to_string())], ..Default::default() };
         for (src, mut list) in by_source {
             let Ok(mut content) = self.vault.read_note(&src) else { continue };
             list.sort_by_key(|e| std::cmp::Reverse(e.span.0)); // last link first
@@ -771,6 +845,29 @@ mod tests {
     }
 
     #[test]
+    fn folder_and_folder_note_rename_together() {
+        let (_d, mut ws) = workspace();
+        ws.create_folder("chap").unwrap();
+        ws.write_note("chap/chap.md", "# Chap\n").unwrap();
+        ws.write_note("index.md", "See [[chap]].\n").unwrap();
+
+        // Folder renamed → its note follows, and the link is fixed.
+        let r = ws.rename("chap", "chapter").unwrap();
+        assert_eq!(r.moves.last().unwrap(), &("chapter/chap.md".to_string(), "chapter/chapter.md".to_string()));
+        assert!(ws.read_note("chapter/chapter.md").is_ok());
+        assert!(ws.read_note("index.md").unwrap().contains("[[chapter]]"));
+
+        // Folder note renamed in place → the folder follows.
+        ws.rename("chapter/chapter.md", "chapter/part.md").unwrap();
+        assert!(ws.read_note("part/part.md").is_ok());
+
+        // Moving it into another folder keeps the folder's name.
+        ws.create_folder("other").unwrap();
+        ws.rename("part", "other/part").unwrap();
+        assert!(ws.read_note("other/part/part.md").is_ok());
+    }
+
+    #[test]
     fn same_note_heading_links_make_no_ghost() {
         let (_d, mut ws) = workspace();
         ws.write_note("index.md", "# Top\n\nSee [[#Details]].\n\n## Details\n").unwrap();
@@ -795,7 +892,7 @@ mod tests {
         let (_d, mut ws) = workspace();
         // memory.md links [[CPU]]; index.md links [[hardware/cpu]].
         let report = ws.rename("hardware/cpu.md", "hardware/processor.md").unwrap();
-        assert_eq!(report, RenameReport { notes: 2, links: 2 });
+        assert_eq!((report.notes, report.links), (2, 2));
         assert!(ws.read_note("hardware/memory.md").unwrap().contains("Back to [[processor]]."));
         assert!(ws.read_note("index.md").unwrap().contains("[[hardware/processor]]"));
         assert!(ws.graph().nodes.iter().filter(|n| n.ghost).all(|n| n.id == "ghost:missing note"));

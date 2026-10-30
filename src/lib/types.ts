@@ -126,6 +126,11 @@ export interface RestoreReport {
 export interface RenameReport {
   notes: number;
   links: number;
+  /**
+   * Every rename done, in order, as [from, to]: the requested one, plus a
+   * folder or folder note renamed along with it so the two stay alike.
+   */
+  moves: [string, string][];
 }
 
 /** One item in the vault's trash. */
