@@ -25,9 +25,30 @@ import { Highlighted } from "../ui/Highlighted";
 const WIKI_RE = /\[\[([^[\]\n]+?)\]\]/g;
 const TAG_RE = /(?:^|[\s(])#([A-Za-z][\w\-/]*)/g;
 
-/** Ranges of every [[…]] in a line, for highlighting backlink context. */
-function linkRanges(text: string): [number, number][] {
-  return [...text.matchAll(WIKI_RE)].map((m) => [m.index!, m.index! + m[0].length]);
+/**
+ * A backlink's context line as live preview would show it: `[[target|alias]]`
+ * becomes "alias" (or "target"), and emphasis, code and list/quote/heading
+ * markers are dropped. Returns the text plus the ranges of the links in
+ * it, which get highlighted.
+ */
+function renderContext(raw: string): { text: string; ranges: [number, number][] } {
+  // Leading block markers: "- ", "1. ", "> ", "## ", "- [ ] ".
+  const line = raw.replace(/^\s*(?:>\s*)*(?:#{1,6}\s+|[-*+]\s+(?:\[[ xX]\]\s+)?|\d+[.)]\s+)?/, "");
+  /** Drops emphasis/code markers from a plain stretch of text. */
+  const plain = (t: string) => t.replace(/(\*\*|~~|==|[*`])/g, "");
+  let text = "";
+  const ranges: [number, number][] = [];
+  let pos = 0;
+  for (const m of line.matchAll(WIKI_RE)) {
+    text += plain(line.slice(pos, m.index));
+    const [target, alias] = m[1].split("|");
+    const shown = (alias ?? target).trim();
+    ranges.push([text.length, text.length + shown.length]);
+    text += shown;
+    pos = m.index! + m[0].length;
+  }
+  text += plain(line.slice(pos));
+  return { text, ranges };
 }
 
 export function BacklinksPanel() {
@@ -79,7 +100,7 @@ export function BacklinksPanel() {
               <span className="shrink-0 text-[11px] text-muted/50 tabular-nums">line {b.line}</span>
             </div>
             <div className="mt-1 line-clamp-2 text-[12px] leading-snug text-fg/55">
-              <Highlighted text={b.context} ranges={linkRanges(b.context)} />
+              <Highlighted {...renderContext(b.context)} />
             </div>
           </button>
         ))}
