@@ -124,6 +124,8 @@ $$
 
 **Outline.** A table of contents for the current note, built from its headings and updated as you type. Click a heading to jump to it; the section your cursor is in is highlighted.
 
+**Links to headings.** `[[Kernel Notes#Paging]]` opens the note scrolled to its "Paging" heading, and `[[#Paging]]` jumps within the same note. Matching ignores case, so links written in Obsidian work too, including heading paths like `[[Kernel Notes#Scheduling#Paging]]` to pick one of two headings with the same name.
+
 **Graph.** Shows the current note's neighbourhood: the notes it links to and from, up to 1–3 links away. The current note is the square.
 
 **Command palette.** `Ctrl+P` jumps to any note. Type `>` for actions, or `#` to find notes by tag.

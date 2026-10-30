@@ -3,23 +3,38 @@
 
 import { insertPostit } from "../editor/postits";
 import { editorRegistry } from "../editor/registry";
+import { useBuffers } from "../store/buffers";
 import { contextPane, useLayout } from "../store/layout";
 import { useUi } from "../store/ui";
 import { useVault } from "../store/vault";
+import { findHeadingLine } from "./headings";
 import { errorMessage, ipc } from "./ipc";
-import { defaultFolderNote } from "./paths";
+import { defaultFolderNote, stem } from "./paths";
 import type { TreeNode } from "./types";
 
 /**
  * Follows a [[link]] clicked in note `from`. Notes open in the focused pane.
  * URLs and files were already opened by Rust. A missing note prompts to
  * create it.
+ *
+ * A heading anchor (`[[note#Heading]]`, or `[[#Heading]]` for the same
+ * note) opens the note scrolled to that heading; if the heading isn't
+ * there, the note opens at the top with a short notice.
  */
 export async function followLink(target: string, from: string): Promise<void> {
   try {
+    // Everything after the first "#" names a heading (or a heading path).
+    const hash = target.indexOf("#");
+    const anchor = hash === -1 ? "" : target.slice(hash + 1).trim();
+    // "[[#Heading]]": a heading in this note; Rust has nothing to resolve.
+    if (hash === 0) {
+      await openAtHeading(from, anchor);
+      return;
+    }
     const res = await ipc.followLink(target, from);
     if (res.kind === "note") {
-      useLayout.getState().openNote(res.path);
+      if (anchor) await openAtHeading(res.path, anchor);
+      else useLayout.getState().openNote(res.path);
     } else if (res.kind === "missing") {
       if (!res.suggested) {
         useUi.getState().toast(`Not found: ${res.target}`, "error");
@@ -36,6 +51,20 @@ export async function followLink(target: string, from: string): Promise<void> {
   } catch (err) {
     useUi.getState().toast(errorMessage(err), "error");
   }
+}
+
+/**
+ * Opens note `path` in the focused pane at the heading `anchor` names.
+ * The note's text comes from its buffer (loaded first if needed), so a
+ * heading typed a moment ago and not yet saved is found too.
+ */
+async function openAtHeading(path: string, anchor: string): Promise<void> {
+  const buffers = useBuffers.getState();
+  await buffers.ensure(path);
+  const text = useBuffers.getState().buffers[path]?.content ?? "";
+  const line = anchor ? findHeadingLine(text, anchor) : null;
+  useLayout.getState().openNote(path, line ? { line } : undefined);
+  if (anchor && !line) useUi.getState().toast(`No heading “${anchor}” in ${stem(path)}`);
 }
 
 /**

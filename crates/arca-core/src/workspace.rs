@@ -468,6 +468,8 @@ impl Workspace {
             for link in meta.links.iter().filter(|l| l.kind == LinkKind::Note) {
                 let target = match self.resolver.resolve(&link.target, &meta.path) {
                     Some(path) => path,
+                    // `[[#Heading]]` points into this same note: no edge, no ghost.
+                    None if links::normalize_target(&link.target).is_empty() => continue,
                     None => {
                         // Prefixed so a ghost can never collide with a real path.
                         let id = format!("ghost:{}", links::normalize_target(&link.target));
@@ -766,6 +768,13 @@ mod tests {
         let (_d, mut ws) = workspace();
         ws.create_note("hardware/Missing Note").unwrap();
         assert!(ws.graph().nodes.iter().all(|n| !n.ghost));
+    }
+
+    #[test]
+    fn same_note_heading_links_make_no_ghost() {
+        let (_d, mut ws) = workspace();
+        ws.write_note("index.md", "# Top\n\nSee [[#Details]].\n\n## Details\n").unwrap();
+        assert!(ws.graph().nodes.iter().all(|n| n.id != "ghost:"));
     }
 
     #[test]

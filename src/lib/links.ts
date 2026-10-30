@@ -43,6 +43,8 @@ export class NoteIndex {
 
   /** True if `[[target]]` would resolve to some note. */
   has(target: string): boolean {
+    // "[[#Heading]]" links into the note it's written in, which exists.
+    if (target.trim().startsWith("#")) return true;
     const key = normalizeTarget(target);
     if (!key) return false;
     if (!key.includes("/")) return this.stems.has(key);
