@@ -38,12 +38,27 @@ interface VaultState {
 
   addPin: (path: string, kind: PinKind) => Promise<void>;
   removePin: (id: string) => Promise<void>;
+  /** Replaces the whole pin list (reorder, rename, grouping) and saves it. */
+  setPins: (pins: Pin[]) => Promise<void>;
   /** Opens whatever a pin points at. */
   activatePin: (pin: Pin) => void;
 }
 
 /** Shows an error toast; used by every failing vault action. */
 const fail = (prefix: string) => (err: unknown) => useUi.getState().toast(`${prefix}: ${errorMessage(err)}`, "error");
+
+/**
+ * The name a new pin gets: a note's name, or for a folder's own note
+ * ("hardware/index.md", "hardware/hardware.md") the folder's name; a
+ * folder or file by its name (the vault root by the vault's name).
+ */
+export function pinLabel(path: string, kind: PinKind, vaultName?: string): string {
+  if (kind !== "note") return baseName(path) || vaultName || "vault";
+  const dir = dirName(path);
+  const name = stem(path);
+  const isFolderNote = dir !== "" && (name.toLowerCase() === "index" || name === baseName(dir));
+  return isFolderNote ? baseName(dir) : name;
+}
 
 export const useVault = create<VaultState>((set, get) => ({
   info: null,
@@ -55,7 +70,10 @@ export const useVault = create<VaultState>((set, get) => ({
   open: async (path) => {
     try {
       const info = await ipc.openVault(path);
-      const pins = await ipc.getPins().catch(() => [] as Pin[]);
+      const loaded = await ipc.getPins().catch(() => [] as Pin[]);
+      // Pins made before folder notes were named after their folder showed
+      // as "index"; give those their proper name.
+      const pins = loaded.map((p) => (p.kind === "note" && p.label === stem(p.path) ? { ...p, label: pinLabel(p.path, p.kind, info.name) } : p));
       set({ info, pins });
       await get().refresh();
       return true;
@@ -154,7 +172,11 @@ export const useVault = create<VaultState>((set, get) => ({
       const pins = get().pins.map((pin) => {
         let path = pin.path;
         for (const [a, b] of report.moves) path = remapPath(path, a, b) ?? path;
-        return path === pin.path ? pin : { ...pin, path };
+        if (path === pin.path) return pin;
+        // A pin still showing its automatic name follows the rename; one
+        // the user renamed keeps their name.
+        const auto = pin.label === pinLabel(pin.path, pin.kind, get().info?.name);
+        return { ...pin, path, label: auto ? pinLabel(path, pin.kind, get().info?.name) : pin.label };
       });
       if (pins.some((p, i) => p !== get().pins[i])) {
         set({ pins });
@@ -204,7 +226,7 @@ export const useVault = create<VaultState>((set, get) => ({
     if (get().pins.some((p) => p.path === path)) return; // already pinned
     const pin: Pin = {
       id: Math.random().toString(36).slice(2, 10),
-      label: kind === "note" ? stem(path) : baseName(path) || get().info?.name || "vault",
+      label: pinLabel(path, kind, get().info?.name),
       path,
       kind,
     };
@@ -214,7 +236,10 @@ export const useVault = create<VaultState>((set, get) => ({
   },
 
   removePin: async (id) => {
-    const pins = get().pins.filter((p) => p.id !== id);
+    await get().setPins(get().pins.filter((p) => p.id !== id));
+  },
+
+  setPins: async (pins) => {
     set({ pins });
     await ipc.setPins(pins).catch(fail("Could not save pins"));
   },

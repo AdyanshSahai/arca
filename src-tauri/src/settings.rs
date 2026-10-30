@@ -36,6 +36,9 @@ pub struct Pin {
     pub path: String,
     /// "note" | "folder" | "file"; decides what a click does.
     pub kind: String,
+    /// Name of the pin bar group it sits in; none = directly on the bar.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub group: Option<String>,
 }
 
 /// Per-vault data stored in `.arca/vault.json`.

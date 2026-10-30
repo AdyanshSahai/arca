@@ -219,7 +219,8 @@ export function useKeybindings() {
 
       // Pins.
       if (e.altKey && !mod && /^[1-9]$/.test(e.key)) {
-        const pin = useVault.getState().pins[Number(e.key) - 1];
+        // Counts the pins shown directly on the bar (not those inside groups).
+        const pin = useVault.getState().pins.filter((p) => !p.group)[Number(e.key) - 1];
         if (pin) {
           take();
           useVault.getState().activatePin(pin);

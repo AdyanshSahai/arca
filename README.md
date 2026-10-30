@@ -92,6 +92,8 @@ The window is a [Tauri v2](https://v2.tauri.app) app with a React + TypeScript f
 
 **Notes and chapters.** Right-click in the chapter tree to create notes, chapter folders, notes from a template, or to rename, pin, export or trash. Drag entries to rearrange them: drop on the top or bottom edge of a row to place it before or after that row, or on the middle of a folder to move it inside (`Alt+↑` / `Alt+↓` move the selected entry too). Your order is remembered. Deleting never destroys anything: it moves the entry to `.trash/` inside the vault.
 
+**Pins.** The bar under the title bar holds pinned notes, chapters and files (`+ Pin`, or right-click in the tree). Right-click a pin to rename it, open it in a new tab, unpin it, or put it in a group; groups sit on the bar as dropdowns, and right-clicking one renames or ungroups it.
+
 **Writing.** Live preview renders Markdown as you go and shows the raw syntax only on the line you're editing. `Ctrl+E` switches a pane to raw Markdown, and `Ctrl+Shift+E` puts every note in reading mode. Typing `[[` autocompletes note names. Paste an image, or drop a file from your file manager, and it's saved in a hidden `.assets/` folder next to the note and linked.
 
 **Formatting ribbon.** While writing, a toolbar like Word's or Google Docs' sits above each note: undo, paragraph style, bold/italic, lists, links, tables, equations, callouts and more. The ▾ at its right end switches between a slim **minimal ribbon** and the **full ribbon** with labelled groups. It disappears in reading mode. Every button just writes ordinary Markdown.
@@ -163,7 +165,7 @@ $$
 | `Tab` / `Shift+Tab` | Next / previous table cell |
 | `Ctrl+B` | Toggle the sidebar (outside the editor) |
 | `Ctrl+,` | Settings |
-| `Alt+1…9` | Open pinned shortcut N |
+| `Alt+1…9` | Open the Nth pin on the bar (pins inside groups aren't counted) |
 
 The same list is in Settings → Shortcuts.
 

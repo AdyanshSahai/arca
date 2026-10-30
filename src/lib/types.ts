@@ -151,4 +151,6 @@ export interface Pin {
   label: string;
   path: string;
   kind: PinKind;
+  /** The pin bar group it sits in (shown as a dropdown); none = on the bar itself. */
+  group?: string;
 }
