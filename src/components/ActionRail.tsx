@@ -4,7 +4,7 @@
 
 import { useRenderCount } from "../lib/perf";
 import { open } from "@tauri-apps/plugin-dialog";
-import { BookOpen, FolderOpen, PenLine, Settings } from "lucide-react";
+import { BookOpen, FolderOpen, History, PenLine, Settings } from "lucide-react";
 import { type PanelId, useUi } from "../store/ui";
 import { useVault } from "../store/vault";
 import { PANEL_ORDER, PANELS } from "./panels/registry";
@@ -13,6 +13,26 @@ import { IconButton } from "./ui/IconButton";
 /** Rail click: shows the view in the sidebar, or closes it if it's already shown. */
 function openView(id: PanelId) {
   useUi.getState().togglePanel(id);
+}
+
+/**
+ * The rail's Time Machine button. With version history off there is
+ * nothing to browse yet, so it offers to switch history on first.
+ */
+function openTimeMachine() {
+  const ui = useUi.getState();
+  if (ui.prefs.history) return ui.openTimeMachine();
+  ui.openDialog({
+    kind: "confirm",
+    title: "Turn on version history?",
+    message:
+      "The Time Machine shows earlier versions of your notes, but version history is off, so none have been kept. Turn it on? Arca will snapshot your notes every few minutes from now on (Settings → Saving).",
+    confirmText: "Turn on",
+    onConfirm: () => {
+      ui.setPrefs({ history: true });
+      ui.openTimeMachine();
+    },
+  });
 }
 
 /** Shows the native folder picker and opens the chosen folder as a vault. */
@@ -44,6 +64,10 @@ export function ActionRail() {
         );
       })}
       <div className="flex-1" />
+      {/* Time Machine: always one click away (offers to enable history if it's off). */}
+      <IconButton title="Time Machine (version history)" onClick={openTimeMachine} className="!h-10 !w-10 !rounded-lg">
+        <History size={19} strokeWidth={1.6} />
+      </IconButton>
       {/* Reading ↔ Writing for the whole app (every pane at once). The icon
           shows the mode you're in; the accent fill means Reading. */}
       <IconButton

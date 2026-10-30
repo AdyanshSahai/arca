@@ -134,7 +134,7 @@ $$
 
 **Templates.** "New note from template…" (palette or right-click) offers Bug Report, Study Log, Meeting Notes, Daily Note and Chapter Overview. They're plain files in `<vault>/.arca/templates/`, so edit them or add your own. `{{title}}`, `{{date}}`, `{{time}}`, `{{datetime}}` and `{{folder}}` are filled in for you.
 
-**History.** With version history on (Settings → Saving), Arca snapshots your notes every few minutes. The **Time Machine** (palette, or the clock button in a pane) shows a timeline: everything from the last day, then hourly, then daily. Compare any old version with now and restore a note, a chapter or the whole vault. Restores are themselves recorded, so they can be undone, and notes that didn't exist back then go to the trash rather than being deleted.
+**History.** With version history on (Settings → Saving), Arca snapshots your notes every few minutes. The **Time Machine** (the clock button on the left rail, the palette, or the clock button in a pane) shows a timeline: everything from the last day, then hourly, then daily. Compare any old version with now and restore a note, a chapter or the whole vault. Restores are themselves recorded, so they can be undone, and notes that didn't exist back then go to the trash rather than being deleted.
 
 **Changes from other programs.** If another app (a text editor, a sync tool) changes an open note, a bar above the note offers to reload it, view the difference, keep your version or keep both. Arca never silently overwrites the other program's changes. Settings → Saving can reload automatically instead whenever you have no unsaved edits.
 

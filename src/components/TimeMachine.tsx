@@ -6,8 +6,9 @@
 // Right: what changed at that point. Pick a note to compare that version
 // with now, then restore the note, its chapter, or the whole vault.
 //
-// Opened from the command palette ("Time Machine…" / "History of this
-// note…"), the clock button in a pane header, or Settings → Saving. With a
+// Opened from the clock button on the left rail, the command palette
+// ("Time Machine…" / "History of this note…"), the clock button in a pane
+// header, or Settings → Saving. With a
 // note given, the timeline only shows that note's versions.
 
 import { Clock, History as HistoryIcon, RotateCcw, X } from "lucide-react";
