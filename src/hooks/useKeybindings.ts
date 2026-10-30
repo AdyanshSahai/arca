@@ -94,23 +94,15 @@ export function useKeybindings() {
         let target: string | undefined;
         if (digit) target = ids[Number(digit) - 1];
         else if (e.key === "Enter" || e.code === "NumpadEnter") target = tab?.focusedPane;
-        if (target && choice.kind === "note") {
+        if (target) {
           layout.openNoteIn(target, choice.path, { line: choice.line, create: choice.create });
-        } else if (target && choice.kind === "view") {
-          layout.openViewIn(target, choice.view);
         } else if (letter === "n") {
           // N = a new pane of its own (split right).
-          if (choice.kind === "view") layout.openViewInNewPane(choice.view);
-          else layout.openNoteInNewPane(choice.path, { line: choice.line, create: choice.create });
+          layout.openNoteInNewPane(choice.path, { line: choice.line, create: choice.create });
         } else if (letter === "t") {
           // T = a new tab.
           ui.cancelPaneChoice();
-          if (choice.kind === "view") layout.openViewInNewTab(choice.view);
-          else layout.openNote(choice.path, { newTab: true, line: choice.line, create: choice.create });
-        } else if (choice.kind === "view" && letter === "s") {
-          // S = keep the view in the sidebar drawer instead.
-          ui.cancelPaneChoice();
-          ui.showPanel(choice.view);
+          layout.openNote(choice.path, { newTab: true, line: choice.line, create: choice.create });
         } else if (e.key === "Escape") ui.cancelPaneChoice();
         e.preventDefault();
         e.stopPropagation();

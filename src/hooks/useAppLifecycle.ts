@@ -24,6 +24,8 @@ interface SavedUi {
   vault?: string;
   panel?: PanelId | null;
   drawerSize?: DrawerSize;
+  /** The dragged ("custom") drawer width, as a fraction of the window. */
+  drawerWidth?: number;
   /** User preferences (theme, where things open). Not tied to a vault. */
   prefs?: Partial<Prefs>;
   /** App-wide reading mode. */
@@ -51,6 +53,7 @@ export function useBootstrap(): boolean {
         // Preferences first, so the right theme is on before anything paints.
         useUi.getState().setPrefs({ ...DEFAULT_PREFS, ...saved.prefs });
         if (saved.reading) useUi.setState({ reading: true });
+        if (saved.drawerWidth) useUi.setState({ drawerWidth: saved.drawerWidth });
         if (saved.drawerSize) useUi.getState().setDrawerSize(saved.drawerSize);
         if (saved.panel !== undefined) {
           if (saved.panel) useUi.getState().showPanel(saved.panel);
@@ -171,12 +174,12 @@ export function usePersistence() {
       window.clearTimeout(timer);
       timer = window.setTimeout(() => {
         const info = useVault.getState().info;
-        const { panel, drawerSize, prefs, reading } = useUi.getState();
+        const { panel, drawerSize, drawerWidth, prefs, reading } = useUi.getState();
         // Preferences are saved even before a vault is open (the first-run
         // walkthrough writes them); the layout only means something with one.
         const ui: SavedUi = info
-          ? { vault: info.root, panel, drawerSize, prefs, reading, layout: useLayout.getState().snapshot() }
-          : { panel, drawerSize, prefs, reading };
+          ? { vault: info.root, panel, drawerSize, drawerWidth, prefs, reading, layout: useLayout.getState().snapshot() }
+          : { panel, drawerSize, drawerWidth, prefs, reading };
         void ipc.saveUi(ui).catch(() => {
           /* Settings are best-effort; never interrupt the user for them. */
         });
@@ -185,7 +188,7 @@ export function usePersistence() {
     // Zustand's subscribe fires on every state change of that store.
     const offLayout = useLayout.subscribe(schedule);
     const offUi = useUi.subscribe((s, prev) => {
-      if (s.panel !== prev.panel || s.drawerSize !== prev.drawerSize || s.prefs !== prev.prefs || s.reading !== prev.reading) schedule();
+      if (s.panel !== prev.panel || s.drawerSize !== prev.drawerSize || s.drawerWidth !== prev.drawerWidth || s.prefs !== prev.prefs || s.reading !== prev.reading) schedule();
     });
 
     // Autosave also saves whenever the window loses focus (alt-tab, clicking

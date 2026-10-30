@@ -104,7 +104,7 @@ export function openFolder(dir: string): void {
 
 /** Inserts a post-it into the focused editor, if there is one. */
 export function insertPostitInFocused(): void {
-  // The note being worked on, even if a view pane has focus right now.
+  // The note being worked on, even if an empty pane has focus right now.
   const pane = contextPane();
   const view = pane && editorRegistry.get(pane.id);
   if (!view) {

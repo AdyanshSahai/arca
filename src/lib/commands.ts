@@ -22,7 +22,7 @@ export interface Command {
 
 /**
  * Runs `fn` with the current note's path (the context pane, so it works
- * even while a view pane has focus), or toasts if there isn't one.
+ * even while an empty pane has focus), or toasts if there isn't one.
  */
 function withNote(fn: (path: string) => void) {
   return () => {
@@ -95,6 +95,7 @@ export function allCommands(): Command[] {
     { id: "search.text", label: "Search text in vault", group: "View", shortcut: "Ctrl+Shift+F", run: () => ui.requestSearch("text") },
     { id: "search.tags", label: "Browse tags", group: "View", run: () => ui.requestSearch("topic", "") },
     { id: "drawer.toggle", label: "Toggle sidebar drawer", group: "View", shortcut: "Ctrl+B", run: () => (ui.panel ? ui.closeDrawer() : ui.showPanel("tree")) },
+    { id: "drawer.custom", label: "Drawer: your own width", group: "View", run: () => ui.setDrawerSize("custom") },
     { id: "drawer.quarter", label: "Drawer: quarter width", group: "View", run: () => ui.setDrawerSize("quarter") },
     { id: "drawer.half", label: "Drawer: half width", group: "View", run: () => ui.setDrawerSize("half") },
     { id: "drawer.full", label: "Drawer: full view", group: "View", run: () => ui.setDrawerSize("full") },

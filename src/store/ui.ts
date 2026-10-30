@@ -7,8 +7,11 @@ import { applyPalette, type Palette, paletteFor, type ThemeId } from "../lib/the
 /** The drawer panels reachable from the left action rail. */
 export type PanelId = "tree" | "outline" | "graph" | "search" | "backlinks" | "postits";
 
-/** Drawer snap points: ¼ of the window, ½, or the whole work area. */
-export type DrawerSize = "quarter" | "half" | "full";
+/**
+ * Drawer width: the user's own dragged width ("custom", see
+ * `drawerWidth`), or a preset of ¼ of the window, ½, or the whole work area.
+ */
+export type DrawerSize = "custom" | "quarter" | "half" | "full";
 
 export type SearchMode = "files" | "text" | "topic";
 
@@ -34,8 +37,6 @@ export interface Prefs {
   historyAutoPush: boolean;
   /** The first-run walkthrough has been completed (or skipped). */
   onboarded: boolean;
-  /** Where rail views (graph, search…) open: straight into the sidebar, or ask. */
-  viewPlacement: "sidebar" | "ask";
   /**
    * Notes opened from the sidebar/palette/pins: ask which pane only when
    * the tab is split, always ask, or just use the focused pane.
@@ -55,7 +56,6 @@ export const DEFAULT_PREFS: Prefs = {
   history: false,
   historyAutoPush: false,
   onboarded: false,
-  viewPlacement: "sidebar",
   notePlacement: "ask-split",
   ribbon: "minimal",
 };
@@ -68,9 +68,8 @@ export interface GraphPrefs {
   ghosts: boolean;
 }
 
-export type PaneChoice =
-  | { kind: "note"; path: string; line?: number; create?: boolean }
-  | { kind: "view"; view: PanelId };
+/** A note waiting for the user to pick the pane it should open in. */
+export type PaneChoice = { kind: "note"; path: string; line?: number; create?: boolean };
 
 export interface SearchState {
   mode: SearchMode;
@@ -123,6 +122,8 @@ export interface Toast {
 interface UiState {
   panel: PanelId | null;
   drawerSize: DrawerSize;
+  /** The "custom" drawer width, as a fraction of the window (set by dragging its edge). */
+  drawerWidth: number;
   dialog: Dialog | null;
   toasts: Toast[];
   /**
@@ -146,9 +147,8 @@ interface UiState {
   /** Template picker: null when closed, else the folder to create the note in. */
   templatePicker: { dir: string } | null;
   /**
-   * Something waiting for the user to pick which pane it should take over
-   * (shown as numbered overlays on the panes; see PaneView): a note opened
-   * from outside the panes, or a sidebar view (graph, search…).
+   * A note opened from outside the panes, waiting for the user to pick
+   * which pane it should take over (numbered overlays; see PaneView).
    */
   paneChoice: PaneChoice | null;
   prefs: Prefs;
@@ -168,6 +168,8 @@ interface UiState {
   showPanel: (panel: PanelId) => void;
   closeDrawer: () => void;
   setDrawerSize: (size: DrawerSize) => void;
+  /** Sets a dragged width (fraction of the window) and switches to it. */
+  setDrawerWidth: (fraction: number) => void;
   openDialog: (dialog: Dialog) => void;
   closeDialog: () => void;
   toast: (text: string, tone?: Toast["tone"], action?: Toast["action"]) => void;
@@ -209,6 +211,7 @@ let toastSeq = 0;
 export const useUi = create<UiState>((set, get) => ({
   panel: "tree",
   drawerSize: "quarter",
+  drawerWidth: 0.33,
   dialog: null,
   toasts: [],
   search: { mode: "files", query: "", folderOnly: false, caseSensitive: false },
@@ -230,6 +233,7 @@ export const useUi = create<UiState>((set, get) => ({
   showPanel: (panel) => set({ panel }),
   closeDrawer: () => set({ panel: null }),
   setDrawerSize: (drawerSize) => set({ drawerSize }),
+  setDrawerWidth: (drawerWidth) => set({ drawerWidth, drawerSize: "custom" }),
   openDialog: (dialog) => set({ dialog }),
   closeDialog: () => set({ dialog: null }),
 

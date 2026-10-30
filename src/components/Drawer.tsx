@@ -1,29 +1,35 @@
-// The sliding sidebar drawer that hosts the five panels.
+// The sliding sidebar drawer that hosts the sidebar views.
 //
-// It snaps to three sizes: ¼ of the window, ½, or "full", which covers the
-// whole editing area (editors stay mounted underneath). Use the header
-// buttons, or drag the right edge and let go: the width snaps to the nearest
-// size, and dragging nearly shut closes the drawer.
+// Drag its right edge to any width; that width is remembered as the
+// "custom" size (◇ in the header). The header also has presets: ¼ of the
+// window, ½, and "full", which covers the whole editing area (editors stay
+// mounted underneath). Dragging nearly shut closes the drawer.
 
 import { useRenderCount } from "../lib/perf";
-import { Maximize2, PanelRight, X } from "lucide-react";
+import { Maximize2, X } from "lucide-react";
 import { useRef, useState } from "react";
-import { type DrawerSize, type PanelId, useUi } from "../store/ui";
+import { type PanelId, useUi } from "../store/ui";
 import { PANELS } from "./panels/registry";
 
-
-/** Fraction of the window width for each snap point. */
-const SNAP: Record<DrawerSize, number> = { quarter: 0.25, half: 0.5, full: 1 };
+/** Fraction of the window width for each preset. */
+const PRESETS = { quarter: 0.25, half: 0.5, full: 1 } as const;
 
 /** Below this fraction of the window, releasing a drag closes the drawer. */
 const CLOSE_BELOW = 0.12;
+/** Releasing this close to a preset snaps to it exactly. */
+const SNAP_WITHIN = 0.015;
+/** Past this fraction a drag becomes "full" (a sliver of editor is useless). */
+const FULL_ABOVE = 0.92;
+/** The narrowest width a drag can leave, so the header still fits. */
+const MIN_PX = 220;
 
 export function Drawer() {
   useRenderCount("Drawer");
   const panel = useUi((s) => s.panel);
   const size = useUi((s) => s.drawerSize);
-  const { setDrawerSize, closeDrawer } = useUi.getState();
-  /** Width in px while a drag is in progress; null when snapped. */
+  const customWidth = useUi((s) => s.drawerWidth);
+  const { setDrawerSize, setDrawerWidth, closeDrawer } = useUi.getState();
+  /** Width in px while a drag is in progress; null otherwise. */
   const [dragWidth, setDragWidth] = useState<number | null>(null);
   const root = useRef<HTMLDivElement>(null);
 
@@ -35,7 +41,7 @@ export function Drawer() {
     // Measure from the drawer's left edge (it sits right of the action rail).
     const left = root.current!.getBoundingClientRect().left;
     const total = window.innerWidth;
-    let latest = 0;
+    let latest = root.current!.getBoundingClientRect().width;
     const move = (ev: PointerEvent) => {
       latest = Math.max(0, ev.clientX - left);
       setDragWidth(latest);
@@ -46,45 +52,41 @@ export function Drawer() {
       document.body.style.cursor = "";
       setDragWidth(null);
       const frac = latest / total;
-      if (frac < CLOSE_BELOW) {
-        closeDrawer();
-        return;
+      if (frac < CLOSE_BELOW) return closeDrawer();
+      if (frac > FULL_ABOVE) return setDrawerSize("full");
+      // Landing right on ¼ or ½ selects that preset, so its button lights up.
+      for (const k of ["quarter", "half"] as const) {
+        if (Math.abs(PRESETS[k] - frac) < SNAP_WITHIN) return setDrawerSize(k);
       }
-      // Snap to the closest of the three sizes.
-      const nearest = (Object.keys(SNAP) as DrawerSize[]).reduce((best, k) =>
-        Math.abs(SNAP[k] - frac) < Math.abs(SNAP[best] - frac) ? k : best,
-      );
-      setDrawerSize(nearest);
+      setDrawerWidth(Math.max(MIN_PX / total, frac));
     };
     document.body.style.cursor = "col-resize";
     window.addEventListener("pointermove", move);
     window.addEventListener("pointerup", up);
   };
 
-  // Snapped widths are in vw so they track window resizes; "full" just
-  // flex-grows over the work area (the parent hides the editors).
+  // Widths are in vw so they track window resizes; "full" just flex-grows
+  // over the work area (the parent hides the editors).
+  const fraction = size === "custom" ? customWidth : size === "full" ? 1 : PRESETS[size];
   const style: React.CSSProperties =
     dragWidth !== null
-      ? { width: dragWidth, flex: "none" }
+      ? { width: Math.max(dragWidth, MIN_PX), flex: "none" }
       : full
         ? { flex: "1 1 auto" }
-        : { width: `${SNAP[size] * 100}vw`, flex: "none" };
+        : { width: `${fraction * 100}vw`, minWidth: MIN_PX, flex: "none" };
 
   return (
     <aside ref={root} style={style} className="relative flex min-w-0 shrink-0 flex-col border-r border-line bg-alt">
       <header className="flex h-12 shrink-0 items-center gap-1.5 border-b border-line pr-3 pl-5">
         <span className="flex-1 text-[14px] font-semibold text-fg">{PANELS[panel].title}</span>
-        {/* The mirror of a view pane's "Move to sidebar": choose a pane, a
-            new pane or a new tab for this view. */}
-        <button
-          onClick={() => useUi.getState().askForPane({ kind: "view", view: panel })}
-          title="Move this view into a pane"
-          className="btn-soft mr-1 flex items-center gap-1.5 rounded-md px-2 py-[3px] text-[11px]"
-        >
-          <PanelRight size={12} /> Move to pane
-        </button>
-        {/* Snap-size switch, drawn as one segmented control. */}
+        {/* Width: your own dragged width (◇), then the presets. */}
         <div className="mr-1 flex items-center rounded-md border border-line p-[2px]">
+          <SizeButton
+            label="◇"
+            title={`Your width (${Math.round(customWidth * 100)}%), drag the edge to change it`}
+            active={size === "custom"}
+            onClick={() => setDrawerSize("custom")}
+          />
           <SizeButton label="¼" title="Quarter width" active={size === "quarter"} onClick={() => setDrawerSize("quarter")} />
           <SizeButton label="½" title="Half width" active={size === "half"} onClick={() => setDrawerSize("half")} />
           <SizeButton
@@ -105,7 +107,8 @@ export function Drawer() {
       <div className="min-h-0 flex-1">
         <Panel id={panel} />
       </div>
-      {/* Resize handle along the right edge (hidden in full mode). */}
+      {/* Resize handle along the right edge (hidden in full mode; pick a
+          smaller preset first to drag from there). */}
       {!full && (
         <div
           onPointerDown={onPointerDown}
@@ -140,7 +143,7 @@ function SizeButton({
   );
 }
 
-/** Renders one view by id (shared by the drawer and view panes). */
+/** Renders one view by id. */
 export function Panel({ id }: { id: PanelId }) {
   const { Component } = PANELS[id];
   return <Component />;

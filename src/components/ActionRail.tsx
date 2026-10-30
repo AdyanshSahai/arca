@@ -1,34 +1,18 @@
 // Fixed vertical action bar on the far left. Each icon opens a view
-// (chapters, graph, search, backlinks, post-its) in the sidebar drawer, or,
-// in a split tab, in a pane the user picks. The bottom button switches
-// vaults.
+// (chapters, outline, graph, search, backlinks, post-its) in the sidebar
+// drawer. The bottom buttons switch modes, open settings and switch vaults.
 
 import { useRenderCount } from "../lib/perf";
 import { open } from "@tauri-apps/plugin-dialog";
 import { BookOpen, FolderOpen, PenLine, Settings } from "lucide-react";
-import { paneIds, useLayout } from "../store/layout";
 import { type PanelId, useUi } from "../store/ui";
 import { useVault } from "../store/vault";
 import { PANEL_ORDER, PANELS } from "./panels/registry";
 import { IconButton } from "./ui/IconButton";
 
-/**
- * Rail click. If the view is already in the drawer, close it; if it's
- * already shown in a pane of this tab, focus that pane. Otherwise follow
- * the "views open in" preference: straight into the sidebar (default; the
- * drawer's "Move to pane" button moves it later), or ask every time (a
- * pane 1–9, a new pane N, a new tab T, or the sidebar S).
- */
+/** Rail click: shows the view in the sidebar, or closes it if it's already shown. */
 function openView(id: PanelId) {
-  const ui = useUi.getState();
-  const layout = useLayout.getState();
-  if (ui.panel === id) return ui.closeDrawer();
-  const tab = layout.tabs.find((t) => t.id === layout.activeTab);
-  const ids = tab ? paneIds(tab.root) : [];
-  const existing = ids.find((p) => layout.panes[p]?.view === id);
-  if (existing) return layout.focusPane(existing);
-  if (ui.prefs.viewPlacement === "ask") ui.askForPane({ kind: "view", view: id });
-  else ui.showPanel(id);
+  useUi.getState().togglePanel(id);
 }
 
 /** Shows the native folder picker and opens the chosen folder as a vault. */

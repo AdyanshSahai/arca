@@ -1,18 +1,15 @@
 // One viewport: a slim header (breadcrumb, save state, live/raw switch,
-// split and close buttons) above an Editor. A pane can
-// instead show a sidebar view (graph, search…) that took it over, or a
-// friendly empty state with the essential shortcuts.
+// split and close buttons) above an Editor, or a friendly empty state with
+// the essential shortcuts when the pane has no note.
 
 import { useRenderCount } from "../../lib/perf";
-import { BookOpen, ChevronRight, History, Columns2, FilePlus, PanelLeft, Rows2, Search, X } from "lucide-react";
+import { BookOpen, ChevronRight, History, Columns2, FilePlus, Rows2, Search, X } from "lucide-react";
 import { Editor } from "../../editor/Editor";
 import { openFolder } from "../../lib/actions";
 import { isTextPath, stem } from "../../lib/paths";
 import { useBuffers } from "../../store/buffers";
 import { type EditorMode, paneIds, useLayout } from "../../store/layout";
-import { type PanelId, useUi } from "../../store/ui";
-import { Panel } from "../Drawer";
-import { PANELS } from "../panels/registry";
+import { useUi } from "../../store/ui";
 import { useVault } from "../../store/vault";
 import { IconButton } from "../ui/IconButton";
 import { PANE_DND_TYPE } from "./TabStrip";
@@ -64,10 +61,9 @@ export function PaneView({ paneId, focused }: { paneId: string; focused: boolean
         title="Drag onto a tab to move this pane"
         className="flex h-11 shrink-0 cursor-grab items-center gap-1.5 border-b border-line px-4 active:cursor-grabbing"
       >
-        {/* Breadcrumb: folders muted, note name bright. A view pane shows the view's name. */}
+        {/* Breadcrumb: folders muted, note name bright. */}
         <div className="flex min-w-0 flex-1 items-center gap-1.5 truncate text-[13px]">
-          {pane.view && <ViewTitle view={pane.view} focused={focused} />}
-          {!pane.view && segments.length === 0 && <span className="text-muted/50">No note</span>}
+          {segments.length === 0 && <span className="text-muted/50">No note</span>}
           {segments.map((seg, i) => {
             const isLast = i === segments.length - 1;
             // Path of the folder this crumb stands for ("software/kernels").
@@ -114,19 +110,6 @@ export function PaneView({ paneId, focused }: { paneId: string; focused: boolean
           </button>
         )}
         {pane.path && !reading && <ModeSwitch mode={pane.mode} onToggle={() => toggleMode(paneId)} />}
-        {pane.view && (
-          <button
-            onClick={() => {
-              const view = pane.view!;
-              useLayout.getState().clearView(paneId);
-              useUi.getState().showPanel(view);
-            }}
-            title="Move this view back to the sidebar"
-            className="btn-soft flex items-center gap-1.5 rounded-md px-2 py-[3px] text-[11px]"
-          >
-            <PanelLeft size={12} /> Move to sidebar
-          </button>
-        )}
         <div className="ml-1 flex items-center">
           <IconButton
             small
@@ -154,14 +137,12 @@ export function PaneView({ paneId, focused }: { paneId: string; focused: boolean
         </div>
       </div>
       {/* Formatting ribbon: always there while writing a Markdown note, never in reading mode. */}
-      {pane.path && !pane.view && !reading && !isTextPath(pane.path) && (
+      {pane.path && !reading && !isTextPath(pane.path) && (
         <Ribbon paneId={paneId} path={pane.path} focused={focused} />
       )}
       <div className="relative min-h-0 flex-1">
         {pane.path && isTextPath(pane.path) && <TextFileNotice path={pane.path} />}
-        {pane.view ? (
-          <Panel id={pane.view} />
-        ) : pane.path ? (
+        {pane.path ? (
           // Keyed by path: a different note gets a fresh editor (own history).
           <Editor key={pane.path} pane={pane} path={pane.path} focused={focused} readOnly={reading} />
         ) : (
@@ -172,22 +153,10 @@ export function PaneView({ paneId, focused }: { paneId: string; focused: boolean
   );
 }
 
-/** Icon + name of the view shown in a pane, in place of the breadcrumb. */
-function ViewTitle({ view, focused }: { view: PanelId; focused: boolean }) {
-  const { title, Icon } = PANELS[view];
-  return (
-    <span className={`flex items-center gap-2 font-medium ${focused ? "text-fg" : "text-fg/70"}`}>
-      <Icon size={14} className="text-accent/80" />
-      {title}
-    </span>
-  );
-}
-
 /**
- * While something is waiting for a pane (a note opened from the sidebar,
- * palette or pins, or a sidebar view, in a split tab), every pane of the
- * active tab shows a big number. Click a pane, press its number, Enter for
- * the focused one, or Esc. Views can also stay in the sidebar (S).
+ * While a note opened from the sidebar, palette or pins is waiting for a
+ * pane (in a split tab), every pane of the active tab shows a big number.
+ * Click a pane, press its number, Enter for the focused one, or Esc.
  */
 function PaneChoiceOverlay({ paneId, focused }: { paneId: string; focused: boolean }) {
   const choice = useUi((s) => s.paneChoice);
@@ -197,12 +166,7 @@ function PaneChoiceOverlay({ paneId, focused }: { paneId: string; focused: boole
     return tab ? paneIds(tab.root).indexOf(paneId) + 1 : 0;
   });
   if (!choice || number === 0) return null;
-  const isView = choice.kind === "view";
-  const name = isView ? PANELS[choice.view].title : stem(choice.path);
-  const take = () =>
-    isView
-      ? useLayout.getState().openViewIn(paneId, choice.view)
-      : useLayout.getState().openNoteIn(paneId, choice.path, { line: choice.line, create: choice.create });
+  const take = () => useLayout.getState().openNoteIn(paneId, choice.path, { line: choice.line, create: choice.create });
   return (
     <button
       onClick={take}
@@ -214,7 +178,7 @@ function PaneChoiceOverlay({ paneId, focused }: { paneId: string; focused: boole
         {number}
       </span>
       <span className="text-[14px] text-fg">
-        {isView ? "Show" : "Open"} <span className="font-semibold">{name}</span> here
+        Open <span className="font-semibold">{stem(choice.path)}</span> here
       </span>
       <span className="text-[12px] text-muted/70">
         Press {number}

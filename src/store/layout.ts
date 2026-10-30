@@ -14,7 +14,7 @@
 import { create } from "zustand";
 import { remapPath, isWithin } from "../lib/paths";
 import { useBuffers } from "./buffers";
-import { type PanelId, useUi } from "./ui";
+import { useUi } from "./ui";
 
 export type EditorMode = "live" | "raw";
 export type SplitDir = "row" | "col";
@@ -24,11 +24,6 @@ export interface Pane {
   /** Note shown in this pane, or null for an empty pane. */
   path: string | null;
   mode: EditorMode;
-  /**
-   * A sidebar view shown in this pane instead of a note (graph, search…).
-   * When set, `path` is null.
-   */
-  view?: PanelId | null;
   /** One-shot request to scroll to a 1-based line once the note is shown. */
   reveal?: { line: number; nonce: number };
 }
@@ -49,7 +44,7 @@ interface LayoutState {
   panes: Record<string, Pane>;
   /**
    * The pane the user last worked on a note in. Views (backlinks, local
-   * graph…) follow this note even while a view pane itself has focus.
+   * graph…) follow this note even while an empty pane has focus.
    */
   contextPane: string | null;
 
@@ -64,17 +59,6 @@ interface LayoutState {
   openNoteIn: (paneId: string, path: string, opts?: OpenOpts) => void;
   /** Splits the focused pane and opens the note in the new right-hand half. */
   openNoteInNewPane: (path: string, opts?: OpenOpts) => void;
-  /** Shows a sidebar view in a pane, replacing its note. */
-  openViewIn: (paneId: string, view: PanelId) => void;
-  /**
-   * Splits the focused pane left/right and shows a view in the new right
-   * half, so the view gets a pane of its own without replacing a note.
-   */
-  openViewInNewPane: (view: PanelId) => void;
-  /** Opens a new tab showing just this view. */
-  openViewInNewTab: (view: PanelId) => void;
-  /** Turns a view pane back into an empty pane (the view goes back to the drawer). */
-  clearView: (paneId: string) => void;
   /**
    * Scrolls a pane's note to a 1-based line and puts the cursor there
    * (Outline panel clicks, [[note#Heading]] links in the same note).
@@ -203,8 +187,7 @@ export const useLayout = create<LayoutState>((set, get) => {
       } else {
         const paneId = active().focusedPane;
         const pane = get().panes[paneId];
-        // A note always replaces a view shown in the pane.
-        set({ panes: { ...get().panes, [paneId]: { ...pane, path, view: null } }, contextPane: paneId });
+        set({ panes: { ...get().panes, [paneId]: { ...pane, path } }, contextPane: paneId });
       }
       void useBuffers.getState().ensure(path, { allowMissing: opts?.create });
       if (opts?.line) {
@@ -216,40 +199,11 @@ export const useLayout = create<LayoutState>((set, get) => {
       gcBuffers();
     },
 
-    openViewIn: (paneId, view) => {
-      useUi.getState().cancelPaneChoice();
-      const pane = get().panes[paneId];
-      if (!pane) return;
-      set({ panes: { ...get().panes, [paneId]: { ...pane, view, path: null } } });
-      get().focusPane(paneId);
-      // The view now lives in a pane; the drawer doesn't need to show it too.
-      if (useUi.getState().panel === view) useUi.getState().closeDrawer();
-      gcBuffers();
-    },
-
     openNoteInNewPane: (path, opts) => {
       useUi.getState().cancelPaneChoice();
       get().split("row");
       // split() focuses the new (right-hand) pane.
       get().openNote(path, { ...opts, pick: false, newTab: false });
-    },
-
-    openViewInNewTab: (view) => {
-      useUi.getState().cancelPaneChoice();
-      get().newTab();
-      get().openViewIn(active().focusedPane, view);
-    },
-
-    openViewInNewPane: (view) => {
-      get().split("row");
-      // split() focuses the new (right-hand) pane.
-      get().openViewIn(active().focusedPane, view);
-    },
-
-    clearView: (paneId) => {
-      const pane = get().panes[paneId];
-      if (!pane) return;
-      set({ panes: { ...get().panes, [paneId]: { ...pane, view: null } } });
     },
 
     revealLine: (paneId, line) => {
@@ -440,7 +394,15 @@ export const useLayout = create<LayoutState>((set, get) => {
         snap.tabs.every((t) => paneIds(t.root).every((id) => snap.panes[id])) &&
         snap.tabs.some((t) => t.id === snap.activeTab);
       if (!ok) return;
-      set({ tabs: snap.tabs, activeTab: snap.activeTab, panes: snap.panes });
+      // Layouts saved by older versions could show a sidebar view in a pane;
+      // views live only in the sidebar now, so such panes come back empty.
+      const panes = Object.fromEntries(
+        Object.entries(snap.panes).map(([id, p]) => {
+          const { view, ...rest } = p as Pane & { view?: unknown };
+          return [id, view ? { ...rest, path: null } : rest];
+        }),
+      );
+      set({ tabs: snap.tabs, activeTab: snap.activeTab, panes });
       for (const pane of Object.values(snap.panes)) {
         if (pane.path) void useBuffers.getState().ensure(pane.path);
       }
@@ -459,8 +421,8 @@ export function useFocusedPane(): Pane | undefined {
 /**
  * The pane holding the note the user is working on: the focused pane if it
  * shows a note, otherwise the last note pane they used. Views (backlinks,
- * local graph, "this folder" search…) follow this, so clicking into a view
- * pane doesn't make them lose track of the note.
+ * local graph, "this folder" search…) follow this, so clicking into an
+ * empty pane doesn't make them lose track of the note.
  */
 function pickContext(s: LayoutState): Pane | undefined {
   const tab = s.tabs.find((t) => t.id === s.activeTab);

@@ -120,7 +120,7 @@ $$
 
 **Panes and tabs.** `Ctrl+Shift+(` splits the focused pane left/right and `Ctrl+Shift+)` top/bottom; `Ctrl+D` closes it. Drag a pane's header onto another tab (or onto empty tab-strip space for a new tab). When you open a note from the sidebar into a split tab, Arca asks where it should go: press a pane's number, `N` for a new pane, or `T` for a new tab.
 
-**Sidebar views.** Chapters, Outline, Graph, Search, Backlinks and Post-its live in the left rail. They open in the sidebar, which snaps to ¼, ½ or full width. "Move to pane" turns any of them into a pane of its own.
+**Sidebar views.** Chapters, Outline, Graph, Search, Backlinks and Post-its live in the left rail. They open in the sidebar: drag its right edge to any width (remembered as ◇), or pick ¼, ½ or full width from its header.
 
 **Outline.** A table of contents for the current note, built from its headings and updated as you type. Click a heading to jump to it; the section your cursor is in is highlighted.
 

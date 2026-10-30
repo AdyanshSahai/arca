@@ -1,7 +1,7 @@
 // Settings (Ctrl+, or the gear at the bottom of the rail):
 //   Appearance  – colour scheme
 //   Saving      – autosave on/off (and, later, version history)
-//   Opening     – where views and notes opened from the sidebar go
+//   Opening     – where notes opened from the sidebar go
 //   Shortcuts   – every keyboard shortcut, for reference
 //
 // Changes apply immediately and are saved with the window layout.
@@ -327,21 +327,6 @@ function Opening({ prefs, setPrefs }: SectionProps) {
     <>
       <Heading title="Where things open" />
       <div className="space-y-6 text-[13px]">
-        <div>
-          <div className="mb-1 font-medium text-fg">Views (graph, search, chapters…)</div>
-          <p className="mb-2.5 text-[12px] text-muted/75">
-            What a rail button does. Views in the sidebar have a “Move to pane” button, and views in a pane have
-            “Move to sidebar”.
-          </p>
-          <Segmented
-            value={prefs.viewPlacement}
-            options={[
-              { id: "sidebar", label: "Open in the sidebar" },
-              { id: "ask", label: "Ask every time" },
-            ]}
-            onChange={(v) => setPrefs({ viewPlacement: v })}
-          />
-        </div>
         <div>
           <div className="mb-1 font-medium text-fg">Notes opened from the sidebar</div>
           <p className="mb-2.5 text-[12px] text-muted/75">
